@@ -1,0 +1,1819 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedeApoio — Gestão Política</title>
+<!-- CONFIGURAÇÕES EDITÁVEIS PÓS-VENDA: altere os valores em CONFIG no script -->
+<!--
+  ╔══════════════════════════════════════════════════════════════╗
+  ║  RedeApoio — Sistema de Gestão de Rede Política             ║
+  ║  © 2025 Adriana Pereira de Souza — Todos os direitos        ║
+  ║  reservados. Proibida reprodução sem autorização.           ║
+  ║  Instagram: @adrianasouzaas                                 ║
+  ║  Contato: adrianasouzaas_meconta (YouTube)                  ║
+  ╚══════════════════════════════════════════════════════════════╝
+-->
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=DM+Serif+Display&display=swap');
+
+  :root {
+    --navy: #0f1f3d;
+    --navy-mid: #1a3460;
+    --gold: #c8a84b;
+    --gold-light: #e8c96a;
+    --slate: #4a5568;
+    --slate-light: #718096;
+    --bg: #f7f8fc;
+    --white: #ffffff;
+    --red: #c53030;
+    --green: #276749;
+    --border: #dde2ee;
+    --shadow: 0 2px 12px rgba(15,31,61,0.10);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--navy);
+    min-height: 100vh;
+  }
+
+  /* ─── AUTH SCREEN ─── */
+  #auth-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%);
+  }
+
+  .auth-card {
+    background: var(--white);
+    border-radius: 16px;
+    padding: 48px 40px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  }
+
+  .auth-logo {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+
+  .auth-logo .brand {
+    font-family: 'DM Serif Display', serif;
+    font-size: 28px;
+    color: var(--navy);
+    letter-spacing: -0.5px;
+  }
+
+  .auth-logo .brand span { color: var(--gold); }
+
+  .auth-logo .tagline {
+    font-size: 12px;
+    color: var(--slate-light);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+  .auth-logo .idealizadora { font-size: 11px; color: var(--gold); margin-top: 8px; font-weight: 500; }
+  .progress-bar { background: #e8edf7; border-radius: 99px; height: 6px; margin-top: 8px; }
+  .progress-fill { background: var(--gold); border-radius: 99px; height: 6px; transition: width .3s; }
+  .config-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f5f6fa; }
+  .config-row:last-child { border-bottom: none; }
+  .config-label { font-size: 13px; color: var(--slate); }
+  .config-input { padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-family: 'Inter', sans-serif; width: 220px; outline: none; color: var(--navy); }
+  .config-input:focus { border-color: var(--gold); }
+  .config-input-num { width: 90px; text-align: center; }
+  .config-section-title { font-size: 13px; font-weight: 700; color: var(--navy); margin: 20px 0 12px; padding-bottom: 8px; border-bottom: 2px solid var(--gold); }
+
+  .auth-tabs {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+
+  .auth-tab {
+    flex: 1;
+    padding: 10px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--slate-light);
+    background: var(--bg);
+    border: none;
+    transition: all .2s;
+  }
+
+  .auth-tab.active {
+    background: var(--navy);
+    color: var(--white);
+  }
+
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 12px; font-weight: 600; color: var(--slate); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 6px; }
+
+  .field input, .field select {
+    width: 100%;
+    padding: 11px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: 'Inter', sans-serif;
+    color: var(--navy);
+    background: var(--white);
+    outline: none;
+    transition: border-color .2s;
+  }
+
+  .field input:focus, .field select:focus { border-color: var(--gold); }
+
+  .btn-primary {
+    width: 100%;
+    padding: 13px;
+    background: var(--navy);
+    color: var(--white);
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .2s;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .btn-primary:hover { background: var(--navy-mid); }
+  .btn-gold { background: var(--gold); color: var(--navy); }
+  .btn-gold:hover { background: var(--gold-light); }
+
+  .auth-note {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 12px;
+    color: var(--slate-light);
+  }
+
+  /* ─── MAIN APP ─── */
+  #app { display: none; }
+
+  .topbar {
+    background: var(--navy);
+    padding: 0 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .topbar-brand {
+    font-family: 'DM Serif Display', serif;
+    font-size: 20px;
+    color: var(--white);
+  }
+
+  .topbar-brand span { color: var(--gold); }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .user-badge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255,255,255,0.08);
+    padding: 7px 14px;
+    border-radius: 8px;
+  }
+
+  .user-badge .avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--gold);
+    color: var(--navy);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .user-badge .info { line-height: 1.2; }
+  .user-badge .name { font-size: 13px; font-weight: 600; color: var(--white); }
+  .user-badge .role { font-size: 11px; color: rgba(255,255,255,0.5); }
+
+  .btn-logout {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.7);
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    transition: all .2s;
+  }
+
+  .btn-logout:hover { border-color: var(--gold); color: var(--gold); }
+
+  .layout {
+    display: flex;
+    min-height: calc(100vh - 60px);
+  }
+
+  .sidebar {
+    width: 220px;
+    background: var(--white);
+    border-right: 1px solid var(--border);
+    padding: 24px 0;
+    flex-shrink: 0;
+  }
+
+  .sidebar-section {
+    padding: 0 16px;
+    margin-bottom: 8px;
+  }
+
+  .sidebar-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--slate-light);
+    padding: 0 8px;
+    margin-bottom: 6px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--slate);
+    transition: all .15s;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .nav-item:hover { background: var(--bg); color: var(--navy); }
+  .nav-item.active { background: #e8edf7; color: var(--navy); font-weight: 600; }
+  .nav-item .icon { font-size: 15px; }
+
+  .content {
+    flex: 1;
+    padding: 32px;
+    overflow-y: auto;
+  }
+
+  .page-header {
+    margin-bottom: 28px;
+  }
+
+  .page-header h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 26px;
+    color: var(--navy);
+  }
+
+  .page-header p {
+    font-size: 13px;
+    color: var(--slate-light);
+    margin-top: 4px;
+  }
+
+  /* ─── STATS ─── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .stat-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: var(--shadow);
+  }
+
+  .stat-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--slate-light);
+    margin-bottom: 8px;
+  }
+
+  .stat-value {
+    font-family: 'DM Serif Display', serif;
+    font-size: 32px;
+    color: var(--navy);
+  }
+
+  .stat-sub {
+    font-size: 11px;
+    color: var(--slate-light);
+    margin-top: 4px;
+  }
+
+  /* ─── CARDS ─── */
+  .card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: var(--shadow);
+    margin-bottom: 20px;
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+
+  .card-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--navy);
+  }
+
+  /* ─── TABLE ─── */
+  .table-wrap { overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  th {
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    color: var(--slate-light);
+    border-bottom: 1px solid var(--border);
+  }
+
+  td {
+    padding: 12px 14px;
+    border-bottom: 1px solid #f0f2f8;
+    color: var(--navy);
+  }
+
+  tr:hover td { background: #fafbfd; }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .badge-green { background: #e6f4ec; color: var(--green); }
+  .badge-gold { background: #fdf5e0; color: #8a6a10; }
+  .badge-navy { background: #e8edf7; color: var(--navy); }
+  .badge-red { background: #fde8e8; color: var(--red); }
+
+  /* ─── PYRAMID ─── */
+  .pyramid-view { padding: 20px 0; }
+  .pyr-level { margin-bottom: 24px; }
+  .pyr-level-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--slate-light);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .pyr-level-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .pyr-nodes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .pyr-node {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    min-width: 180px;
+    cursor: pointer;
+    transition: all .15s;
+    box-shadow: var(--shadow);
+  }
+
+  .pyr-node:hover { border-color: var(--gold); transform: translateY(-1px); }
+  .pyr-node.level-0 { border-left: 4px solid var(--gold); }
+  .pyr-node.level-1 { border-left: 4px solid var(--navy); }
+  .pyr-node.level-2 { border-left: 4px solid #6b8ed6; }
+  .pyr-node.level-3 { border-left: 4px solid #a0aec0; }
+
+  .pyr-node .pn-name { font-weight: 600; font-size: 13px; }
+  .pyr-node .pn-region { font-size: 11px; color: var(--slate-light); margin-top: 2px; }
+  .pyr-node .pn-count { font-size: 11px; color: var(--gold); font-weight: 600; margin-top: 4px; }
+
+  /* ─── FORM ─── */
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .form-grid .full { grid-column: 1 / -1; }
+
+  .btn-sm {
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    font-family: 'Inter', sans-serif;
+    transition: all .2s;
+  }
+
+  .btn-navy { background: var(--navy); color: var(--white); }
+  .btn-navy:hover { background: var(--navy-mid); }
+  .btn-outline { background: none; border: 1px solid var(--border); color: var(--slate); }
+  .btn-outline:hover { border-color: var(--navy); color: var(--navy); }
+  .btn-red { background: var(--red); color: var(--white); }
+  .btn-export { background: var(--green); color: var(--white); }
+
+  /* ─── MODAL ─── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 999;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--white);
+    border-radius: 16px;
+    padding: 32px;
+    width: 100%;
+    max-width: 520px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+
+  .modal-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 20px;
+    color: var(--navy);
+  }
+
+  .modal-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: var(--slate-light);
+    line-height: 1;
+  }
+
+  /* ─── DETAIL MODAL ─── */
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f2f8;
+    font-size: 13px;
+  }
+
+  .detail-row:last-child { border-bottom: none; }
+  .detail-key { color: var(--slate-light); font-weight: 500; }
+  .detail-val { color: var(--navy); font-weight: 600; text-align: right; }
+  .detail-val.sensitive { filter: blur(5px); cursor: pointer; transition: filter .2s; }
+  .detail-val.sensitive.revealed { filter: none; }
+
+  /* ─── SEARCH BAR ─── */
+  .search-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+    align-items: center;
+  }
+
+  .search-input {
+    flex: 1;
+    padding: 9px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: 'Inter', sans-serif;
+    color: var(--navy);
+    outline: none;
+  }
+
+  .search-input:focus { border-color: var(--gold); }
+
+  /* ─── ALERTS ─── */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--navy);
+    color: var(--white);
+    padding: 14px 20px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 500;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    z-index: 9999;
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all .3s;
+  }
+
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.success { border-left: 4px solid var(--gold); }
+  .toast.error { border-left: 4px solid var(--red); background: #fde8e8; color: var(--red); }
+
+  /* ─── MISC ─── */
+  .section-tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+  }
+
+  .section-tab {
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--slate-light);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all .15s;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .section-tab.active { color: var(--navy); border-bottom-color: var(--gold); }
+
+  .empty-state {
+    text-align: center;
+    padding: 48px;
+    color: var(--slate-light);
+  }
+
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-state p { font-size: 14px; }
+
+  .region-tag {
+    display: inline-block;
+    background: #e8edf7;
+    color: var(--navy);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+
+  @media (max-width: 900px) {
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    .form-grid { grid-template-columns: 1fr; }
+    .form-grid .full { grid-column: 1; }
+  }
+
+  .watermark {
+    position: fixed;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    color: rgba(15,31,61,0.12);
+    pointer-events: none;
+    z-index: 99999;
+    white-space: nowrap;
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    user-select: none;
+  }
+
+  .copyright-footer {
+    background: var(--navy);
+    color: rgba(255,255,255,0.35);
+    text-align: center;
+    font-size: 11px;
+    padding: 10px;
+    letter-spacing: .8px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .copyright-footer strong { color: var(--gold); }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════
+     AUTH SCREEN
+════════════════════════════════════ -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="brand">Rede<span>Apoio</span></div>
+      <div class="tagline">Gestão de Rede Política</div>
+      <div class="idealizadora" id="auth-idealizadora">✦ Desenvolvido por Adriana Souza</div>
+    </div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="setAuthTab('candidato')">Candidato</button>
+      <button class="auth-tab" onclick="setAuthTab('lideranca')">Liderança</button>
+      <button class="auth-tab" onclick="setAuthTab('apoiador')">Apoiador</button>
+    </div>
+
+    <div class="field">
+      <label>Usuário / CPF</label>
+      <input type="text" id="login-user" placeholder="Digite seu usuário">
+    </div>
+    <div class="field">
+      <label>Senha</label>
+      <input type="password" id="login-pass" placeholder="••••••••">
+    </div>
+
+    <button class="btn-primary" onclick="doLogin()">Entrar com segurança</button>
+
+    <div class="auth-note">🔒 Dados protegidos — acesso restrito por senha</div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     MAIN APP
+════════════════════════════════════ -->
+<div id="app">
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="topbar-brand">Rede<span>Apoio</span></div>
+    <div class="topbar-right">
+      <div class="user-badge">
+        <div class="avatar" id="user-avatar">?</div>
+        <div class="info">
+          <div class="name" id="user-name-display">—</div>
+          <div class="role" id="user-role-display">—</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="doLogout()">Sair</button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-section" id="nav-candidato" style="display:none">
+        <div class="sidebar-label">Candidato</div>
+        <button class="nav-item active" onclick="showPage('dashboard')"><span class="icon">📊</span> Dashboard</button>
+        <button class="nav-item" onclick="showPage('rede')"><span class="icon">🌐</span> Rede de Apoio</button>
+        <button class="nav-item" onclick="showPage('apoiadores')"><span class="icon">👥</span> Todos os Apoiadores</button>
+        <button class="nav-item" onclick="showPage('exportar')"><span class="icon">📥</span> Exportar Dados</button>
+        <button class="nav-item" onclick="showPage('grafico')"><span class="icon">📈</span> Gráfico por Zona</button>
+        <button class="nav-item" onclick="showPage('configuracoes')"><span class="icon">⚙️</span> Configurações</button>
+        <button class="nav-item" onclick="showPage('usuarios')"><span class="icon">🔑</span> Usuários</button>
+      </div>
+
+      <div class="sidebar-section" id="nav-lideranca" style="display:none">
+        <div class="sidebar-label">Liderança</div>
+        <button class="nav-item active" onclick="showPage('dashboard')"><span class="icon">📊</span> Meu Painel</button>
+        <button class="nav-item" onclick="showPage('minha-rede')"><span class="icon">🌐</span> Minha Rede</button>
+        <button class="nav-item" onclick="showPage('cadastrar')"><span class="icon">➕</span> Cadastrar Apoiador</button>
+      </div>
+
+      <div class="sidebar-section" id="nav-apoiador" style="display:none">
+        <div class="sidebar-label">Apoiador</div>
+        <button class="nav-item active" onclick="showPage('dashboard')"><span class="icon">📊</span> Meu Painel</button>
+        <button class="nav-item" onclick="showPage('minha-rede')"><span class="icon">🌐</span> Minha Rede</button>
+        <button class="nav-item" onclick="showPage('cadastrar')"><span class="icon">➕</span> Indicar Pessoa</button>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="content" id="main-content"></div>
+  </div>
+  <div class="copyright-footer">
+    © 2025 <strong>Adriana Pereira de Souza</strong> — RedeApoio — Todos os direitos reservados — @adrianasouzaas
+  </div>
+</div>
+
+<!-- ─── MODAL DETALHES ─── -->
+<div class="modal-overlay" id="modal-detail">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-detail-title">Dados do Apoiador</div>
+      <button class="modal-close" onclick="closeModal('modal-detail')">✕</button>
+    </div>
+    <div id="modal-detail-body"></div>
+  </div>
+</div>
+
+<!-- ─── MODAL CADASTRO ─── -->
+<div class="modal-overlay" id="modal-cad">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Cadastrar Apoiador</div>
+      <button class="modal-close" onclick="closeModal('modal-cad')">✕</button>
+    </div>
+    <div id="modal-cad-body"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- MARCA D'ÁGUA -->
+<div class="watermark">© Adriana Souza — RedeApoio — Todos os direitos reservados</div>
+
+<script>
+// ══════════════════════════════════════════
+//  CONFIGURAÇÕES EDITÁVEIS (pós-venda)
+// ══════════════════════════════════════════
+/* © 2025 Adriana Pereira de Souza | @adrianasouzaas | Todos os direitos reservados.
+   Reprodução ou redistribuição sem autorização é proibida por lei (Lei 9.610/98). */
+let CONFIG = {
+  appNome: 'RedeApoio',
+  idealizadora: 'Adriana Souza',
+  candidatoNome: 'Dr. Marcelo Faria',
+  limiteNivel1: 50,
+  limiteNivel2: 30,
+  limiteNivel3: 15,
+};
+
+function getLimite(nivel) {
+  if (nivel === 1) return CONFIG.limiteNivel1;
+  if (nivel === 2) return CONFIG.limiteNivel2;
+  if (nivel === 3) return CONFIG.limiteNivel3;
+  return 0;
+}
+
+// ══════════════════════════════════════════
+//  DATA STORE
+// ══════════════════════════════════════════
+let currentUser = null;
+let currentRole = null;
+
+let USERS = {
+  'candidato':  { pass: '1234', role: 'candidato', name: 'Dr. Marcelo Faria', id: 'candidato' },
+  'lideranca1': { pass: '1234', role: 'lideranca', name: 'Ana Rodrigues',      id: 'L1', liderId: null },
+  'lideranca2': { pass: '1234', role: 'lideranca', name: 'Carlos Mendes',      id: 'L2', liderId: null },
+  'apoiador1':  { pass: '1234', role: 'apoiador',  name: 'João Silva',         id: 'A1', liderId: 'L1' },
+  'apoiador2':  { pass: '1234', role: 'apoiador',  name: 'Maria Santos',       id: 'A2', liderId: 'L1' },
+};
+
+// id, nome, telefone, nascimento, regiao, titulo, secao, nivel, parentId, cadastradoPor
+let APOIADORES = [
+  { id:'L1', nome:'Ana Rodrigues', telefone:'(67) 99901-1111', nascimento:'1980-05-12', regiao:'Zona Sul', titulo:'0001234567890', secao:'0123', nivel:1, parentId:null, cadastradoPor:'candidato' },
+  { id:'L2', nome:'Carlos Mendes', telefone:'(67) 99902-2222', nascimento:'1975-08-20', regiao:'Zona Norte', titulo:'0002345678901', secao:'0456', nivel:1, parentId:null, cadastradoPor:'candidato' },
+  { id:'A1', nome:'João Silva', telefone:'(67) 99903-3333', nascimento:'1992-03-15', regiao:'Centro', titulo:'0003456789012', secao:'0789', nivel:2, parentId:'L1', cadastradoPor:'L1' },
+  { id:'A2', nome:'Maria Santos', telefone:'(67) 99904-4444', nascimento:'1988-11-22', regiao:'Zona Leste', titulo:'0004567890123', secao:'0321', nivel:2, parentId:'L1', cadastradoPor:'L1' },
+  { id:'A3', nome:'Roberto Lima', telefone:'(67) 99905-5555', nascimento:'1995-07-08', regiao:'Zona Oeste', titulo:'0005678901234', secao:'0654', nivel:3, parentId:'A1', cadastradoPor:'A1' },
+  { id:'A4', nome:'Fernanda Costa', telefone:'(67) 99906-6666', nascimento:'1990-01-30', regiao:'Zona Sul', titulo:'0006789012345', secao:'0987', nivel:3, parentId:'A2', cadastradoPor:'A2' },
+];
+
+let currentAuthTab = 'candidato';
+let currentPage = 'dashboard';
+
+// ══════════════════════════════════════════
+//  AUTH
+// ══════════════════════════════════════════
+function setAuthTab(tab) {
+  currentAuthTab = tab;
+  document.querySelectorAll('.auth-tab').forEach((el,i) => {
+    el.classList.toggle('active', ['candidato','lideranca','apoiador'][i] === tab);
+  });
+}
+
+function doLogin() {
+  const u = document.getElementById('login-user').value.trim();
+  const p = document.getElementById('login-pass').value;
+
+  if (!u || !p) { showToast('Preencha usuário e senha.', 'error'); return; }
+
+  const found = USERS[u];
+  if (!found || found.pass !== p || found.role !== currentAuthTab) {
+    showToast('Usuário ou senha incorretos.', 'error'); return;
+  }
+
+  currentUser = { ...found, name: typeof found.name === 'function' ? found.name() : found.name };
+  currentRole = found.role;
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+
+  document.getElementById('user-name-display').textContent = currentUser.name;
+  document.getElementById('user-role-display').textContent = ROLE_LABELS[currentRole];
+  document.getElementById('user-avatar').textContent = currentUser.name[0];
+
+  document.getElementById('nav-candidato').style.display = currentRole === 'candidato' ? 'block' : 'none';
+  document.getElementById('nav-lideranca').style.display = currentRole === 'lideranca' ? 'block' : 'none';
+  document.getElementById('nav-apoiador').style.display  = currentRole === 'apoiador'  ? 'block' : 'none';
+
+  showPage('dashboard');
+  showToast('Bem-vindo(a), ' + found.name + '!', 'success');
+}
+
+function doLogout() {
+  currentUser = null; currentRole = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('login-user').value = '';
+  document.getElementById('login-pass').value = '';
+}
+
+const ROLE_LABELS = { candidato:'Candidato', lideranca:'Liderança', apoiador:'Apoiador' };
+
+// ══════════════════════════════════════════
+//  NAVIGATION
+// ══════════════════════════════════════════
+function showPage(page) {
+  currentPage = page;
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.remove('active');
+    if (el.getAttribute('onclick')?.includes(`'${page}'`)) el.classList.add('active');
+  });
+
+  const c = document.getElementById('main-content');
+  switch(page) {
+    case 'dashboard':   c.innerHTML = renderDashboard(); break;
+    case 'rede':        c.innerHTML = renderRede(); break;
+    case 'apoiadores':  c.innerHTML = renderApoiadores(); break;
+    case 'exportar':    c.innerHTML = renderExportar(); break;
+    case 'grafico':     c.innerHTML = renderGrafico(); setTimeout(desenharGrafico, 50); break;
+    case 'minha-rede':  c.innerHTML = renderMinhaRede(); break;
+    case 'cadastrar':   c.innerHTML = renderCadastrar(); break;
+    case 'configuracoes': c.innerHTML = renderConfiguracoes(); break;
+    case 'usuarios':      c.innerHTML = renderUsuarios(); break;
+  }
+}
+
+// ══════════════════════════════════════════
+//  PÁGINAS
+// ══════════════════════════════════════════
+
+function renderDashboard() {
+  if (currentRole === 'candidato') {
+    const total = APOIADORES.length;
+    const nivel1 = APOIADORES.filter(a => a.nivel === 1).length;
+    const nivel2 = APOIADORES.filter(a => a.nivel === 2).length;
+    const nivel3 = APOIADORES.filter(a => a.nivel === 3).length;
+
+    const regioes = {};
+    APOIADORES.forEach(a => { regioes[a.regiao] = (regioes[a.regiao] || 0) + 1; });
+    const topRegiao = Object.entries(regioes).sort((a,b)=>b[1]-a[1])[0];
+
+    return `
+    <div class="page-header">
+      <h1>Dashboard Geral</h1>
+      <p>Visão consolidada da sua rede de apoio</p>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total na Rede</div>
+        <div class="stat-value">${total}</div>
+        <div class="stat-sub">apoiadores cadastrados</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Lideranças (Nível 1)</div>
+        <div class="stat-value">${nivel1}</div>
+        <div class="stat-sub">limite: ${CONFIG.limiteNivel1} cada</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Nível 2</div>
+        <div class="stat-value">${nivel2}</div>
+        <div class="stat-sub">limite: ${CONFIG.limiteNivel2} cada</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Nível 3</div>
+        <div class="stat-value">${nivel3}</div>
+        <div class="stat-sub">limite: ${CONFIG.limiteNivel3} cada</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Distribuição por Região</div></div>
+      <div style="display:flex;flex-wrap:wrap;gap:12px">
+        ${Object.entries(regioes).map(([r,n]) => `
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 20px;text-align:center">
+            <div style="font-size:22px;font-family:'DM Serif Display',serif;color:var(--navy)">${n}</div>
+            <div style="font-size:11px;color:var(--slate-light);margin-top:2px">${r}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Atividade Recente</div></div>
+      <table><thead><tr><th>Nome</th><th>Região</th><th>Nível</th><th>Cadastrado por</th></tr></thead>
+      <tbody>
+        ${APOIADORES.slice(-5).reverse().map(a => `
+          <tr onclick="showDetail('${a.id}')" style="cursor:pointer">
+            <td><strong>${a.nome}</strong></td>
+            <td><span class="region-tag">${a.regiao}</span></td>
+            <td>${nivelBadge(a.nivel)}</td>
+            <td>${a.cadastradoPor}</td>
+          </tr>
+        `).join('')}
+      </tbody></table>
+    </div>`;
+  }
+
+  // Liderança / Apoiador dashboard
+  const myId = currentUser.id;
+  const myApoiadores = APOIADORES.filter(a => a.parentId === myId);
+  const nivel = currentRole === 'lideranca' ? 1 : 2;
+  const limite = getLimite(nivel);
+  const pct = Math.round((myApoiadores.length / limite) * 100);
+
+  return `
+  <div class="page-header">
+    <h1>Meu Painel</h1>
+    <p>Sua rede de indicações</p>
+  </div>
+  <div class="stats-grid" style="grid-template-columns:repeat(2,1fr)">
+    <div class="stat-card">
+      <div class="stat-label">Minha Rede Direta</div>
+      <div class="stat-value">${myApoiadores.length} <span style="font-size:18px;color:var(--slate-light)">/ ${limite}</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Vagas Disponíveis</div>
+      <div class="stat-value" style="color:var(--green)">${limite - myApoiadores.length}</div>
+      <div class="stat-sub">ainda podem ser adicionadas</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Meus Indicados</div>
+      ${myApoiadores.length < limite ? `<button class="btn-sm btn-navy" onclick="openCadModal()">+ Indicar Pessoa</button>` : ''}
+    </div>
+    ${myApoiadores.length === 0 ? `<div class="empty-state"><div class="icon">👤</div><p>Você ainda não tem indicações. Comece agora!</p></div>` : `
+    <table><thead><tr><th>Nome</th><th>Região</th><th>Telefone</th></tr></thead>
+    <tbody>
+      ${myApoiadores.map(a => `
+        <tr onclick="showDetail('${a.id}')" style="cursor:pointer">
+          <td><strong>${a.nome}</strong></td>
+          <td><span class="region-tag">${a.regiao}</span></td>
+          <td>${a.telefone}</td>
+        </tr>
+      `).join('')}
+    </tbody></table>`}
+  </div>`;
+}
+
+function renderRede() {
+  const nivel1 = APOIADORES.filter(a => a.nivel === 1);
+  const nivel2 = APOIADORES.filter(a => a.nivel === 2);
+  const nivel3 = APOIADORES.filter(a => a.nivel === 3);
+
+  return `
+  <div class="page-header">
+    <h1>Rede de Apoio</h1>
+    <p>Pirâmide de apoiadores — 3 níveis</p>
+  </div>
+  <div class="card">
+    <div class="pyramid-view">
+      <div class="pyr-level">
+        <div class="pyr-level-label">🏆 Nível 1 — Lideranças (${nivel1.length} / limite: ${CONFIG.limiteNivel1} cada)</div>
+        <div class="pyr-nodes">
+          ${nivel1.map(a => `
+            <div class="pyr-node level-1" onclick="showDetail('${a.id}')">
+              <div class="pn-name">${a.nome}</div>
+              <div class="pn-region">${a.regiao}</div>
+              <div class="pn-count">↳ ${APOIADORES.filter(x=>x.parentId===a.id).length} indicados</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      <div class="pyr-level">
+        <div class="pyr-level-label">🔵 Nível 2 — Apoiadores (${nivel2.length} / limite: ${CONFIG.limiteNivel2} cada)</div>
+        <div class="pyr-nodes">
+          ${nivel2.map(a => `
+            <div class="pyr-node level-2" onclick="showDetail('${a.id}')">
+              <div class="pn-name">${a.nome}</div>
+              <div class="pn-region">${a.regiao}</div>
+              <div class="pn-count">↳ ${APOIADORES.filter(x=>x.parentId===a.id).length} indicados</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      <div class="pyr-level">
+        <div class="pyr-level-label">⚪ Nível 3 — Base (${nivel3.length} / limite: ${CONFIG.limiteNivel3} cada)</div>
+        <div class="pyr-nodes">
+          ${nivel3.map(a => `
+            <div class="pyr-node level-3" onclick="showDetail('${a.id}')">
+              <div class="pn-name">${a.nome}</div>
+              <div class="pn-region">${a.regiao}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderApoiadores() {
+  return `
+  <div class="page-header">
+    <h1>Todos os Apoiadores</h1>
+    <p>Clique em qualquer linha para ver os dados completos</p>
+  </div>
+  <div class="card">
+    <div class="search-bar">
+      <input class="search-input" id="search-inp" placeholder="🔍 Buscar por nome ou região..." oninput="filterTable()">
+      <select id="filter-nivel" class="search-input" style="max-width:160px" onchange="filterTable()">
+        <option value="">Todos os níveis</option>
+        <option value="1">Nível 1</option>
+        <option value="2">Nível 2</option>
+        <option value="3">Nível 3</option>
+      </select>
+    </div>
+    <div class="table-wrap">
+      <table id="apoiadores-table">
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>Região</th>
+            <th>Nível</th>
+            <th>Telefone</th>
+            <th>Nascimento</th>
+            <th>Título</th>
+            <th>Seção</th>
+          </tr>
+        </thead>
+        <tbody id="apoiadores-tbody">
+          ${APOIADORES.map(a => `
+            <tr onclick="showDetail('${a.id}')" style="cursor:pointer" data-nome="${a.nome.toLowerCase()}" data-regiao="${a.regiao.toLowerCase()}" data-nivel="${a.nivel}">
+              <td><strong>${a.nome}</strong></td>
+              <td><span class="region-tag">${a.regiao}</span></td>
+              <td>${nivelBadge(a.nivel)}</td>
+              <td>${a.telefone}</td>
+              <td>${formatDate(a.nascimento)}</td>
+              <td><span style="font-family:monospace;font-size:12px">${a.titulo}</span></td>
+              <td>${a.secao}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function filterTable() {
+  const q = document.getElementById('search-inp').value.toLowerCase();
+  const n = document.getElementById('filter-nivel').value;
+  document.querySelectorAll('#apoiadores-tbody tr').forEach(tr => {
+    const matchQ = !q || tr.dataset.nome.includes(q) || tr.dataset.regiao.includes(q);
+    const matchN = !n || tr.dataset.nivel === n;
+    tr.style.display = (matchQ && matchN) ? '' : 'none';
+  });
+}
+
+function renderExportar() {
+  return `
+  <div class="page-header">
+    <h1>Exportar Dados</h1>
+    <p>Gere relatórios da sua rede de apoio</p>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="card-title">Exportação Completa</div></div>
+    <p style="font-size:13px;color:var(--slate-light);margin-bottom:16px">Inclui todos os ${APOIADORES.length} apoiadores com nome, telefone, nascimento, região, título e seção eleitoral.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn-sm btn-export" onclick="exportCSV()">📥 Exportar CSV</button>
+      <button class="btn-sm btn-navy" onclick="exportJSON()">📄 Exportar JSON</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">Exportar por Nível</div></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn-sm btn-outline" onclick="exportNivel(1)">Nível 1 (${APOIADORES.filter(a=>a.nivel===1).length})</button>
+      <button class="btn-sm btn-outline" onclick="exportNivel(2)">Nível 2 (${APOIADORES.filter(a=>a.nivel===2).length})</button>
+      <button class="btn-sm btn-outline" onclick="exportNivel(3)">Nível 3 (${APOIADORES.filter(a=>a.nivel===3).length})</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">Exportar por Região</div></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      ${[...new Set(APOIADORES.map(a=>a.regiao))].map(r => `
+        <button class="btn-sm btn-outline" onclick="exportRegiao('${r}')">${r} (${APOIADORES.filter(a=>a.regiao===r).length})</button>
+      `).join('')}
+    </div>
+  </div>`;
+}
+
+function renderMinhaRede() {
+  const myId = currentUser.id;
+  const minha = APOIADORES.filter(a => a.parentId === myId);
+  return `
+  <div class="page-header">
+    <h1>Minha Rede</h1>
+    <p>${minha.length} de 15 vagas utilizadas</p>
+  </div>
+  <div class="card">
+    ${minha.length === 0 ? `<div class="empty-state"><div class="icon">🤝</div><p>Você ainda não tem indicações.</p></div>` : `
+    <table>
+      <thead><tr><th>Nome</th><th>Região</th><th>Telefone</th><th>Nascimento</th></tr></thead>
+      <tbody>
+        ${minha.map(a => `
+          <tr onclick="showDetail('${a.id}')" style="cursor:pointer">
+            <td><strong>${a.nome}</strong></td>
+            <td><span class="region-tag">${a.regiao}</span></td>
+            <td>${a.telefone}</td>
+            <td>${formatDate(a.nascimento)}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>`}
+  </div>`;
+}
+
+function renderCadastrar() {
+  const myId = currentUser.id;
+  const myNivel = currentRole === 'lideranca' ? 1 : 2;
+  const novoNivel = myNivel + 1;
+  const limite = getLimite(myNivel);
+  const count = APOIADORES.filter(a => a.parentId === myId).length;
+
+  if (novoNivel > 3) {
+    return `<div class="page-header"><h1>Indicar Pessoa</h1></div>
+    <div class="card"><div class="empty-state"><div class="icon">🔒</div><p>Você atingiu o nível máximo da rede. Não é possível indicar novas pessoas.</p></div></div>`;
+  }
+
+  if (count >= limite) {
+    return `<div class="page-header"><h1>Indicar Pessoa</h1></div>
+    <div class="card"><div class="empty-state"><div class="icon">🔒</div><p>Você já atingiu o limite de <strong>${limite}</strong> indicações diretas.</p></div></div>`;
+  }
+
+  return `
+  <div class="page-header">
+    <h1>Cadastrar Novo Apoiador</h1>
+    <p>Nível ${novoNivel} — Vaga ${count+1} de ${limite}</p>
+  </div>
+  <div class="card">
+    <div class="form-grid">
+      <div class="field full">
+        <label>Nome Completo *</label>
+        <input type="text" id="c-nome" placeholder="Nome completo">
+      </div>
+      <div class="field">
+        <label>Telefone *</label>
+        <input type="tel" id="c-tel" placeholder="(00) 00000-0000">
+      </div>
+      <div class="field">
+        <label>Data de Nascimento *</label>
+        <input type="date" id="c-nasc">
+      </div>
+      <div class="field full">
+        <label>Região / Bairro *</label>
+        <input type="text" id="c-reg" placeholder="Ex: Zona Sul, Centro...">
+      </div>
+      <div class="field">
+        <label>Número do Título Eleitoral</label>
+        <input type="text" id="c-titulo" placeholder="0000000000000">
+      </div>
+      <div class="field">
+        <label>Seção Eleitoral</label>
+        <input type="text" id="c-secao" placeholder="0000">
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn-sm btn-navy" onclick="salvarApoiador()">✔ Salvar Cadastro</button>
+      <button class="btn-sm btn-outline" onclick="showPage('dashboard')">Cancelar</button>
+    </div>
+  </div>`;
+}
+
+// ══════════════════════════════════════════
+//  ACTIONS
+// ══════════════════════════════════════════
+function salvarApoiador() {
+  const nome  = document.getElementById('c-nome').value.trim();
+  const tel   = document.getElementById('c-tel').value.trim();
+  const nasc  = document.getElementById('c-nasc').value;
+  const reg   = document.getElementById('c-reg').value.trim();
+  const tit   = document.getElementById('c-titulo').value.trim();
+  const sec   = document.getElementById('c-secao').value.trim();
+
+  if (!nome || !tel || !nasc || !reg) {
+    showToast('Preencha os campos obrigatórios.', 'error'); return;
+  }
+
+  const myId = currentUser.id;
+  const myNivel = currentRole === 'lideranca' ? 1 : 2;
+  const limite = getLimite(myNivel);
+  const count = APOIADORES.filter(a => a.parentId === myId).length;
+  if (count >= limite) { showToast(`Limite de ${limite} indicações atingido.`, 'error'); return; }
+
+  const novoNivel = myNivel + 1;
+  const newId = 'X' + Date.now();
+  APOIADORES.push({
+    id: newId, nome, telefone: tel, nascimento: nasc,
+    regiao: reg, titulo: tit || '—', secao: sec || '—',
+    nivel: novoNivel, parentId: myId, cadastradoPor: myId
+  });
+
+  showToast('Apoiador cadastrado com sucesso!', 'success');
+  showPage('dashboard');
+}
+
+function showDetail(id) {
+  const a = APOIADORES.find(x => x.id === id);
+  if (!a) return;
+
+  const canSeeAll = currentRole === 'candidato';
+  const isMine = a.parentId === currentUser?.id || a.cadastradoPor === currentUser?.id;
+  const canSee = canSeeAll || isMine || currentUser?.id === id;
+
+  document.getElementById('modal-detail-title').textContent = a.nome;
+  document.getElementById('modal-detail-body').innerHTML = `
+    <div class="detail-row"><span class="detail-key">Nome</span><span class="detail-val">${a.nome}</span></div>
+    <div class="detail-row"><span class="detail-key">Região</span><span class="detail-val"><span class="region-tag">${a.regiao}</span></span></div>
+    <div class="detail-row"><span class="detail-key">Nível na Rede</span><span class="detail-val">${nivelBadge(a.nivel)}</span></div>
+    <div class="detail-row">
+      <span class="detail-key">Telefone</span>
+      <span class="detail-val ${canSee ? '' : 'sensitive'}" onclick="this.classList.toggle('revealed')">${a.telefone} ${canSee ? '' : '<small>(clique para revelar)</small>'}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-key">Nascimento</span>
+      <span class="detail-val ${canSee ? '' : 'sensitive'}" onclick="this.classList.toggle('revealed')">${formatDate(a.nascimento)}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-key">Título Eleitoral</span>
+      <span class="detail-val ${canSee ? '' : 'sensitive'}" onclick="this.classList.toggle('revealed')">${a.titulo}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-key">Seção Eleitoral</span>
+      <span class="detail-val ${canSee ? '' : 'sensitive'}" onclick="this.classList.toggle('revealed')">${a.secao}</span>
+    </div>
+    ${!canSee ? '<p style="font-size:11px;color:var(--slate-light);margin-top:12px;text-align:center">🔒 Clique nos campos para revelar — dados protegidos</p>' : ''}
+  `;
+  document.getElementById('modal-detail').classList.add('open');
+}
+
+function openCadModal() { showPage('cadastrar'); }
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+// ══════════════════════════════════════════
+//  CONFIGURAÇÕES
+// ══════════════════════════════════════════
+function renderConfiguracoes() {
+  return `
+  <div class="page-header">
+    <h1>Configurações</h1>
+    <p>Personalize o sistema para cada cliente — editável após a venda</p>
+  </div>
+  <div class="card">
+    <div class="config-section-title">🏷️ Identidade do Sistema</div>
+    <div class="config-row">
+      <span class="config-label">Nome do Aplicativo</span>
+      <input class="config-input" id="cfg-appNome" value="${CONFIG.appNome}" placeholder="Ex: RedeApoio">
+    </div>
+    <div class="config-row">
+      <span class="config-label">Idealizadora (aparece no login)</span>
+      <input class="config-input" id="cfg-idealizadora" value="${CONFIG.idealizadora}" placeholder="Seu nome">
+    </div>
+    <div class="config-row">
+      <span class="config-label">Nome do Candidato</span>
+      <input class="config-input" id="cfg-candidatoNome" value="${CONFIG.candidatoNome}" placeholder="Nome do político">
+    </div>
+
+    <div class="config-section-title" style="margin-top:24px">📊 Limites da Pirâmide</div>
+    <div class="config-row">
+      <span class="config-label">Nível 1 — Lideranças (máx. de indicações por liderança)</span>
+      <input class="config-input config-input-num" id="cfg-lim1" type="number" value="${CONFIG.limiteNivel1}" min="1" max="999">
+    </div>
+    <div class="config-row">
+      <span class="config-label">Nível 2 — Apoiadores diretos</span>
+      <input class="config-input config-input-num" id="cfg-lim2" type="number" value="${CONFIG.limiteNivel2}" min="1" max="999">
+    </div>
+    <div class="config-row">
+      <span class="config-label">Nível 3 — Base da pirâmide</span>
+      <input class="config-input config-input-num" id="cfg-lim3" type="number" value="${CONFIG.limiteNivel3}" min="1" max="999">
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:24px">
+      <button class="btn-sm btn-navy" onclick="salvarConfig()">💾 Salvar Configurações</button>
+      <button class="btn-sm btn-outline" onclick="showPage('dashboard')">Cancelar</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">ℹ️ Sobre o Sistema</div></div>
+    <div class="detail-row"><span class="detail-key">Desenvolvido por</span><span class="detail-val" style="color:var(--gold)">${CONFIG.idealizadora}</span></div>
+    <div class="detail-row"><span class="detail-key">Versão</span><span class="detail-val">1.0</span></div>
+    <div class="detail-row"><span class="detail-key">Total de Apoiadores</span><span class="detail-val">${APOIADORES.length}</span></div>
+    <div class="detail-row"><span class="detail-key">Capacidade Máxima da Rede</span><span class="detail-val">Ilimitada (cresce com o candidato)</span></div>
+  </div>`;
+}
+
+function salvarConfig() {
+  CONFIG.appNome       = document.getElementById('cfg-appNome').value.trim() || CONFIG.appNome;
+  CONFIG.idealizadora  = document.getElementById('cfg-idealizadora').value.trim() || CONFIG.idealizadora;
+  CONFIG.candidatoNome = document.getElementById('cfg-candidatoNome').value.trim() || CONFIG.candidatoNome;
+  CONFIG.limiteNivel1  = parseInt(document.getElementById('cfg-lim1').value) || CONFIG.limiteNivel1;
+  CONFIG.limiteNivel2  = parseInt(document.getElementById('cfg-lim2').value) || CONFIG.limiteNivel2;
+  CONFIG.limiteNivel3  = parseInt(document.getElementById('cfg-lim3').value) || CONFIG.limiteNivel3;
+
+  // Atualiza crédito no login
+  const el = document.getElementById('auth-idealizadora');
+  if (el) el.textContent = '✦ Desenvolvido por ' + CONFIG.idealizadora;
+
+  showToast('✅ Configurações salvas!', 'success');
+  showPage('configuracoes');
+}
+
+// ══════════════════════════════════════════
+//  GESTÃO DE USUÁRIOS
+// ══════════════════════════════════════════
+function renderUsuarios() {
+  const lista = Object.entries(USERS);
+  const roleLabel = { candidato:'Candidato', lideranca:'Liderança', apoiador:'Apoiador' };
+  const roleBadge = { candidato:'badge-gold', lideranca:'badge-navy', apoiador:'badge-green' };
+
+  return `
+  <div class="page-header">
+    <h1>Gestão de Usuários</h1>
+    <p>Cadastre lideranças, apoiadores e gerencie acessos</p>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Novo Usuário</div>
+    </div>
+    <div class="form-grid">
+      <div class="field">
+        <label>Nome Completo *</label>
+        <input type="text" id="nu-nome" placeholder="Nome do usuário">
+      </div>
+      <div class="field">
+        <label>Login (usuário) *</label>
+        <input type="text" id="nu-login" placeholder="Ex: lideranca3">
+      </div>
+      <div class="field">
+        <label>Senha *</label>
+        <input type="password" id="nu-senha" placeholder="Mínimo 4 caracteres">
+      </div>
+      <div class="field">
+        <label>Confirmar Senha *</label>
+        <input type="password" id="nu-senha2" placeholder="Repita a senha">
+      </div>
+      <div class="field">
+        <label>Perfil *</label>
+        <select id="nu-role">
+          <option value="">Selecione...</option>
+          <option value="lideranca">Liderança (Nível 1)</option>
+          <option value="apoiador">Apoiador (Nível 2)</option>
+          <option value="candidato">Candidato</option>
+        </select>
+      </div>
+      <div class="field" id="nu-regiao-wrap">
+        <label>Região</label>
+        <input type="text" id="nu-regiao" placeholder="Ex: Zona Sul">
+      </div>
+    </div>
+    <button class="btn-sm btn-navy" onclick="criarUsuario()" style="margin-top:8px">➕ Criar Usuário</button>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Usuários Cadastrados (${lista.length})</div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>Login</th>
+            <th>Perfil</th>
+            <th>ID</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${lista.map(([login, u]) => `
+            <tr>
+              <td><strong>${u.name}</strong></td>
+              <td><code style="background:#f0f2f8;padding:2px 8px;border-radius:4px;font-size:12px">${login}</code></td>
+              <td><span class="badge ${roleBadge[u.role]||'badge'}">${roleLabel[u.role]||u.role}</span></td>
+              <td style="font-size:11px;color:var(--slate-light)">${u.id}</td>
+              <td>
+                <div style="display:flex;gap:6px">
+                  <button class="btn-sm btn-outline" style="padding:5px 10px;font-size:11px" onclick="editarSenha('${login}')">🔑 Senha</button>
+                  ${login !== 'candidato' ? `<button class="btn-sm btn-red" style="padding:5px 10px;font-size:11px" onclick="excluirUsuario('${login}')">🗑</button>` : ''}
+                </div>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function criarUsuario() {
+  const nome   = document.getElementById('nu-nome').value.trim();
+  const login  = document.getElementById('nu-login').value.trim().toLowerCase().replace(/\s/g,'');
+  const senha  = document.getElementById('nu-senha').value;
+  const senha2 = document.getElementById('nu-senha2').value;
+  const role   = document.getElementById('nu-role').value;
+
+  if (!nome || !login || !senha || !role) { showToast('Preencha todos os campos obrigatórios.', 'error'); return; }
+  if (senha !== senha2) { showToast('As senhas não coincidem.', 'error'); return; }
+  if (senha.length < 4) { showToast('A senha deve ter pelo menos 4 caracteres.', 'error'); return; }
+  if (USERS[login]) { showToast('Esse login já existe. Escolha outro.', 'error'); return; }
+
+  const newId = role === 'candidato' ? 'candidato' : (role[0].toUpperCase() + Date.now());
+
+  USERS[login] = { pass: senha, role, name: nome, id: newId };
+
+  // Se for liderança ou apoiador, cria entrada em APOIADORES
+  if (role === 'lideranca') {
+    APOIADORES.push({
+      id: newId, nome, telefone: '—', nascimento: '—',
+      regiao: document.getElementById('nu-regiao')?.value || '—',
+      titulo: '—', secao: '—', nivel: 1, parentId: null, cadastradoPor: 'candidato'
+    });
+  }
+
+  showToast(`Usuário "${nome}" criado com sucesso!`, 'success');
+  showPage('usuarios');
+}
+
+function editarSenha(login) {
+  const nova = prompt(`Nova senha para "${USERS[login].name}":\n(mínimo 4 caracteres)`);
+  if (!nova) return;
+  if (nova.length < 4) { showToast('Senha muito curta.', 'error'); return; }
+  USERS[login].pass = nova;
+  showToast('Senha atualizada com sucesso!', 'success');
+}
+
+function excluirUsuario(login) {
+  if (login === 'candidato') { showToast('O usuário candidato não pode ser excluído.', 'error'); return; }
+  if (!confirm(`Excluir o usuário "${USERS[login].name}"?\n\nEsta ação não pode ser desfeita.`)) return;
+  delete USERS[login];
+  showToast('Usuário excluído.', 'success');
+  showPage('usuarios');
+}
+
+// ══════════════════════════════════════════
+//  GRÁFICO POR ZONA ELEITORAL
+// ══════════════════════════════════════════
+function renderGrafico() {
+  const regioes = {};
+  APOIADORES.forEach(a => { regioes[a.regiao] = (regioes[a.regiao]||0)+1; });
+  const total = APOIADORES.length;
+  const sorted = Object.entries(regioes).sort((a,b)=>b[1]-a[1]);
+
+  return `
+  <div class="page-header">
+    <h1>Gráfico por Zona Eleitoral</h1>
+    <p>${total} apoiadores distribuídos em ${sorted.length} regiões</p>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Distribuição por Região — Barras</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn-sm btn-outline" style="font-size:11px" onclick="setChartType('bar')">Barras</button>
+        <button class="btn-sm btn-outline" style="font-size:11px" onclick="setChartType('pie')">Pizza</button>
+        <button class="btn-sm btn-outline" style="font-size:11px" onclick="setChartType('horizontal')">Horizontal</button>
+      </div>
+    </div>
+    <canvas id="grafico-canvas" style="width:100%;max-height:380px"></canvas>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">Ranking por Região</div></div>
+    <table>
+      <thead><tr><th>#</th><th>Região</th><th>Apoiadores</th><th>% da Rede</th><th>Representação Visual</th></tr></thead>
+      <tbody>
+        ${sorted.map(([r,n],i) => {
+          const pct = ((n/total)*100).toFixed(1);
+          const bar = Math.round((n/sorted[0][1])*100);
+          const cores = ['#c8a84b','#0f1f3d','#6b8ed6','#276749','#c53030','#718096','#a0aec0'];
+          const cor = cores[i % cores.length];
+          return `<tr>
+            <td><strong style="color:var(--gold)">${i+1}º</strong></td>
+            <td><span class="region-tag">${r}</span></td>
+            <td><strong>${n}</strong></td>
+            <td>${pct}%</td>
+            <td style="min-width:160px">
+              <div class="progress-bar" style="margin-top:0">
+                <div class="progress-fill" style="width:${bar}%;background:${cor}"></div>
+              </div>
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">Por Nível × Região</div></div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Região</th>
+            <th>Nível 1</th>
+            <th>Nível 2</th>
+            <th>Nível 3</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${sorted.map(([r,total_r]) => {
+            const n1 = APOIADORES.filter(a=>a.regiao===r&&a.nivel===1).length;
+            const n2 = APOIADORES.filter(a=>a.regiao===r&&a.nivel===2).length;
+            const n3 = APOIADORES.filter(a=>a.regiao===r&&a.nivel===3).length;
+            return `<tr>
+              <td><span class="region-tag">${r}</span></td>
+              <td>${n1>0?`<span class="badge badge-gold">${n1}</span>`:'—'}</td>
+              <td>${n2>0?`<span class="badge badge-navy">${n2}</span>`:'—'}</td>
+              <td>${n3>0?`<span class="badge">${n3}</span>`:'—'}</td>
+              <td><strong>${total_r}</strong></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+let chartType = 'bar';
+let chartInstance = null;
+
+function setChartType(type) {
+  chartType = type;
+  desenharGrafico();
+}
+
+function desenharGrafico() {
+  const canvas = document.getElementById('grafico-canvas');
+  if (!canvas) return;
+
+  const regioes = {};
+  APOIADORES.forEach(a => { regioes[a.regiao] = (regioes[a.regiao]||0)+1; });
+  const sorted = Object.entries(regioes).sort((a,b)=>b[1]-a[1]);
+  const labels = sorted.map(([r])=>r);
+  const values = sorted.map(([,n])=>n);
+  const total  = values.reduce((s,v)=>s+v,0);
+
+  const CORES = ['#c8a84b','#0f1f3d','#6b8ed6','#276749','#c53030','#e8c96a','#a0aec0','#4a5568'];
+  const ctx = canvas.getContext('2d');
+  const W = canvas.parentElement.clientWidth - 48;
+  const H = 360;
+  canvas.width = W;
+  canvas.height = H;
+  ctx.clearRect(0,0,W,H);
+
+  const pad = { top:24, right:20, bottom:60, left:50 };
+
+  if (chartType === 'pie') {
+    // ── Pizza ──
+    const cx = W/2, cy = H/2 - 10, r = Math.min(W, H)/2 - 60;
+    let angle = -Math.PI/2;
+    values.forEach((v,i) => {
+      const slice = (v/total) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(cx,cy);
+      ctx.arc(cx,cy,r,angle,angle+slice);
+      ctx.closePath();
+      ctx.fillStyle = CORES[i%CORES.length];
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // label
+      const mid = angle + slice/2;
+      const lx = cx + Math.cos(mid)*(r*0.65);
+      const ly = cy + Math.sin(mid)*(r*0.65);
+      if (slice > 0.15) {
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 12px Inter,sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(v, lx, ly);
+      }
+      angle += slice;
+    });
+
+    // Legenda
+    const legX = 16, legY = H - 20;
+    labels.forEach((l,i) => {
+      const x = legX + i * (W/labels.length);
+      ctx.fillStyle = CORES[i%CORES.length];
+      ctx.fillRect(x, legY-10, 10, 10);
+      ctx.fillStyle = '#4a5568';
+      ctx.font = '11px Inter,sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(l.length > 8 ? l.slice(0,8)+'…' : l, x+13, legY-5);
+    });
+
+  } else if (chartType === 'horizontal') {
+    // ── Barras Horizontais ──
+    const barH = Math.min(36, (H - pad.top - pad.bottom) / values.length - 6);
+    const maxV = Math.max(...values);
+    const chartW = W - pad.left - pad.right - 100;
+
+    values.forEach((v,i) => {
+      const y = pad.top + i*(barH+8);
+      const bw = (v/maxV)*chartW;
+
+      // barra
+      ctx.fillStyle = CORES[i%CORES.length];
+      roundRect(ctx, pad.left+100, y, bw, barH, 4);
+      ctx.fill();
+
+      // label região
+      ctx.fillStyle = '#4a5568';
+      ctx.font = '12px Inter,sans-serif';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(labels[i], pad.left+95, y+barH/2);
+
+      // valor
+      ctx.fillStyle = '#0f1f3d';
+      ctx.font = 'bold 12px Inter,sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(v + ' (' + ((v/total)*100).toFixed(0)+'%)', pad.left+100+bw+6, y+barH/2);
+    });
+
+  } else {
+    // ── Barras Verticais ──
+    const maxV = Math.max(...values);
+    const n = values.length;
+    const barW = Math.min(60, (W - pad.left - pad.right) / n - 10);
+    const chartH = H - pad.top - pad.bottom;
+    const step = chartH / 5;
+
+    // Grid
+    for (let i=0;i<=5;i++) {
+      const y = pad.top + i*step;
+      ctx.strokeStyle = '#e8edf7';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(pad.left,y); ctx.lineTo(W-pad.right,y); ctx.stroke();
+      ctx.fillStyle = '#a0aec0';
+      ctx.font = '11px Inter,sans-serif';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(Math.round(maxV*(1-i/5)), pad.left-6, y);
+    }
+
+    values.forEach((v,i) => {
+      const x = pad.left + i*(barW+10) + 5;
+      const bh = (v/maxV)*chartH;
+      const y = pad.top + chartH - bh;
+
+      ctx.fillStyle = CORES[i%CORES.length];
+      roundRect(ctx, x, y, barW, bh, 4);
+      ctx.fill();
+
+      // valor em cima
+      ctx.fillStyle = '#0f1f3d';
+      ctx.font = 'bold 12px Inter,sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(v, x+barW/2, y-4);
+
+      // label abaixo
+      ctx.fillStyle = '#4a5568';
+      ctx.font = '11px Inter,sans-serif';
+      ctx.textBaseline = 'top';
+      const lbl = labels[i].length > 9 ? labels[i].slice(0,9)+'…' : labels[i];
+      ctx.fillText(lbl, x+barW/2, H-pad.bottom+6);
+    });
+  }
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.lineTo(x+w-r, y);
+  ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+  ctx.lineTo(x+w, y+h-r);
+  ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+  ctx.lineTo(x+r, y+h);
+  ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+  ctx.lineTo(x, y+r);
+  ctx.quadraticCurveTo(x, y, x+r, y);
+  ctx.closePath();
+}
+
+// ══════════════════════════════════════════
+//  EXPORT
+// ══════════════════════════════════════════
+function toCSV(data) {
+  const headers = ['Nome','Telefone','Nascimento','Regiao','Titulo Eleitoral','Secao','Nivel','Parent ID'];
+  const rows = data.map(a => [a.nome,a.telefone,a.nascimento,a.regiao,a.titulo,a.secao,a.nivel,a.parentId||'—']);
+  return [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+}
+
+function downloadCSV(data, filename) {
+  const blob = new Blob(['\ufeff' + toCSV(data)], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  showToast('CSV exportado com sucesso!', 'success');
+}
+
+function exportCSV() { downloadCSV(APOIADORES, 'rede-apoio-completo.csv'); }
+function exportJSON() {
+  const blob = new Blob([JSON.stringify(APOIADORES, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'rede-apoio.json'; a.click();
+  showToast('JSON exportado!', 'success');
+}
+function exportNivel(n) { downloadCSV(APOIADORES.filter(a=>a.nivel===n), `rede-nivel-${n}.csv`); }
+function exportRegiao(r) { downloadCSV(APOIADORES.filter(a=>a.regiao===r), `rede-${r.replace(/\s/g,'-')}.csv`); }
+
+// ══════════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════════
+function nivelBadge(n) {
+  const map = { 1: ['badge-gold','Nível 1'], 2: ['badge-navy','Nível 2'], 3: ['badge','Nível 3'] };
+  const [cls, lbl] = map[n] || ['badge','—'];
+  return `<span class="badge ${cls}">${lbl}</span>`;
+}
+
+function formatDate(d) {
+  if (!d) return '—';
+  const [y,m,day] = d.split('-');
+  return `${day}/${m}/${y}`;
+}
+
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// Close modal on overlay click
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', function(e) {
+    if (e.target === this) this.classList.remove('open');
+  });
+});
+</script>
+</body>
+</html>
