@@ -7,13 +7,14 @@ const { gerarSenhaTemporaria, hash, compare } = require('../utils/password');
 const router = express.Router();
 
 router.post('/login', async (req, res) => {
-  const { login, senha, perfil } = req.body || {};
-  if (!login || !senha || !perfil) {
-    return res.status(400).json({ error: 'Preencha usuário, senha e perfil.' });
+  const { login, senha } = req.body || {};
+  if (!login || !senha) {
+    return res.status(400).json({ error: 'Preencha usuário e senha.' });
   }
+  // O login já é único no banco — o perfil vem junto, não precisa ser escolhido antes.
   const { rows } = await pool.query(
-    'SELECT * FROM usuarios WHERE login = $1 AND perfil = $2 AND ativo = true',
-    [login.trim().toLowerCase(), perfil]
+    'SELECT * FROM usuarios WHERE login = $1 AND ativo = true',
+    [login.trim().toLowerCase()]
   );
   const user = rows[0];
   if (!user) return res.status(401).json({ error: 'Usuário ou senha incorretos.' });

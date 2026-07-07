@@ -87,7 +87,7 @@ Depois de confirmar que os dados migraram corretamente:
 
 - Acesse `https://app.redeapoiopolitico.com.br` e faça login com o candidato `dd43530d-2585-478e-97f7-36d379589dd1` (login `candidato` — a senha migrada é a mesma que já existia no Supabase).
 - Confirme que todas as 6 lideranças (Pepa, Cabral, Dill, Alex, Jânio, Crislei) aparecem na tela de Usuários — o bug do filtro `.or()` não existe mais, pois a consulta agora roda no Postgres com UUID tipado.
-- Teste a Central de Vagas com o login `admin` / `adriana` (revele a aba "Admin" clicando em "🔐 Acesso administrador" na tela de login).
+- Teste a Central de Vagas fazendo login com a conta admin criada na migração (login/senha impressos no terminal ao rodar `migrate.sh`) — não existe mais seleção de aba/perfil na tela de login, o sistema identifica o perfil automaticamente pelo login.
 
 ## Atualizações futuras
 

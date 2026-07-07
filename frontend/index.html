@@ -26,9 +26,6 @@
   .auth-logo .brand span{color:var(--gold);}
   .auth-logo .tagline{font-size:11px;color:var(--slate-light);letter-spacing:2px;text-transform:uppercase;margin-top:4px;}
   .auth-logo .idealizadora{font-size:11px;color:var(--gold);margin-top:8px;font-weight:500;}
-  .auth-tabs{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:24px;}
-  .auth-tab{flex:1;padding:10px;text-align:center;font-size:13px;font-weight:500;cursor:pointer;color:var(--slate-light);background:var(--bg);border:none;transition:all .2s;font-family:'Inter',sans-serif;}
-  .auth-tab.active{background:var(--navy);color:var(--white);}
   .field{margin-bottom:16px;}
   .field label{display:block;font-size:12px;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;}
   .field input,.field select{width:100%;padding:11px 14px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:'Inter',sans-serif;color:var(--navy);background:var(--white);outline:none;transition:border-color .2s;}
@@ -145,21 +142,12 @@
       <div class="tagline">Gestão de Rede Política</div>
       <div class="idealizadora">✦ Desenvolvido por Adriana Souza</div>
     </div>
-    <div class="auth-tabs">
-      <button class="auth-tab active" onclick="setAuthTab('candidato')">Candidato</button>
-      <button class="auth-tab" onclick="setAuthTab('lideranca')">Liderança</button>
-      <button class="auth-tab" onclick="setAuthTab('apoiador')">Apoiador</button>
-      <button class="auth-tab" id="admin-tab-btn" style="display:none" onclick="setAuthTab('admin')">Admin</button>
-    </div>
     <div class="field"><label>Usuário</label><input type="text" id="login-user" placeholder="Digite seu usuário"></div>
     <div class="field"><label>Senha</label><input type="password" id="login-pass" placeholder="••••••••"></div>
     <button class="btn-primary" onclick="doLogin()">Entrar com segurança</button>
     <div class="auth-note">🔒 Dados protegidos — acesso restrito por senha</div>
     <div style="text-align:center;margin-top:12px">
       <span onclick="showEsqueciSenha()" style="font-size:12px;color:var(--gold);cursor:pointer;text-decoration:underline">Esqueci minha senha</span>
-    </div>
-    <div style="text-align:center;margin-top:10px">
-      <span onclick="toggleAdminTab()" style="font-size:11px;color:var(--slate-light);cursor:pointer">🔐 Acesso administrador</span>
     </div>
   </div>
 </div>
@@ -337,23 +325,6 @@ function hideLoading() {
 }
 
 // ══════════════════════════════════════════
-//  AUTH
-// ══════════════════════════════════════════
-let currentAuthTab = 'candidato';
-function setAuthTab(tab) {
-  currentAuthTab = tab;
-  document.querySelectorAll('.auth-tab').forEach((el)=>{
-    el.classList.toggle('active', el.getAttribute('onclick')?.includes(`'${tab}'`));
-  });
-}
-function toggleAdminTab(){
-  const btn = document.getElementById('admin-tab-btn');
-  const showing = btn.style.display === 'none';
-  btn.style.display = showing ? 'block' : 'none';
-  if(showing) setAuthTab('admin');
-}
-
-// ══════════════════════════════════════════
 //  RECUPERAÇÃO DE SENHA
 // ══════════════════════════════════════════
 function showEsqueciSenha() {
@@ -460,7 +431,7 @@ async function doLogin() {
 
   showLoading('Verificando acesso...');
   try {
-    const data = await api('/auth/login', { method:'POST', body: JSON.stringify({ login: usuario, senha, perfil: currentAuthTab }) });
+    const data = await api('/auth/login', { method:'POST', body: JSON.stringify({ login: usuario, senha }) });
     TOKEN = data.token;
     currentUser = data.user;
     currentRole = data.user.perfil;
