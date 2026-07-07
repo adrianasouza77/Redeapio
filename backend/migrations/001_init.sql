@@ -53,21 +53,32 @@ ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_password_token TEXT UNIQUE;
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_password_expires TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS idx_usuarios_email ON usuarios (lower(email));
 
+-- Bug estrutural do app original: a linha-espelho de uma liderança/apoiador
+-- em "apoiadores" (a que faz ela aparecer na pirâmide de Rede de Apoio)
+-- sempre ganhava um id aleatório próprio, em vez do id do usuário real. Só
+-- que os indicados dela salvam parent_id = id do USUÁRIO — então a pirâmide
+-- nunca conseguia achar os indicados de ninguém ("0 indicados" pra todo
+-- mundo). Alinha o id da linha-espelho com o id do usuário correspondente.
+UPDATE apoiadores a
+SET id = u.id
+FROM usuarios u
+WHERE u.perfil IN ('lideranca','apoiador')
+  AND a.cadastrado_por = u.criado_por
+  AND lower(a.nome) = lower(u.nome)
+  AND a.nivel = CASE WHEN u.perfil = 'lideranca' THEN 1 ELSE 2 END
+  AND a.id <> u.id
+  AND NOT EXISTS (SELECT 1 FROM apoiadores a2 WHERE a2.id = u.id);
+
 -- Conserta lacuna de dados já existente no Supabase de origem: algumas
 -- lideranças foram criadas fora do fluxo normal do app (ex: direto pelo
--- painel do Supabase) e nunca ganharam a linha-espelho em "apoiadores"
--- (nivel 1) que faz elas aparecerem no Dashboard, na pirâmide de Rede de
--- Apoio e em Todos os Apoiadores — a tela de Usuários não é afetada, pois
--- lista direto da tabela "usuarios". Idempotente: roda em todo boot, mas só
--- insere quem realmente está faltando.
-INSERT INTO apoiadores (nome, telefone, regiao, endereco, cidade, nivel, parent_id, cadastrado_por)
-SELECT u.nome, COALESCE(u.telefone, '—'), COALESCE(u.regiao, '—'), u.endereco, u.cidade, 1, NULL, u.criado_por
+-- painel do Supabase) e nunca ganharam a linha-espelho em "apoiadores" —
+-- a tela de Usuários não é afetada, pois lista direto da tabela "usuarios".
+-- Idempotente: roda em todo boot, mas só insere quem realmente está faltando.
+INSERT INTO apoiadores (id, nome, telefone, regiao, endereco, cidade, nivel, parent_id, cadastrado_por)
+SELECT u.id, u.nome, COALESCE(u.telefone, '—'), COALESCE(u.regiao, '—'), u.endereco, u.cidade,
+       CASE WHEN u.perfil = 'lideranca' THEN 1 ELSE 2 END, NULL, u.criado_por
 FROM usuarios u
-WHERE u.perfil = 'lideranca'
+WHERE u.perfil IN ('lideranca','apoiador')
   AND u.criado_por IS NOT NULL
-  AND NOT EXISTS (
-    SELECT 1 FROM apoiadores a
-    WHERE a.nivel = 1
-      AND a.cadastrado_por = u.criado_por
-      AND lower(a.nome) = lower(u.nome)
-  );
+  AND NOT EXISTS (SELECT 1 FROM apoiadores a WHERE a.id = u.id)
+ON CONFLICT (id) DO NOTHING;

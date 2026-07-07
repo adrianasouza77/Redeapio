@@ -82,8 +82,11 @@
   .badge-green{background:#e6f4ec;color:var(--green);}
   .badge-gold{background:#fdf5e0;color:#8a6a10;}
   .badge-navy{background:#e8edf7;color:var(--navy);}
-  .pyr-branch{margin-bottom:10px;}
-  .pyr-node{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:200px;max-width:340px;cursor:pointer;transition:all .15s;box-shadow:var(--shadow);}
+  .pyr-level{margin-bottom:24px;}
+  .pyr-level-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--slate-light);margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+  .pyr-level-label::after{content:'';flex:1;height:1px;background:var(--border);}
+  .pyr-nodes{display:flex;flex-wrap:wrap;gap:10px;}
+  .pyr-node{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:180px;cursor:pointer;transition:all .15s;box-shadow:var(--shadow);}
   .pyr-node:hover{border-color:var(--gold);transform:translateY(-1px);}
   .pyr-node.level-1{border-left:4px solid var(--gold);}
   .pyr-node.level-2{border-left:4px solid var(--navy);}
@@ -91,7 +94,6 @@
   .pyr-node .pn-name{font-weight:600;font-size:13px;}
   .pyr-node .pn-region{font-size:11px;color:var(--slate-light);margin-top:2px;}
   .pyr-node .pn-count{font-size:11px;color:var(--gold);font-weight:600;margin-top:4px;}
-  .pyr-children{display:none;margin-left:24px;margin-top:10px;border-left:2px solid var(--border);padding-left:16px;}
   .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
   .form-grid .full{grid-column:1/-1;}
   .btn-sm{padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:'Public Sans',sans-serif;transition:all .2s;}
@@ -676,29 +678,22 @@ function renderDashboard(){
   </div>`;
 }
 
-function renderPyrNode(a){
-  const filhos = APOIADORES.filter(x=>String(x.parent_id)===String(a.id));
-  return `
-  <div class="pyr-branch">
-    <div class="pyr-node level-${a.nivel}" onclick="togglePyrNode('${a.id}')">
-      <div class="pn-name">${a.nome}</div>
-      <div class="pn-region">${a.regiao||'—'}</div>
-      <div class="pn-count">↳ ${filhos.length} indicado(s)${filhos.length?' — clique para ver':''}</div>
-    </div>
-    <div class="pyr-children" id="pyr-children-${a.id}">${filhos.map(f=>renderPyrNode(f)).join('')}</div>
-  </div>`;
-}
-function togglePyrNode(id){
-  const el = document.getElementById('pyr-children-'+id);
-  if(el) el.style.display = el.style.display==='block' ? 'none' : 'block';
-}
-
 function renderRede(){
   const n1=APOIADORES.filter(a=>a.nivel===1);
+  const n2=APOIADORES.filter(a=>a.nivel===2);
+  const n3=APOIADORES.filter(a=>a.nivel===3);
   return `
-  <div class="page-header"><h1>Rede de Apoio</h1><p>Estrutura em pirâmide — clique numa liderança para expandir a rede dela</p></div>
+  <div class="page-header"><h1>Rede de Apoio</h1><p>Pirâmide 3 níveis — ${CONFIG.limiteNivel1} / ${CONFIG.limiteNivel2} / ${CONFIG.limiteNivel3}</p></div>
   <div class="card">
-    ${n1.map(a=>renderPyrNode(a)).join('') || '<div class="empty-state"><div class="icon">🌐</div><p>Nenhuma liderança cadastrada.</p></div>'}
+    <div class="pyr-level"><div class="pyr-level-label">🏆 Nível 1 — Lideranças (${n1.length})</div>
+      <div class="pyr-nodes">${n1.map(a=>`<div class="pyr-node level-1" onclick="showDetail('${a.id}')"><div class="pn-name">${a.nome}</div><div class="pn-region">${a.regiao||'—'}</div><div class="pn-count">↳ ${APOIADORES.filter(x=>String(x.parent_id)===String(a.id)).length} indicados</div></div>`).join('')||'<p style="color:var(--slate-light);font-size:13px">Nenhuma liderança cadastrada.</p>'}</div>
+    </div>
+    <div class="pyr-level"><div class="pyr-level-label">🔵 Nível 2 — Apoiadores (${n2.length})</div>
+      <div class="pyr-nodes">${n2.map(a=>`<div class="pyr-node level-2" onclick="showDetail('${a.id}')"><div class="pn-name">${a.nome}</div><div class="pn-region">${a.regiao||'—'}</div><div class="pn-count">↳ ${APOIADORES.filter(x=>String(x.parent_id)===String(a.id)).length} indicados</div></div>`).join('')||'<p style="color:var(--slate-light);font-size:13px">Nenhum apoiador nível 2.</p>'}</div>
+    </div>
+    <div class="pyr-level"><div class="pyr-level-label">⚪ Nível 3 — Base (${n3.length})</div>
+      <div class="pyr-nodes">${n3.map(a=>`<div class="pyr-node level-3" onclick="showDetail('${a.id}')"><div class="pn-name">${a.nome}</div><div class="pn-region">${a.regiao||'—'}</div></div>`).join('')||'<p style="color:var(--slate-light);font-size:13px">Nenhum apoiador nível 3.</p>'}</div>
+    </div>
   </div>`;
 }
 

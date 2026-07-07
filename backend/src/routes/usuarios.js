@@ -45,11 +45,17 @@ router.post('/', requireRole('candidato', 'admin'), async (req, res) => {
     );
     const novoUsuario = rows[0];
 
-    if (perfil === 'lideranca') {
+    // Cria a "ficha" espelho em apoiadores para lideranças/apoiadores-com-login
+    // aparecerem na pirâmide de Rede de Apoio. O id da ficha precisa ser IGUAL
+    // ao id do próprio usuário — é esse id que os indicados dela usam como
+    // parent_id. Se fossem ids diferentes (como um gen_random_uuid() default),
+    // a pirâmide nunca conseguiria achar os indicados de ninguém.
+    if (perfil === 'lideranca' || perfil === 'apoiador') {
+      const nivelFicha = perfil === 'lideranca' ? 1 : 2;
       await client.query(
-        `INSERT INTO apoiadores (nome, telefone, regiao, endereco, cidade, estado, nivel, parent_id, cadastrado_por)
-         VALUES ($1,$2,$3,$4,$5,$6,1,NULL,$7)`,
-        [nome, telefone || '—', regiao || '—', endereco || null, cidade || null, estado || null, req.effectiveId]
+        `INSERT INTO apoiadores (id, nome, telefone, regiao, endereco, cidade, estado, nivel, parent_id, cadastrado_por)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NULL,$9)`,
+        [novoUsuario.id, nome, telefone || '—', regiao || '—', endereco || null, cidade || null, estado || null, nivelFicha, req.effectiveId]
       );
     }
 
