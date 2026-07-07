@@ -219,7 +219,10 @@
       <div class="field"><label>Estado</label><input type="text" id="auto-uf" placeholder="UF" maxlength="2" style="text-transform:uppercase"></div>
     </div>
     <div class="field"><label>Nº Título Eleitoral</label><input type="text" id="auto-titulo" placeholder="0000000000000"></div>
-    <div class="field"><label>Seção Eleitoral</label><input type="text" id="auto-secao" placeholder="0000"></div>
+    <div class="form-grid">
+      <div class="field"><label>Zona Eleitoral</label><input type="text" id="auto-zona" placeholder="000"></div>
+      <div class="field"><label>Seção Eleitoral</label><input type="text" id="auto-secao" placeholder="0000"></div>
+    </div>
     <div class="lgpd-box">
       <input type="checkbox" id="auto-lgpd" style="margin-top:3px;flex-shrink:0">
       <label for="auto-lgpd">Li e concordo que meus dados pessoais (nome, telefone, data de nascimento, endereço, título eleitoral e seção eleitoral) serão utilizados exclusivamente para fins de organização da rede de apoio desta campanha/iniciativa, em conformidade com a Lei Geral de Proteção de Dados (LGPD — Lei nº 13.709/2018). Posso solicitar a exclusão dos meus dados a qualquer momento. *</label>
@@ -480,6 +483,7 @@ async function salvarAutoCadastro() {
   const cidade = document.getElementById('auto-cidade').value.trim();
   const uf = document.getElementById('auto-uf').value.trim();
   const titulo = document.getElementById('auto-titulo').value.trim();
+  const zona = document.getElementById('auto-zona').value.trim();
   const secao = document.getElementById('auto-secao').value.trim();
   const lgpd = document.getElementById('auto-lgpd').checked;
   const res = document.getElementById('auto-result');
@@ -501,7 +505,7 @@ async function salvarAutoCadastro() {
     await api('/public/autocadastro', { method:'POST', body: JSON.stringify({
       lideranca_id: _autoLiderancaId, nome, telefone: tel, nascimento: nasc,
       endereco: end || null, regiao: bairro, cidade: cidade || null, estado: uf || null,
-      titulo: titulo || null, secao: secao || null,
+      titulo: titulo || null, zona: zona || null, secao: secao || null,
       lgpd_aceite: true,
     })});
     res.style.display = 'block';
@@ -757,7 +761,7 @@ function renderApoiadores(){
       </select>
     </div>
     <div class="table-wrap">
-      <table><thead><tr><th>Nome</th><th>Região</th><th>Nível</th><th>Telefone</th><th>Nascimento</th><th>Título</th><th>Seção</th>${podeExcluir?'<th>Ações</th>':''}</tr></thead>
+      <table><thead><tr><th>Nome</th><th>Região</th><th>Nível</th><th>Telefone</th><th>Nascimento</th><th>Título</th><th>Zona</th><th>Seção</th>${podeExcluir?'<th>Ações</th>':''}</tr></thead>
       <tbody id="apoiadores-tbody">
         ${APOIADORES.map(a=>`
           <tr data-nome="${a.nome.toLowerCase()}" data-regiao="${(a.regiao||'').toLowerCase()}" data-nivel="${a.nivel}">
@@ -766,7 +770,7 @@ function renderApoiadores(){
             <td onclick="showDetail('${a.id}')" style="cursor:pointer">${nivelBadge(a.nivel)}</td>
             <td onclick="showDetail('${a.id}')" style="cursor:pointer">${a.telefone}</td>
             <td onclick="showDetail('${a.id}')" style="cursor:pointer">${formatDate(a.nascimento)}</td>
-            <td style="font-family:monospace;font-size:12px">${a.titulo||'—'}</td><td>${a.secao||'—'}</td>
+            <td style="font-family:monospace;font-size:12px">${a.titulo||'—'}</td><td>${a.zona||'—'}</td><td>${a.secao||'—'}</td>
             ${podeExcluir?`<td><button class="btn-del" onclick="excluirApoiador('${a.id}','${escapeAttr(a.nome)}')">🗑</button></td>`:''}
           </tr>`).join('')}
       </tbody></table>
@@ -885,6 +889,7 @@ function renderCadastrar(){
       <div class="field"><label>Cidade *</label><input type="text" id="c-cidade" placeholder="Cidade"></div>
       <div class="field"><label>Estado</label><input type="text" id="c-uf" placeholder="UF" maxlength="2" style="text-transform:uppercase"></div>
       <div class="field"><label>Nº Título Eleitoral</label><input type="text" id="c-titulo" placeholder="0000000000000"></div>
+      <div class="field"><label>Zona Eleitoral</label><input type="text" id="c-zona" placeholder="000"></div>
       <div class="field"><label>Seção Eleitoral</label><input type="text" id="c-secao" placeholder="0000"></div>
     </div>
     <div style="display:flex;gap:10px;margin-top:8px">
@@ -1231,6 +1236,7 @@ function editarApoiador(id) {
           <div class="field"><label>Cidade</label><input type="text" id="ed-cidade" value="${a.cidade||''}"></div>
           <div class="field"><label>Estado</label><input type="text" id="ed-uf" value="${a.estado||''}" maxlength="2" style="text-transform:uppercase"></div>
           <div class="field"><label>Nº Título Eleitoral</label><input type="text" id="ed-titulo" value="${a.titulo||''}" placeholder="0000000000000"></div>
+          <div class="field"><label>Zona Eleitoral</label><input type="text" id="ed-zona" value="${a.zona||''}" placeholder="000"></div>
           <div class="field"><label>Seção Eleitoral</label><input type="text" id="ed-secao" value="${a.secao||''}" placeholder="0000"></div>
         </div>
         <div style="display:flex;gap:10px;margin-top:16px">
@@ -1256,6 +1262,7 @@ async function salvarEdicao(id) {
       cidade: document.getElementById('ed-cidade').value.trim() || null,
       estado: document.getElementById('ed-uf').value.trim() || null,
       titulo: document.getElementById('ed-titulo').value.trim() || null,
+      zona: document.getElementById('ed-zona').value.trim() || null,
       secao: document.getElementById('ed-secao').value.trim() || null,
     })});
     document.getElementById('modal-editar').remove();
@@ -1278,13 +1285,14 @@ async function salvarApoiador(){
   const cidade=document.getElementById('c-cidade').value.trim();
   const uf=document.getElementById('c-uf').value.trim();
   const tit=document.getElementById('c-titulo').value.trim();
+  const zon=document.getElementById('c-zona').value.trim();
   const sec=document.getElementById('c-secao').value.trim();
   if(!nome||!tel||!nasc||!reg){showToast('Preencha os campos obrigatórios.','error');return;}
   showLoading('Salvando...');
   try {
     await api('/apoiadores', { method:'POST', body: JSON.stringify({
       nome, telefone:tel, nascimento:nasc, regiao:reg,
-      endereco:endereco||null, cidade:cidade||null, estado:uf||null, titulo:tit||null, secao:sec||null,
+      endereco:endereco||null, cidade:cidade||null, estado:uf||null, titulo:tit||null, zona:zon||null, secao:sec||null,
     })});
     await carregarApoiadores();
     hideLoading();
@@ -1401,6 +1409,7 @@ function showDetail(id){
     <div class="detail-row"><span class="detail-key">Cidade</span><span class="detail-val">${a.cidade||'—'}${a.estado?' / '+a.estado:''}</span></div>
     <div class="detail-row"><span class="detail-key">Nascimento</span><span class="detail-val ${canSee?'':'sensitive'}" onclick="this.classList.toggle('revealed')">${formatDate(a.nascimento)}</span></div>
     <div class="detail-row"><span class="detail-key">Título Eleitoral</span><span class="detail-val ${canSee?'':'sensitive'}" onclick="this.classList.toggle('revealed')">${a.titulo||'—'}</span></div>
+    <div class="detail-row"><span class="detail-key">Zona Eleitoral</span><span class="detail-val ${canSee?'':'sensitive'}" onclick="this.classList.toggle('revealed')">${a.zona||'—'}</span></div>
     <div class="detail-row"><span class="detail-key">Seção Eleitoral</span><span class="detail-val ${canSee?'':'sensitive'}" onclick="this.classList.toggle('revealed')">${a.secao||'—'}</span></div>
     ${!canSee?'<p style="font-size:11px;color:var(--slate-light);margin-top:12px;text-align:center">🔒 Clique para revelar</p>':''}`;
   document.getElementById('modal-detail').classList.add('open');
@@ -1409,8 +1418,8 @@ function showDetail(id){
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 
 function exportCSV(data,filename){
-  const h=['Nome','Telefone','Endereço','Cidade','Nascimento','Regiao','Titulo','Secao','Nivel'];
-  const rows=data.map(a=>[a.nome,a.telefone,a.endereco||'—',a.cidade||'—',formatDate(a.nascimento),a.regiao,a.titulo||'—',a.secao||'—',a.nivel]);
+  const h=['Nome','Telefone','Endereço','Cidade','Nascimento','Regiao','Titulo','Zona','Secao','Nivel'];
+  const rows=data.map(a=>[a.nome,a.telefone,a.endereco||'—',a.cidade||'—',formatDate(a.nascimento),a.regiao,a.titulo||'—',a.zona||'—',a.secao||'—',a.nivel]);
   const blob=new Blob(['﻿'+[h,...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n')],{type:'text/csv;charset=utf-8;'});
   const el=document.createElement('a');el.href=URL.createObjectURL(blob);el.download=filename;el.click();
   showToast('CSV exportado!','success');

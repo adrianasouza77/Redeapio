@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS apoiadores (
   cidade          TEXT,
   estado          TEXT,
   titulo          TEXT,
+  zona            TEXT,
   secao           TEXT,
   nivel           INT NOT NULL CHECK (nivel BETWEEN 1 AND 3),
   parent_id       UUID REFERENCES usuarios(id) ON DELETE SET NULL,
@@ -48,6 +49,7 @@ CREATE INDEX IF NOT EXISTS idx_apoiadores_nome_lower ON apoiadores (lower(nome))
 -- Adições incrementais e idempotentes (seguras em bancos já existentes, nunca
 -- apagam dados — só acrescentam colunas novas com valor NULL/padrão):
 ALTER TABLE apoiadores ADD COLUMN IF NOT EXISTS estado TEXT;
+ALTER TABLE apoiadores ADD COLUMN IF NOT EXISTS zona TEXT;
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS email TEXT;
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_password_token TEXT UNIQUE;
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_password_expires TIMESTAMPTZ;
