@@ -1,0 +1,22 @@
+{
+  "name": "redeapoio-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RedeApoio — API (Node/Express + PostgreSQL)",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "migrate-data": "node scripts/migrate-from-supabase.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.12.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

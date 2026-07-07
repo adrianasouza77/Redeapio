@@ -1,0 +1,50 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-redeapoio}
+      POSTGRES_USER: ${POSTGRES_USER:-redeapoio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./backend/migrations:/docker-entrypoint-initdb.d:ro
+    networks:
+      - redeapoio_net
+
+  app:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-redeapoio}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-redeapoio}
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no .env}
+      PUBLIC_URL: ${PUBLIC_URL:-https://app.redeapoiopolitico.com.br}
+      PORT: 3000
+      NODE_ENV: production
+    depends_on:
+      - db
+    networks:
+      - redeapoio_net
+    ports:
+      - "3000:3000"
+    # Se o Portainer usar Traefik como proxy reverso, descomente e ajuste as labels
+    # abaixo, e remova o mapeamento de "ports" acima (o Traefik expõe via rede interna).
+    # labels:
+    #   - traefik.enable=true
+    #   - traefik.http.routers.redeapoio.rule=Host(`app.redeapoiopolitico.com.br`)
+    #   - traefik.http.routers.redeapoio.entrypoints=websecure
+    #   - traefik.http.routers.redeapoio.tls.certresolver=letsencrypt
+    #   - traefik.http.services.redeapoio.loadbalancer.server.port=3000
+    # networks:
+    #   - redeapoio_net
+    #   - traefik_public
+
+networks:
+  redeapoio_net:
+  # traefik_public:
+  #   external: true
+
+volumes:
+  db_data:
