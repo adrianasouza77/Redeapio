@@ -23,7 +23,10 @@ if [ -f .env ]; then
   # interpretação. Isso aqui só atribui KEY=VALUE literalmente, sem executar nada.
   while IFS='=' read -r key value; do
     key="${key%$'\r'}"; value="${value%$'\r'}"
+    # remove espaços em volta da chave (ex: "SUPABASE_URL = valor" editado à mão)
+    key="${key#"${key%%[![:space:]]*}"}"; key="${key%"${key##*[![:space:]]}"}"
     [[ -z "$key" || "$key" == \#* ]] && continue
+    value="${value# }"
     value="${value%\"}"; value="${value#\"}"
     value="${value%\'}"; value="${value#\'}"
     export "$key=$value"
@@ -32,7 +35,15 @@ fi
 
 if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_KEY" ]; then
   echo "❌ SUPABASE_URL e/ou SUPABASE_SERVICE_KEY não encontrados."
-  echo "   Copie .env.example para .env e preencha esses dois valores,"
+  echo ""
+  if [ -f .env ]; then
+    echo "   Chaves encontradas em .env (valores ocultos):"
+    sed -E 's/^([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=.*/  - \1/' .env | grep '^  -' || echo "   (nenhuma linha KEY=valor reconhecida)"
+  else
+    echo "   Nenhum arquivo .env encontrado nesta pasta ($SCRIPT_DIR)."
+  fi
+  echo ""
+  echo "   Copie .env.example para .env e preencha SUPABASE_URL e SUPABASE_SERVICE_KEY,"
   echo "   ou exporte-os no terminal antes de rodar este script."
   exit 1
 fi
