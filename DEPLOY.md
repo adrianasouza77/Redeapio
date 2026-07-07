@@ -37,6 +37,7 @@ container).
    - `DOMAIN` = `app.redeapoiopolitico.com.br`
    - `DB_PASSWORD` = uma senha forte
    - `JWT_SECRET` = string aleatória longa (gere com `openssl rand -hex 32`)
+   - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` — conta de e-mail da Hostinger, usada para enviar o link de "esqueci minha senha". Sem isso configurado, o recurso fica inativo silenciosamente (usuários sem e-mail cadastrado já são orientados a falar com o administrador de qualquer forma).
 5. Clique em **Deploy the stack**.
 
 Pré-requisitos que já devem existir no servidor (compartilhados com as outras
