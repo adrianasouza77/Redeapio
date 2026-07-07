@@ -18,14 +18,14 @@ function linkAutocadastro(liderancaId, candidatoId) {
 // Admin com ?as=<candidatoId>: lista as do workspace daquele candidato.
 router.get('/', requireRole('candidato', 'admin'), async (req, res) => {
   const { rows } = await pool.query(
-    'SELECT id, nome, login, email, perfil, telefone, regiao, cidade, created_at FROM usuarios WHERE criado_por = $1 ORDER BY created_at',
+    'SELECT id, nome, login, email, perfil, telefone, regiao, cidade, titulo, zona, secao, created_at FROM usuarios WHERE criado_por = $1 ORDER BY created_at',
     [req.effectiveId]
   );
   res.json(rows);
 });
 
 router.post('/', requireRole('candidato', 'admin'), async (req, res) => {
-  const { nome, login, senha, perfil, telefone, email, endereco, regiao, cidade, estado } = req.body || {};
+  const { nome, login, senha, perfil, telefone, email, endereco, regiao, cidade, estado, titulo, zona, secao } = req.body || {};
   if (!nome || !login || !senha || !perfil) {
     return res.status(400).json({ error: 'Preencha todos os campos obrigatórios.' });
   }
@@ -39,9 +39,9 @@ router.post('/', requireRole('candidato', 'admin'), async (req, res) => {
     await client.query('BEGIN');
     const senhaHash = await hash(senha);
     const { rows } = await client.query(
-      `INSERT INTO usuarios (nome, login, senha_hash, perfil, criado_por, telefone, email, regiao, endereco, cidade)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id, nome, login, perfil, email`,
-      [nome, login.trim().toLowerCase(), senhaHash, perfil, req.effectiveId, telefone || null, email?.trim().toLowerCase() || null, regiao || null, endereco || null, cidade || null]
+      `INSERT INTO usuarios (nome, login, senha_hash, perfil, criado_por, telefone, email, regiao, endereco, cidade, titulo, zona, secao)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id, nome, login, perfil, email`,
+      [nome, login.trim().toLowerCase(), senhaHash, perfil, req.effectiveId, telefone || null, email?.trim().toLowerCase() || null, regiao || null, endereco || null, cidade || null, titulo || null, zona || null, secao || null]
     );
     const novoUsuario = rows[0];
 
@@ -53,9 +53,9 @@ router.post('/', requireRole('candidato', 'admin'), async (req, res) => {
     if (perfil === 'lideranca' || perfil === 'apoiador') {
       const nivelFicha = perfil === 'lideranca' ? 1 : 2;
       await client.query(
-        `INSERT INTO apoiadores (id, nome, telefone, regiao, endereco, cidade, estado, nivel, parent_id, cadastrado_por)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NULL,$9)`,
-        [novoUsuario.id, nome, telefone || '—', regiao || '—', endereco || null, cidade || null, estado || null, nivelFicha, req.effectiveId]
+        `INSERT INTO apoiadores (id, nome, telefone, regiao, endereco, cidade, estado, titulo, zona, secao, nivel, parent_id, cadastrado_por)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NULL,$12)`,
+        [novoUsuario.id, nome, telefone || '—', regiao || '—', endereco || null, cidade || null, estado || null, titulo || null, zona || null, secao || null, nivelFicha, req.effectiveId]
       );
     }
 
@@ -98,6 +98,21 @@ router.put('/:id/email', requireRole('candidato', 'admin'), async (req, res) => 
 
   await pool.query('UPDATE usuarios SET email = $1 WHERE id = $2', [email?.trim().toLowerCase() || null, id]);
   res.json({ email: email?.trim().toLowerCase() || null });
+});
+
+router.put('/:id/eleitorais', requireRole('candidato', 'admin'), async (req, res) => {
+  const { id } = req.params;
+  const { titulo, zona, secao } = req.body || {};
+  const owned = await pool.query('SELECT id FROM usuarios WHERE id = $1 AND (criado_por = $2 OR $3 = true)', [
+    id, req.effectiveId, req.user.perfil === 'admin',
+  ]);
+  if (!owned.rows[0]) return res.status(404).json({ error: 'Usuário não encontrado.' });
+
+  const vals = [titulo?.trim() || null, zona?.trim() || null, secao?.trim() || null, id];
+  await pool.query('UPDATE usuarios SET titulo = $1, zona = $2, secao = $3 WHERE id = $4', vals);
+  // Mantém a ficha-espelho em apoiadores (pirâmide/Todos os Apoiadores) sincronizada.
+  await pool.query('UPDATE apoiadores SET titulo = $1, zona = $2, secao = $3 WHERE id = $4', vals);
+  res.json({ titulo: vals[0], zona: vals[1], secao: vals[2] });
 });
 
 router.delete('/:id', requireRole('candidato', 'admin'), async (req, res) => {

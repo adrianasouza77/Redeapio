@@ -925,6 +925,9 @@ function renderUsuarios(){
       <div class="field"><label>Bairro / Região</label><input type="text" id="nu-regiao" placeholder="Bairro"></div>
       <div class="field"><label>Cidade</label><input type="text" id="nu-cidade" placeholder="Cidade"></div>
       <div class="field"><label>Estado</label><input type="text" id="nu-uf" placeholder="UF" maxlength="2" style="text-transform:uppercase"></div>
+      <div class="field"><label>Nº Título Eleitoral</label><input type="text" id="nu-titulo" placeholder="0000000000000"></div>
+      <div class="field"><label>Zona Eleitoral</label><input type="text" id="nu-zona" placeholder="000"></div>
+      <div class="field"><label>Seção Eleitoral</label><input type="text" id="nu-secao" placeholder="0000"></div>
     </div>
     <button class="btn-sm btn-navy" onclick="criarUsuario()" style="margin-top:8px">➕ Criar Usuário</button>
   </div>
@@ -943,18 +946,59 @@ async function carregarListaUsuarios(){
   const rLabel={candidato:'Candidato',lideranca:'Liderança',apoiador:'Apoiador'};
   card.innerHTML=`
   <div class="card-header"><div class="card-title">Usuários (${data.length})</div></div>
-  <table><thead><tr><th>Nome</th><th>Login</th><th>E-mail</th><th>Perfil</th><th>Ações</th></tr></thead>
+  <div class="table-wrap">
+  <table><thead><tr><th>Nome</th><th>Login</th><th>E-mail</th><th>Perfil</th><th>Título</th><th>Zona</th><th>Seção</th><th>Ações</th></tr></thead>
   <tbody>${data.map(u=>`
     <tr><td><strong>${u.nome}</strong></td>
     <td><code style="background:#f0f2f8;padding:2px 8px;border-radius:4px;font-size:12px">${u.login}</code></td>
     <td>${u.email ? u.email : '<span style="color:var(--slate-light)">— sem e-mail</span>'}</td>
     <td><span class="badge ${rBadge[u.perfil]||'badge'}">${rLabel[u.perfil]||u.perfil}</span></td>
-    <td><div style="display:flex;gap:6px">
+    <td style="font-family:monospace;font-size:12px">${u.titulo||'—'}</td>
+    <td>${u.zona||'—'}</td>
+    <td>${u.secao||'—'}</td>
+    <td><div style="display:flex;gap:6px;flex-wrap:wrap">
       <button class="btn-sm btn-outline" style="padding:5px 10px;font-size:11px" onclick="editarEmailUsuario('${u.id}','${escapeAttr(u.nome)}','${escapeAttr(u.email||'')}')">✉️ E-mail</button>
+      <button class="btn-sm btn-outline" style="padding:5px 10px;font-size:11px" onclick="editarDadosEleitoraisUsuario('${u.id}','${escapeAttr(u.nome)}','${escapeAttr(u.titulo||'')}','${escapeAttr(u.zona||'')}','${escapeAttr(u.secao||'')}')">🗳️ Título/Zona/Seção</button>
       <button class="btn-sm btn-outline" style="padding:5px 10px;font-size:11px" onclick="trocarSenha('${u.id}','${escapeAttr(u.nome)}')">🔑 Senha</button>
       <button class="btn-del" onclick="excluirUsuario('${u.id}','${escapeAttr(u.nome)}')">🗑</button>
     </div></td></tr>`).join('')}
-  </tbody></table>`;
+  </tbody></table>
+  </div>`;
+}
+
+async function editarDadosEleitoraisUsuario(id, nome, tituloAtual, zonaAtual, secaoAtual){
+  document.getElementById('main-content').insertAdjacentHTML('afterbegin', `
+    <div id="modal-eleitorais" style="position:fixed;inset:0;background:rgba(15,31,61,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;overflow-y:auto;">
+      <div style="background:#fff;border-radius:16px;padding:28px;width:90%;max-width:420px;margin:20px auto;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
+        <div style="font-family:'DM Serif Display',serif;font-size:20px;color:#0F1F3D;margin-bottom:16px">🗳️ Dados eleitorais — ${nome}</div>
+        <div class="form-grid">
+          <div class="field full"><label>Nº Título Eleitoral</label><input type="text" id="del-titulo" value="${tituloAtual}" placeholder="0000000000000"></div>
+          <div class="field"><label>Zona Eleitoral</label><input type="text" id="del-zona" value="${zonaAtual}" placeholder="000"></div>
+          <div class="field"><label>Seção Eleitoral</label><input type="text" id="del-secao" value="${secaoAtual}" placeholder="0000"></div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:20px">
+          <button class="btn-sm btn-navy" onclick="salvarDadosEleitoraisUsuario('${id}')">💾 Salvar</button>
+          <button class="btn-sm btn-outline" onclick="document.getElementById('modal-eleitorais').remove()">Cancelar</button>
+        </div>
+      </div>
+    </div>`);
+}
+
+async function salvarDadosEleitoraisUsuario(id){
+  const titulo = document.getElementById('del-titulo').value.trim();
+  const zona = document.getElementById('del-zona').value.trim();
+  const secao = document.getElementById('del-secao').value.trim();
+  showLoading('Salvando...');
+  try {
+    await api(`/usuarios/${id}/eleitorais${wsQuery()}`, { method:'PUT', body: JSON.stringify({ titulo, zona, secao }) });
+    hideLoading();
+    document.getElementById('modal-eleitorais')?.remove();
+    showToast('Dados eleitorais atualizados!','success');
+    carregarListaUsuarios();
+  } catch(e){
+    hideLoading();
+    showToast(e.message || 'Erro ao salvar.', 'error');
+  }
 }
 
 async function editarEmailUsuario(id, nome, emailAtual){
@@ -1316,6 +1360,9 @@ async function criarUsuario(){
   const regiao=document.getElementById('nu-regiao').value.trim();
   const cidade=document.getElementById('nu-cidade').value.trim();
   const uf=document.getElementById('nu-uf').value.trim();
+  const titulo=document.getElementById('nu-titulo').value.trim();
+  const zona=document.getElementById('nu-zona').value.trim();
+  const secao=document.getElementById('nu-secao').value.trim();
   if(!nome||!login||!senha||!perfil){showToast('Preencha todos os campos.','error');return;}
   if(senha!==senha2){showToast('As senhas não coincidem.','error');return;}
   if(senha.length<4){showToast('Senha muito curta.','error');return;}
@@ -1325,6 +1372,7 @@ async function criarUsuario(){
     result = await api('/usuarios', { method:'POST', body: JSON.stringify({
       nome, login, senha, perfil, telefone: tel || null, email: email || null,
       endereco: endereco || null, regiao: regiao || null, cidade: cidade || null, estado: uf || null,
+      titulo: titulo || null, zona: zona || null, secao: secao || null,
       as: workspaceAdmin?.id,
     })});
   } catch(e) {

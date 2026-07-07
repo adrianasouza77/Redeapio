@@ -50,6 +50,9 @@ CREATE INDEX IF NOT EXISTS idx_apoiadores_nome_lower ON apoiadores (lower(nome))
 -- apagam dados — só acrescentam colunas novas com valor NULL/padrão):
 ALTER TABLE apoiadores ADD COLUMN IF NOT EXISTS estado TEXT;
 ALTER TABLE apoiadores ADD COLUMN IF NOT EXISTS zona TEXT;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS titulo TEXT;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS zona TEXT;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS secao TEXT;
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS email TEXT;
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_password_token TEXT UNIQUE;
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_password_expires TIMESTAMPTZ;
