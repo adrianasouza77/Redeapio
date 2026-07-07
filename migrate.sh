@@ -17,10 +17,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 if [ -f .env ]; then
-  set -a
-  # shellcheck disable=SC1091
-  source .env
-  set +a
+  # Lê o .env linha a linha em vez de dar "source" nele — "source" executa o
+  # arquivo como script bash, e valores com caracteres especiais (/, {, }, $,
+  # crase etc., comuns em senhas/segredos gerados aleatoriamente) quebram a
+  # interpretação. Isso aqui só atribui KEY=VALUE literalmente, sem executar nada.
+  while IFS='=' read -r key value; do
+    key="${key%$'\r'}"; value="${value%$'\r'}"
+    [[ -z "$key" || "$key" == \#* ]] && continue
+    value="${value%\"}"; value="${value#\"}"
+    value="${value%\'}"; value="${value#\'}"
+    export "$key=$value"
+  done < .env
 fi
 
 if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_KEY" ]; then
