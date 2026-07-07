@@ -91,6 +91,7 @@
   .pyr-node.level-1{border-left:4px solid var(--gold);}
   .pyr-node.level-2{border-left:4px solid var(--navy);}
   .pyr-node.level-3{border-left:4px solid #a0aec0;}
+  .pyr-node-active{background:#fdf5e0;box-shadow:0 0 0 2px var(--gold);}
   .pyr-node .pn-name{font-weight:600;font-size:13px;}
   .pyr-node .pn-region{font-size:11px;color:var(--slate-light);margin-top:2px;}
   .pyr-node .pn-count{font-size:11px;color:var(--gold);font-weight:600;margin-top:4px;}
@@ -577,6 +578,7 @@ async function carregarApoiadores() {
   showLoading('Carregando rede...');
   try { APOIADORES = await api('/apoiadores' + wsQuery()); }
   catch(e) { showToast(e.message, 'error'); }
+  redeFiltroL1 = null; redeFiltroL2 = null;
   hideLoading();
 }
 
@@ -678,21 +680,56 @@ function renderDashboard(){
   </div>`;
 }
 
+let redeFiltroL1 = null;
+let redeFiltroL2 = null;
+
+function filtrarRedeL1(id){
+  redeFiltroL1 = (String(redeFiltroL1) === String(id)) ? null : id;
+  redeFiltroL2 = null;
+  showPage('rede');
+}
+function filtrarRedeL2(id){
+  redeFiltroL2 = (String(redeFiltroL2) === String(id)) ? null : id;
+  showPage('rede');
+}
+function limparFiltroRede(){
+  redeFiltroL1 = null; redeFiltroL2 = null;
+  showPage('rede');
+}
+
 function renderRede(){
   const n1=APOIADORES.filter(a=>a.nivel===1);
-  const n2=APOIADORES.filter(a=>a.nivel===2);
-  const n3=APOIADORES.filter(a=>a.nivel===3);
+  let n2=APOIADORES.filter(a=>a.nivel===2);
+  let n3=APOIADORES.filter(a=>a.nivel===3);
+
+  if(redeFiltroL1){
+    n2 = n2.filter(a=>String(a.parent_id)===String(redeFiltroL1));
+    const idsL2 = new Set(n2.map(a=>String(a.id)));
+    n3 = n3.filter(a=>idsL2.has(String(a.parent_id)));
+  }
+  if(redeFiltroL2){
+    n3 = n3.filter(a=>String(a.parent_id)===String(redeFiltroL2));
+  }
+
+  const nomeL1 = redeFiltroL1 ? APOIADORES.find(a=>String(a.id)===String(redeFiltroL1))?.nome : null;
+  const nomeL2 = redeFiltroL2 ? APOIADORES.find(a=>String(a.id)===String(redeFiltroL2))?.nome : null;
+
   return `
-  <div class="page-header"><h1>Rede de Apoio</h1><p>Pirâmide 3 níveis — ${CONFIG.limiteNivel1} / ${CONFIG.limiteNivel2} / ${CONFIG.limiteNivel3}</p></div>
+  <div class="page-header"><h1>Rede de Apoio</h1><p>Pirâmide 3 níveis — ${CONFIG.limiteNivel1} / ${CONFIG.limiteNivel2} / ${CONFIG.limiteNivel3} · clique numa liderança ou apoiador para filtrar a rede dele</p></div>
+  ${(redeFiltroL1||redeFiltroL2) ? `
+  <div class="card" style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:#fdf5e0;border-color:var(--gold)">
+    <span style="font-size:13px;color:#8a6a10;font-weight:600">🔍 Mostrando só a rede de ${nomeL1?`<strong>${nomeL1}</strong>`:''}${nomeL2?` → <strong>${nomeL2}</strong>`:''}</span>
+    <button class="btn-sm btn-outline" onclick="limparFiltroRede()">✕ Limpar filtro</button>
+  </div>` : ''}
   <div class="card">
     <div class="pyr-level"><div class="pyr-level-label">🏆 Nível 1 — Lideranças (${n1.length})</div>
-      <div class="pyr-nodes">${n1.map(a=>`<div class="pyr-node level-1" onclick="showDetail('${a.id}')"><div class="pn-name">${a.nome}</div><div class="pn-region">${a.regiao||'—'}</div><div class="pn-count">↳ ${APOIADORES.filter(x=>String(x.parent_id)===String(a.id)).length} indicados</div></div>`).join('')||'<p style="color:var(--slate-light);font-size:13px">Nenhuma liderança cadastrada.</p>'}</div>
+      <div class="pyr-nodes">${n1.map(a=>`<div class="pyr-node level-1${String(redeFiltroL1)===String(a.id)?' pyr-node-active':''}" onclick="filtrarRedeL1('${a.id}')"><div class="pn-name">${a.nome}</div><div class="pn-region">${a.regiao||'—'}</div><div class="pn-count">↳ ${APOIADORES.filter(x=>String(x.parent_id)===String(a.id)).length} indicados</div></div>`).join('')||'<p style="color:var(--slate-light);font-size:13px">Nenhuma liderança cadastrada.</p>'}</div>
     </div>
     <div class="pyr-level"><div class="pyr-level-label">🔵 Nível 2 — Apoiadores (${n2.length})</div>
-      <div class="pyr-nodes">${n2.map(a=>`<div class="pyr-node level-2" onclick="showDetail('${a.id}')"><div class="pn-name">${a.nome}</div><div class="pn-region">${a.regiao||'—'}</div><div class="pn-count">↳ ${APOIADORES.filter(x=>String(x.parent_id)===String(a.id)).length} indicados</div></div>`).join('')||'<p style="color:var(--slate-light);font-size:13px">Nenhum apoiador nível 2.</p>'}</div>
+      <div class="pyr-nodes">${n2.map(a=>`<div class="pyr-node level-2${String(redeFiltroL2)===String(a.id)?' pyr-node-active':''}" onclick="filtrarRedeL2('${a.id}')"><div class="pn-name">${a.nome}</div><div class="pn-region">${a.regiao||'—'}</div><div class="pn-count">↳ ${APOIADORES.filter(x=>String(x.parent_id)===String(a.id)).length} indicados</div></div>`).join('')||`<p style="color:var(--slate-light);font-size:13px">${redeFiltroL1?'Essa liderança ainda não tem indicados de nível 2.':'Nenhum apoiador nível 2.'}</p>`}</div>
     </div>
     <div class="pyr-level"><div class="pyr-level-label">⚪ Nível 3 — Base (${n3.length})</div>
-      <div class="pyr-nodes">${n3.map(a=>`<div class="pyr-node level-3" onclick="showDetail('${a.id}')"><div class="pn-name">${a.nome}</div><div class="pn-region">${a.regiao||'—'}</div></div>`).join('')||'<p style="color:var(--slate-light);font-size:13px">Nenhum apoiador nível 3.</p>'}</div>
+      <div class="pyr-nodes">${n3.map(a=>`<div class="pyr-node level-3" onclick="showDetail('${a.id}')"><div class="pn-name">${a.nome}</div><div class="pn-region">${a.regiao||'—'}</div></div>`).join('')||`<p style="color:var(--slate-light);font-size:13px">${redeFiltroL2?'Esse apoiador ainda não tem indicados de nível 3.':'Nenhum apoiador nível 3.'}</p>`}</div>
     </div>
   </div>`;
 }
