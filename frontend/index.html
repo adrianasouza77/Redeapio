@@ -8,30 +8,30 @@
   © 2025 RedeApoio. Todos os direitos reservados. Lei 9.610/98.
 -->
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Montserrat:wght@700;800&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=DM+Serif+Display&family=Montserrat:wght@700;800&display=swap');
   :root {
     --navy:#0f1f3d; --navy-mid:#1a3460; --gold:#c8a84b; --gold-light:#e8c96a;
     --slate:#4a5568; --slate-light:#718096; --bg:#f7f8fc; --white:#ffffff;
     --red:#c53030; --green:#276749; --border:#dde2ee; --shadow:0 2px 12px rgba(15,31,61,0.10);
   }
   *{box-sizing:border-box;margin:0;padding:0;}
-  body{font-family:'Public Sans',sans-serif;background:var(--bg);color:var(--navy);min-height:100vh;}
+  body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--navy);min-height:100vh;}
 
   /* AUTH */
   #auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 100%);}
   .auth-card{background:var(--white);border-radius:16px;padding:48px 40px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.3);}
   .auth-logo{text-align:center;margin-bottom:32px;}
-  .auth-logo .brand{font-family:'Source Serif 4',serif;font-size:28px;color:var(--navy);}
+  .auth-logo .brand{font-family:'DM Serif Display',serif;font-size:28px;color:var(--navy);}
   .auth-logo .brand span{color:var(--gold);}
   .auth-logo .tagline{font-size:11px;color:var(--slate-light);letter-spacing:2px;text-transform:uppercase;margin-top:4px;}
   .auth-tabs{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:24px;}
-  .auth-tab{flex:1;padding:10px;text-align:center;font-size:13px;font-weight:500;cursor:pointer;color:var(--slate-light);background:var(--bg);border:none;transition:all .2s;font-family:'Public Sans',sans-serif;}
+  .auth-tab{flex:1;padding:10px;text-align:center;font-size:13px;font-weight:500;cursor:pointer;color:var(--slate-light);background:var(--bg);border:none;transition:all .2s;font-family:'Inter',sans-serif;}
   .auth-tab.active{background:var(--navy);color:var(--white);}
   .field{margin-bottom:16px;}
   .field label{display:block;font-size:12px;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;}
-  .field input,.field select{width:100%;padding:11px 14px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:'Public Sans',sans-serif;color:var(--navy);background:var(--white);outline:none;transition:border-color .2s;}
+  .field input,.field select{width:100%;padding:11px 14px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:'Inter',sans-serif;color:var(--navy);background:var(--white);outline:none;transition:border-color .2s;}
   .field input:focus,.field select:focus{border-color:var(--gold);}
-  .btn-primary{width:100%;padding:13px;background:var(--navy);color:var(--white);border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:background .2s;font-family:'Public Sans',sans-serif;}
+  .btn-primary{width:100%;padding:13px;background:var(--navy);color:var(--white);border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:background .2s;font-family:'Inter',sans-serif;}
   .btn-primary:hover{background:var(--navy-mid);}
   .auth-note{text-align:center;margin-top:20px;font-size:12px;color:var(--slate-light);}
 
@@ -45,25 +45,25 @@
   /* APP */
   #app{display:none;}
   .topbar{background:var(--navy);padding:0 32px;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:100;}
-  .topbar-brand{font-family:'Source Serif 4',serif;font-size:20px;color:var(--white);}
+  .topbar-brand{font-family:'DM Serif Display',serif;font-size:20px;color:var(--white);}
   .topbar-brand span{color:var(--gold);}
   .topbar-right{display:flex;align-items:center;gap:16px;}
   .user-badge{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.08);padding:7px 14px;border-radius:8px;}
   .user-badge .avatar{width:28px;height:28px;border-radius:50%;background:var(--gold);color:var(--navy);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;}
   .user-badge .name{font-size:13px;font-weight:600;color:var(--white);}
   .user-badge .role{font-size:11px;color:rgba(255,255,255,0.5);}
-  .btn-logout{background:none;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.7);padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;font-family:'Public Sans',sans-serif;transition:all .2s;}
+  .btn-logout{background:none;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.7);padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif;transition:all .2s;}
   .btn-logout:hover{border-color:var(--gold);color:var(--gold);}
   .layout{display:flex;min-height:calc(100vh - 60px);}
   .sidebar{width:220px;background:var(--white);border-right:1px solid var(--border);padding:24px 0;flex-shrink:0;}
   .sidebar-section{padding:0 16px;margin-bottom:8px;}
   .sidebar-label{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--slate-light);padding:0 8px;margin-bottom:6px;}
-  .nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;color:var(--slate);transition:all .15s;border:none;background:none;width:100%;text-align:left;font-family:'Public Sans',sans-serif;}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;color:var(--slate);transition:all .15s;border:none;background:none;width:100%;text-align:left;font-family:'Inter',sans-serif;}
   .nav-item:hover{background:var(--bg);color:var(--navy);}
   .nav-item.active{background:#e8edf7;color:var(--navy);font-weight:600;}
   .content{flex:1;padding:32px;overflow-y:auto;}
   .page-header{margin-bottom:28px;}
-  .page-header h1{font-family:'Source Serif 4',serif;font-size:26px;color:var(--navy);}
+  .page-header h1{font-family:'DM Serif Display',serif;font-size:26px;color:var(--navy);}
   .page-header p{font-size:13px;color:var(--slate-light);margin-top:4px;}
   .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px;}
   .stat-card{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:20px;box-shadow:var(--shadow);}
@@ -96,19 +96,19 @@
   .pyr-node .pn-count{font-size:11px;color:var(--gold);font-weight:600;margin-top:4px;}
   .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
   .form-grid .full{grid-column:1/-1;}
-  .btn-sm{padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:'Public Sans',sans-serif;transition:all .2s;}
+  .btn-sm{padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:'Inter',sans-serif;transition:all .2s;}
   .btn-navy{background:var(--navy);color:var(--white);}
   .btn-navy:hover{background:var(--navy-mid);}
   .btn-outline{background:none;border:1px solid var(--border);color:var(--slate);}
   .btn-outline:hover{border-color:var(--navy);color:var(--navy);}
   .btn-red{background:var(--red);color:var(--white);}
-  .btn-del{background:#c53030;color:#fff;border:none;border-radius:6px;font-size:11px;padding:4px 8px;cursor:pointer;font-family:'Public Sans',sans-serif;}
+  .btn-del{background:#c53030;color:#fff;border:none;border-radius:6px;font-size:11px;padding:4px 8px;cursor:pointer;font-family:'Inter',sans-serif;}
   .btn-export{background:var(--green);color:var(--white);}
   .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;align-items:center;justify-content:center;}
   .modal-overlay.open{display:flex;}
   .modal{background:var(--white);border-radius:16px;padding:32px;width:100%;max-width:520px;box-shadow:0 20px 60px rgba(0,0,0,0.3);max-height:90vh;overflow-y:auto;}
   .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;}
-  .modal-title{font-family:'Source Serif 4',serif;font-size:20px;color:var(--navy);}
+  .modal-title{font-family:'DM Serif Display',serif;font-size:20px;color:var(--navy);}
   .modal-close{background:none;border:none;font-size:20px;cursor:pointer;color:var(--slate-light);}
   .detail-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0f2f8;font-size:13px;}
   .detail-row:last-child{border-bottom:none;}
@@ -117,13 +117,13 @@
   .detail-val.sensitive{filter:blur(5px);cursor:pointer;transition:filter .2s;}
   .detail-val.sensitive.revealed{filter:none;}
   .search-bar{display:flex;gap:10px;margin-bottom:16px;align-items:center;}
-  .search-input{flex:1;padding:9px 14px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:'Public Sans',sans-serif;color:var(--navy);outline:none;}
+  .search-input{flex:1;padding:9px 14px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;color:var(--navy);outline:none;}
   .search-input:focus{border-color:var(--gold);}
   .config-section-title{font-size:13px;font-weight:700;color:var(--navy);margin:20px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--gold);}
   .config-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid #f5f6fa;}
   .config-row:last-child{border-bottom:none;}
   .config-label{font-size:13px;color:var(--slate);flex-shrink:0;}
-  .config-input{padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:'Public Sans',sans-serif;width:220px;outline:none;color:var(--navy);}
+  .config-input{padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;width:220px;outline:none;color:var(--navy);}
   .config-input:focus{border-color:var(--gold);}
   .config-input-num{width:90px;text-align:center;}
   .toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:var(--white);padding:14px 20px;border-radius:10px;font-size:13px;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,0.2);z-index:9999;transform:translateY(80px);opacity:0;transition:all .3s;max-width:360px;}
@@ -135,7 +135,7 @@
   .region-tag{display:inline-block;background:#e8edf7;color:var(--navy);font-size:11px;padding:2px 8px;border-radius:4px;font-weight:600;}
   .empty-state{text-align:center;padding:48px;color:var(--slate-light);}
   .empty-state .icon{font-size:40px;margin-bottom:12px;}
-  .watermark{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);font-size:11px;color:rgba(15,31,61,0.12);pointer-events:none;z-index:99999;white-space:nowrap;font-family:'Public Sans',sans-serif;letter-spacing:1.5px;text-transform:uppercase;user-select:none;}
+  .watermark{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);font-size:11px;color:rgba(15,31,61,0.12);pointer-events:none;z-index:99999;white-space:nowrap;font-family:'Inter',sans-serif;letter-spacing:1.5px;text-transform:uppercase;user-select:none;}
   .copyright-footer{background:var(--navy);color:rgba(255,255,255,0.35);text-align:center;font-size:11px;padding:10px;letter-spacing:.8px;}
   .copyright-footer strong{color:var(--gold);}
   .lgpd-box{display:flex;gap:10px;align-items:flex-start;background:var(--bg);padding:12px;border-radius:8px;margin-bottom:16px;}
@@ -170,13 +170,13 @@
 <!-- MODAL ESQUECI SENHA -->
 <div id="modal-esqueci" style="display:none;position:fixed;inset:0;background:rgba(15,31,61,0.8);z-index:9999;align-items:center;justify-content:center;">
   <div style="background:#fff;border-radius:16px;padding:32px;width:90%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
-    <div style="font-family:'Source Serif 4',serif;font-size:20px;color:var(--navy);margin-bottom:8px">Recuperar acesso</div>
+    <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--navy);margin-bottom:8px">Recuperar acesso</div>
     <div style="font-size:12px;color:var(--slate-light);margin-bottom:20px">Digite seu login. Se houver um e-mail cadastrado, enviaremos um link para redefinir sua senha.</div>
     <div class="field"><label>Seu login</label><input type="text" id="rec-login" placeholder="Digite seu login"></div>
     <div id="rec-result" style="display:none;border-radius:8px;padding:14px;margin-bottom:16px;font-size:13px"></div>
     <div style="display:flex;gap:10px">
-      <button onclick="document.getElementById('modal-esqueci').style.display='none'" style="flex:1;padding:11px;background:var(--bg);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-family:'Public Sans',sans-serif;font-size:13px">Cancelar</button>
-      <button onclick="recuperarSenha()" style="flex:1.5;padding:11px;background:var(--navy);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:'Public Sans',sans-serif;font-size:13px;font-weight:600">Enviar link por e-mail</button>
+      <button onclick="document.getElementById('modal-esqueci').style.display='none'" style="flex:1;padding:11px;background:var(--bg);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif;font-size:13px">Cancelar</button>
+      <button onclick="recuperarSenha()" style="flex:1.5;padding:11px;background:var(--navy);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif;font-size:13px;font-weight:600">Enviar link por e-mail</button>
     </div>
   </div>
 </div>
@@ -184,19 +184,19 @@
 <!-- MODAL NOVA SENHA (via link recebido por e-mail) -->
 <div id="modal-nova-senha" style="display:none;position:fixed;inset:0;background:rgba(15,31,61,0.8);z-index:9999;align-items:center;justify-content:center;">
   <div style="background:#fff;border-radius:16px;padding:32px;width:90%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
-    <div style="font-family:'Source Serif 4',serif;font-size:20px;color:var(--navy);margin-bottom:8px">Definir nova senha</div>
+    <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--navy);margin-bottom:8px">Definir nova senha</div>
     <div style="font-size:12px;color:var(--slate-light);margin-bottom:20px">Escolha uma nova senha para sua conta.</div>
     <div class="field"><label>Nova senha</label><input type="password" id="ns-senha" placeholder="Mínimo 4 caracteres"></div>
     <div class="field"><label>Confirmar senha</label><input type="password" id="ns-senha2" placeholder="Repita a senha"></div>
     <div id="ns-result" style="display:none;border-radius:8px;padding:14px;margin-bottom:16px;font-size:13px"></div>
-    <button onclick="confirmarNovaSenha()" style="width:100%;padding:11px;background:var(--navy);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:'Public Sans',sans-serif;font-size:13px;font-weight:600">Salvar nova senha</button>
+    <button onclick="confirmarNovaSenha()" style="width:100%;padding:11px;background:var(--navy);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif;font-size:13px;font-weight:600">Salvar nova senha</button>
   </div>
 </div>
 
 <!-- MODAL AUTOCADASTRO APOIADOR -->
 <div id="modal-autocadastro" style="display:none;position:fixed;inset:0;background:rgba(15,31,61,0.8);z-index:9999;align-items:center;justify-content:center;overflow-y:auto;">
   <div style="background:#fff;border-radius:16px;padding:32px;width:90%;max-width:480px;margin:20px auto;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
-    <div style="font-family:'Source Serif 4',serif;font-size:22px;color:var(--navy);margin-bottom:4px">Meu Cadastro</div>
+    <div style="font-family:'DM Serif Display',serif;font-size:22px;color:var(--navy);margin-bottom:4px">Meu Cadastro</div>
     <div id="auto-descricao" style="font-size:12px;color:var(--slate-light);margin-bottom:20px">Preencha seus dados para entrar na rede</div>
     <div class="field"><label>Nome Completo *</label><input type="text" id="auto-nome" placeholder="Seu nome completo"></div>
     <div class="field"><label>Telefone *</label><input type="tel" id="auto-tel" placeholder="(67) 00000-0000"></div>
@@ -222,8 +222,8 @@
     </div>
     <div id="auto-result" style="display:none;margin-bottom:16px;padding:14px;border-radius:8px;font-size:13px"></div>
     <div style="display:flex;gap:10px">
-      <button onclick="fecharAutoCadastro()" style="flex:1;padding:11px;background:var(--bg);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-family:'Public Sans',sans-serif;font-size:13px">Cancelar</button>
-      <button onclick="salvarAutoCadastro()" style="flex:1.5;padding:11px;background:var(--navy);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:'Public Sans',sans-serif;font-size:13px;font-weight:600">✔ Enviar meu cadastro</button>
+      <button onclick="fecharAutoCadastro()" style="flex:1;padding:11px;background:var(--bg);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif;font-size:13px">Cancelar</button>
+      <button onclick="salvarAutoCadastro()" style="flex:1.5;padding:11px;background:var(--navy);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif;font-size:13px;font-weight:600">✔ Enviar meu cadastro</button>
     </div>
   </div>
 </div>
@@ -1005,10 +1005,10 @@ function desenharGrafico(){
       const slice=(v/total)*Math.PI*2;
       ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,angle,angle+slice);ctx.closePath();
       ctx.fillStyle=CORES[i%CORES.length];ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
-      if(slice>0.15){const mid=angle+slice/2;ctx.fillStyle='#fff';ctx.font="bold 12px 'Public Sans',sans-serif";ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(v,cx+Math.cos(mid)*r*0.65,cy+Math.sin(mid)*r*0.65);}
+      if(slice>0.15){const mid=angle+slice/2;ctx.fillStyle='#fff';ctx.font="bold 12px 'Inter',sans-serif";ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(v,cx+Math.cos(mid)*r*0.65,cy+Math.sin(mid)*r*0.65);}
       angle+=slice;
     });
-    labels.forEach((l,i)=>{const x=16+i*(W/labels.length);ctx.fillStyle=CORES[i%CORES.length];ctx.fillRect(x,H-14,10,10);ctx.fillStyle='#4a5568';ctx.font="11px 'Public Sans',sans-serif";ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(l.length>8?l.slice(0,8)+'…':l,x+13,H-9);});
+    labels.forEach((l,i)=>{const x=16+i*(W/labels.length);ctx.fillStyle=CORES[i%CORES.length];ctx.fillRect(x,H-14,10,10);ctx.fillStyle='#4a5568';ctx.font="11px 'Inter',sans-serif";ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(l.length>8?l.slice(0,8)+'…':l,x+13,H-9);});
   } else if(chartType==='horizontal'){
     const barH=Math.min(36,(H-pad.top-pad.bottom)/values.length-6);
     const maxV=Math.max(...values);
@@ -1016,22 +1016,22 @@ function desenharGrafico(){
     values.forEach((v,i)=>{
       const y=pad.top+i*(barH+8);
       ctx.fillStyle=CORES[i%CORES.length];roundRect(ctx,pad.left+100,y,(v/maxV)*chartW,barH,4);ctx.fill();
-      ctx.fillStyle='#4a5568';ctx.font="12px 'Public Sans',sans-serif";ctx.textAlign='right';ctx.textBaseline='middle';ctx.fillText(labels[i],pad.left+95,y+barH/2);
-      ctx.fillStyle='#0f1f3d';ctx.font="bold 12px 'Public Sans',sans-serif";ctx.textAlign='left';ctx.fillText(v+' ('+((v/total)*100).toFixed(0)+'%)',pad.left+100+(v/maxV)*chartW+6,y+barH/2);
+      ctx.fillStyle='#4a5568';ctx.font="12px 'Inter',sans-serif";ctx.textAlign='right';ctx.textBaseline='middle';ctx.fillText(labels[i],pad.left+95,y+barH/2);
+      ctx.fillStyle='#0f1f3d';ctx.font="bold 12px 'Inter',sans-serif";ctx.textAlign='left';ctx.fillText(v+' ('+((v/total)*100).toFixed(0)+'%)',pad.left+100+(v/maxV)*chartW+6,y+barH/2);
     });
   } else {
     const maxV=Math.max(...values,1);
     const n=values.length;
     const barW=Math.min(60,(W-pad.left-pad.right)/n-10);
     const chartH=H-pad.top-pad.bottom;
-    for(let i=0;i<=5;i++){const y=pad.top+i*(chartH/5);ctx.strokeStyle='#e8edf7';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(W-pad.right,y);ctx.stroke();ctx.fillStyle='#a0aec0';ctx.font="11px 'Public Sans',sans-serif";ctx.textAlign='right';ctx.textBaseline='middle';ctx.fillText(Math.round(maxV*(1-i/5)),pad.left-6,y);}
+    for(let i=0;i<=5;i++){const y=pad.top+i*(chartH/5);ctx.strokeStyle='#e8edf7';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(W-pad.right,y);ctx.stroke();ctx.fillStyle='#a0aec0';ctx.font="11px 'Inter',sans-serif";ctx.textAlign='right';ctx.textBaseline='middle';ctx.fillText(Math.round(maxV*(1-i/5)),pad.left-6,y);}
     values.forEach((v,i)=>{
       const x=pad.left+i*(barW+10)+5;
       const bh=(v/maxV)*chartH;
       const y=pad.top+chartH-bh;
       ctx.fillStyle=CORES[i%CORES.length];roundRect(ctx,x,y,barW,bh,4);ctx.fill();
-      ctx.fillStyle='#0f1f3d';ctx.font="bold 12px 'Public Sans',sans-serif";ctx.textAlign='center';ctx.textBaseline='bottom';ctx.fillText(v,x+barW/2,y-4);
-      ctx.fillStyle='#4a5568';ctx.font="11px 'Public Sans',sans-serif";ctx.textBaseline='top';ctx.fillText(labels[i].length>9?labels[i].slice(0,9)+'…':labels[i],x+barW/2,H-pad.bottom+6);
+      ctx.fillStyle='#0f1f3d';ctx.font="bold 12px 'Inter',sans-serif";ctx.textAlign='center';ctx.textBaseline='bottom';ctx.fillText(v,x+barW/2,y-4);
+      ctx.fillStyle='#4a5568';ctx.font="11px 'Inter',sans-serif";ctx.textBaseline='top';ctx.fillText(labels[i].length>9?labels[i].slice(0,9)+'…':labels[i],x+barW/2,H-pad.bottom+6);
     });
   }
 }
@@ -1171,7 +1171,7 @@ function editarApoiador(id) {
   document.getElementById('main-content').insertAdjacentHTML('afterbegin', `
     <div id="modal-editar" style="position:fixed;inset:0;background:rgba(15,31,61,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;overflow-y:auto;">
       <div style="background:#fff;border-radius:16px;padding:28px;width:90%;max-width:480px;margin:20px auto;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
-        <div style="font-family:'Source Serif 4',serif;font-size:20px;color:#0F1F3D;margin-bottom:16px">✏️ Editar Cadastro</div>
+        <div style="font-family:'DM Serif Display',serif;font-size:20px;color:#0F1F3D;margin-bottom:16px">✏️ Editar Cadastro</div>
         <div class="form-grid">
           <div class="field full"><label>Nome Completo *</label><input type="text" id="ed-nome" value="${a.nome||''}" placeholder="Nome completo"></div>
           <div class="field"><label>Telefone</label><input type="tel" id="ed-tel" value="${a.telefone||''}" placeholder="(67) 00000-0000"></div>
@@ -1191,8 +1191,8 @@ function editarApoiador(id) {
           <div class="field"><label>Seção Eleitoral</label><input type="text" id="ed-secao" value="${a.secao||''}" placeholder="0000"></div>
         </div>
         <div style="display:flex;gap:10px;margin-top:16px">
-          <button onclick="document.getElementById('modal-editar').remove()" style="flex:1;padding:12px;background:#f0f0f0;border:none;border-radius:8px;cursor:pointer;font-family:'Public Sans',sans-serif">Cancelar</button>
-          <button onclick="salvarEdicao('${id}')" style="flex:1.5;padding:12px;background:#0F1F3D;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:'Public Sans',sans-serif;font-weight:600">✔ Salvar alterações</button>
+          <button onclick="document.getElementById('modal-editar').remove()" style="flex:1;padding:12px;background:#f0f0f0;border:none;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif">Cancelar</button>
+          <button onclick="salvarEdicao('${id}')" style="flex:1.5;padding:12px;background:#0F1F3D;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif;font-weight:600">✔ Salvar alterações</button>
         </div>
       </div>
     </div>
@@ -1302,8 +1302,8 @@ async function criarUsuario(){
     document.getElementById('main-content').insertAdjacentHTML('afterbegin', `
       <div id="wa-banner" style="position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:9999;background:#25d366;color:#fff;padding:16px 22px;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,0.25);display:flex;align-items:center;gap:14px;max-width:90%">
         <span style="font-size:22px">💬</span>
-        <span style="font-family:'Public Sans',sans-serif;font-size:14px;font-weight:600">Enviar dados de acesso para ${nome}?</span>
-        <a href="${waLink}" target="_blank" onclick="document.getElementById('wa-banner').remove()" style="background:#fff;color:#075e54;padding:8px 16px;border-radius:10px;font-family:'Public Sans',sans-serif;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap">Enviar agora</a>
+        <span style="font-family:'Inter',sans-serif;font-size:14px;font-weight:600">Enviar dados de acesso para ${nome}?</span>
+        <a href="${waLink}" target="_blank" onclick="document.getElementById('wa-banner').remove()" style="background:#fff;color:#075e54;padding:8px 16px;border-radius:10px;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap">Enviar agora</a>
         <span onclick="document.getElementById('wa-banner').remove()" style="cursor:pointer;font-size:18px;opacity:0.8">✕</span>
       </div>
     `);
