@@ -9,7 +9,7 @@
   Todos os direitos reservados. Lei 9.610/98.
 -->
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Montserrat:wght@700;800&display=swap');
   :root {
     --navy:#0f1f3d; --navy-mid:#1a3460; --gold:#c8a84b; --gold-light:#e8c96a;
     --slate:#4a5568; --slate-light:#718096; --bg:#f7f8fc; --white:#ffffff;
@@ -70,7 +70,7 @@
   .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px;}
   .stat-card{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:20px;box-shadow:var(--shadow);}
   .stat-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--slate-light);margin-bottom:8px;}
-  .stat-value{font-family:'Source Serif 4',serif;font-size:32px;color:var(--navy);}
+  .stat-value{font-family:'Montserrat',sans-serif;font-weight:800;font-size:32px;color:var(--navy);}
   .stat-sub{font-size:11px;color:var(--slate-light);margin-top:4px;}
   .card{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:24px;box-shadow:var(--shadow);margin-bottom:20px;}
   .card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
@@ -616,7 +616,7 @@ function renderDashboard(){
       <div style="display:flex;flex-wrap:wrap;gap:12px">
         ${Object.entries(regioes).map(([r,n])=>`
           <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 20px;text-align:center">
-            <div style="font-size:22px;font-family:'Source Serif 4',serif;color:var(--navy)">${n}</div>
+            <div style="font-size:22px;font-family:'Montserrat',sans-serif;font-weight:800;color:var(--navy)">${n}</div>
             <div style="font-size:11px;color:var(--slate-light);margin-top:2px">${r}</div>
           </div>`).join('')}
       </div>
