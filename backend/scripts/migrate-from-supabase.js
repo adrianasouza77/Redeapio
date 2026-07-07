@@ -70,14 +70,21 @@ async function main() {
 
     const jaExisteAdmin = await client.query("SELECT id FROM usuarios WHERE perfil = 'admin' LIMIT 1");
     let senhaAdmin = null;
+    let loginAdmin = null;
     if (!jaExisteAdmin.rows[0]) {
+      // "adriana" pode já existir vindo do próprio Supabase (com outro perfil) —
+      // evita colidir com o login único da tabela.
+      loginAdmin = 'adriana';
+      const loginEmUso = await client.query('SELECT id FROM usuarios WHERE login = $1', [loginAdmin]);
+      if (loginEmUso.rows[0]) loginAdmin = 'adriana-admin';
+
       senhaAdmin = Array.from({ length: 10 }, () =>
         'ABCDEFGHJKMNPQRSTWXYZabcdefghjkmnpqrstwxyz23456789@#'[Math.floor(Math.random() * 52)]
       ).join('');
       const hashAdmin = await bcrypt.hash(senhaAdmin, 10);
       await client.query(
-        "INSERT INTO usuarios (nome, login, senha_hash, perfil) VALUES ('Adriana Souza', 'adriana', $1, 'admin')",
-        [hashAdmin]
+        "INSERT INTO usuarios (nome, login, senha_hash, perfil) VALUES ('Adriana Souza', $1, $2, 'admin')",
+        [loginAdmin, hashAdmin]
       );
     }
 
@@ -85,7 +92,7 @@ async function main() {
     console.log('Migração concluída com sucesso.');
     if (senhaAdmin) {
       console.log('\n=== CONTA DE ADMINISTRADOR CRIADA ===');
-      console.log('Login: adriana');
+      console.log(`Login: ${loginAdmin}`);
       console.log(`Senha temporária: ${senhaAdmin}`);
       console.log('Troque essa senha assim que possível (tela de recuperação de senha).\n');
     }
