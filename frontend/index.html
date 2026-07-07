@@ -608,7 +608,7 @@ function showPage(page) {
     case 'grafico':       c.innerHTML=renderGrafico(); setTimeout(desenharGrafico,50); break;
     case 'minha-rede':    c.innerHTML=renderMinhaRede(); break;
     case 'cadastrar':     c.innerHTML=renderCadastrar(); break;
-    case 'usuarios':      c.innerHTML=renderUsuarios(); break;
+    case 'usuarios':      c.innerHTML=renderUsuarios(); setTimeout(carregarListaUsuarios,50); break;
     case 'configuracoes': c.innerHTML=renderConfiguracoes(); break;
     case 'vagas':         c.innerHTML=renderVagas(); setTimeout(carregarVagas,50); break;
   }
