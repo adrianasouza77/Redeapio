@@ -24,6 +24,9 @@
   .auth-logo .brand{font-family:'Source Serif 4',serif;font-size:28px;color:var(--navy);}
   .auth-logo .brand span{color:var(--gold);}
   .auth-logo .tagline{font-size:11px;color:var(--slate-light);letter-spacing:2px;text-transform:uppercase;margin-top:4px;}
+  .auth-tabs{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:24px;}
+  .auth-tab{flex:1;padding:10px;text-align:center;font-size:13px;font-weight:500;cursor:pointer;color:var(--slate-light);background:var(--bg);border:none;transition:all .2s;font-family:'Public Sans',sans-serif;}
+  .auth-tab.active{background:var(--navy);color:var(--white);}
   .field{margin-bottom:16px;}
   .field label{display:block;font-size:12px;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;}
   .field input,.field select{width:100%;padding:11px 14px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:'Public Sans',sans-serif;color:var(--navy);background:var(--white);outline:none;transition:border-color .2s;}
@@ -58,9 +61,6 @@
   .nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;color:var(--slate);transition:all .15s;border:none;background:none;width:100%;text-align:left;font-family:'Public Sans',sans-serif;}
   .nav-item:hover{background:var(--bg);color:var(--navy);}
   .nav-item.active{background:#e8edf7;color:var(--navy);font-weight:600;}
-  .nav-ico{display:inline-flex;flex-shrink:0;width:16px;height:16px;color:inherit;opacity:.75;}
-  .nav-ico svg{width:100%;height:100%;display:block;}
-  .nav-item.active .nav-ico{opacity:1;}
   .content{flex:1;padding:32px;overflow-y:auto;}
   .page-header{margin-bottom:28px;}
   .page-header h1{font-family:'Source Serif 4',serif;font-size:26px;color:var(--navy);}
@@ -148,6 +148,12 @@
     <div class="auth-logo">
       <div class="brand">Rede<span>Apoio</span></div>
       <div class="tagline">Gestão de Rede Política</div>
+    </div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="setAuthTab('candidato')">Candidato</button>
+      <button class="auth-tab" onclick="setAuthTab('lideranca')">Liderança</button>
+      <button class="auth-tab" onclick="setAuthTab('apoiador')">Apoiador</button>
+      <button class="auth-tab" onclick="setAuthTab('admin')">Administrador</button>
     </div>
     <div class="field"><label>Usuário</label><input type="text" id="login-user" placeholder="Digite seu usuário"></div>
     <div class="field"><label>Senha</label><input type="password" id="login-pass" placeholder="••••••••"></div>
@@ -244,30 +250,30 @@
     <div class="sidebar">
       <div class="sidebar-section" id="nav-candidato" style="display:none">
         <div class="sidebar-label">Candidato</div>
-        <button class="nav-item active" onclick="showPage('dashboard')"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span> Dashboard</button>
-        <button class="nav-item" onclick="showPage('rede')"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2.2"/><circle cx="5" cy="19" r="2.2"/><circle cx="19" cy="19" r="2.2"/><line x1="12" y1="7.2" x2="6.3" y2="17.2"/><line x1="12" y1="7.2" x2="17.7" y2="17.2"/></svg></span> Rede de Apoio</button>
-        <button class="nav-item" onclick="showPage('apoiadores')"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span> Todos os Apoiadores</button>
-        <button class="nav-item" onclick="showPage('exportar')"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span> Exportar Dados</button>
-        <button class="nav-item" onclick="showPage('grafico')"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span> Gráfico por Zona</button>
-        <button class="nav-item" onclick="showPage('usuarios')"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg></span> Usuários</button>
-        <button class="nav-item" onclick="showPage('configuracoes')"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span> Configurações</button>
+        <button class="nav-item active" onclick="showPage('dashboard')"><span>📊</span> Dashboard</button>
+        <button class="nav-item" onclick="showPage('rede')"><span>🌐</span> Rede de Apoio</button>
+        <button class="nav-item" onclick="showPage('apoiadores')"><span>👥</span> Todos os Apoiadores</button>
+        <button class="nav-item" onclick="showPage('exportar')"><span>📥</span> Exportar Dados</button>
+        <button class="nav-item" onclick="showPage('grafico')"><span>📈</span> Gráfico por Zona</button>
+        <button class="nav-item" onclick="showPage('usuarios')"><span>🔑</span> Usuários</button>
+        <button class="nav-item" onclick="showPage('configuracoes')"><span>⚙️</span> Configurações</button>
       </div>
       <div class="sidebar-section" id="nav-lideranca" style="display:none">
         <div class="sidebar-label">Liderança</div>
-        <button class="nav-item active" onclick="showPage('dashboard')"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span> Meu Painel</button>
-        <button class="nav-item" onclick="showPage('minha-rede')"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2.2"/><circle cx="5" cy="19" r="2.2"/><circle cx="19" cy="19" r="2.2"/><line x1="12" y1="7.2" x2="6.3" y2="17.2"/><line x1="12" y1="7.2" x2="17.7" y2="17.2"/></svg></span> Minha Rede</button>
-        <button class="nav-item" onclick="showPage('cadastrar')"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span> Cadastrar Apoiador</button>
-        <button class="nav-item" onclick="gerarLinkAutoCadastro()" style="background:linear-gradient(135deg,#276749,#1a4a32);color:#fff;border-radius:8px;margin-top:4px"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span> Gerar link de cadastro</button>
+        <button class="nav-item active" onclick="showPage('dashboard')"><span>📊</span> Meu Painel</button>
+        <button class="nav-item" onclick="showPage('minha-rede')"><span>🌐</span> Minha Rede</button>
+        <button class="nav-item" onclick="showPage('cadastrar')"><span>➕</span> Cadastrar Apoiador</button>
+        <button class="nav-item" onclick="gerarLinkAutoCadastro()" style="background:linear-gradient(135deg,#276749,#1a4a32);color:#fff;border-radius:8px;margin-top:4px"><span>🔗</span> Gerar link de cadastro</button>
       </div>
       <div class="sidebar-section" id="nav-apoiador" style="display:none">
         <div class="sidebar-label">Apoiador</div>
-        <button class="nav-item active" onclick="showPage('dashboard')"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span> Meu Painel</button>
-        <button class="nav-item" onclick="showPage('minha-rede')"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2.2"/><circle cx="5" cy="19" r="2.2"/><circle cx="19" cy="19" r="2.2"/><line x1="12" y1="7.2" x2="6.3" y2="17.2"/><line x1="12" y1="7.2" x2="17.7" y2="17.2"/></svg></span> Minha Rede</button>
-        <button class="nav-item" onclick="showPage('cadastrar')"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span> Indicar Pessoa</button>
+        <button class="nav-item active" onclick="showPage('dashboard')"><span>📊</span> Meu Painel</button>
+        <button class="nav-item" onclick="showPage('minha-rede')"><span>🌐</span> Minha Rede</button>
+        <button class="nav-item" onclick="showPage('cadastrar')"><span>➕</span> Indicar Pessoa</button>
       </div>
       <div class="sidebar-section" id="nav-admin" style="display:none">
         <div class="sidebar-label">Administrador</div>
-        <button class="nav-item active" onclick="showPage('vagas')"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span> Central de Vagas</button>
+        <button class="nav-item active" onclick="showPage('vagas')"><span>🗝️</span> Central de Vagas</button>
       </div>
     </div>
     <div class="content" id="main-content"></div>
@@ -336,6 +342,14 @@ let paginaAtual = 'dashboard';
 let workspaceAdmin = null; // {id, nome} — preenchido quando o admin abre o workspace de um candidato
 
 const ROLE_LABELS = {candidato:'Candidato', lideranca:'Liderança', apoiador:'Apoiador', admin:'Administrador'};
+
+let currentAuthTab = 'candidato';
+function setAuthTab(tab) {
+  currentAuthTab = tab;
+  document.querySelectorAll('.auth-tab').forEach((el)=>{
+    el.classList.toggle('active', el.getAttribute('onclick')?.includes(`'${tab}'`));
+  });
+}
 
 // Enquanto o admin está "dentro" do workspace de um candidato, a UI se comporta
 // como se fosse o próprio candidato logado (mesmas telas, mesmos dados).
@@ -534,7 +548,7 @@ async function doLogin() {
 
   showLoading('Verificando acesso...');
   try {
-    const data = await api('/auth/login', { method:'POST', body: JSON.stringify({ login: usuario, senha }) });
+    const data = await api('/auth/login', { method:'POST', body: JSON.stringify({ login: usuario, senha, perfil: currentAuthTab }) });
     await entrarNaApp(data.user);
     showToast('Bem-vindo(a), '+data.user.nome+'!','success');
   } catch(e){

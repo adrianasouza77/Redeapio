@@ -52,3 +52,22 @@ ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS email TEXT;
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_password_token TEXT UNIQUE;
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_password_expires TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS idx_usuarios_email ON usuarios (lower(email));
+
+-- Conserta lacuna de dados já existente no Supabase de origem: algumas
+-- lideranças foram criadas fora do fluxo normal do app (ex: direto pelo
+-- painel do Supabase) e nunca ganharam a linha-espelho em "apoiadores"
+-- (nivel 1) que faz elas aparecerem no Dashboard, na pirâmide de Rede de
+-- Apoio e em Todos os Apoiadores — a tela de Usuários não é afetada, pois
+-- lista direto da tabela "usuarios". Idempotente: roda em todo boot, mas só
+-- insere quem realmente está faltando.
+INSERT INTO apoiadores (nome, telefone, regiao, endereco, cidade, nivel, parent_id, cadastrado_por)
+SELECT u.nome, COALESCE(u.telefone, '—'), COALESCE(u.regiao, '—'), u.endereco, u.cidade, 1, NULL, u.criado_por
+FROM usuarios u
+WHERE u.perfil = 'lideranca'
+  AND u.criado_por IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM apoiadores a
+    WHERE a.nivel = 1
+      AND a.cadastrado_por = u.criado_por
+      AND lower(a.nome) = lower(u.nome)
+  );
