@@ -18,14 +18,14 @@ function linkAutocadastro(liderancaId, candidatoId) {
 // Admin com ?as=<candidatoId>: lista as do workspace daquele candidato.
 router.get('/', requireRole('candidato', 'admin'), async (req, res) => {
   const { rows } = await pool.query(
-    'SELECT id, nome, login, perfil, telefone, regiao, cidade, created_at FROM usuarios WHERE criado_por = $1 ORDER BY created_at',
+    'SELECT id, nome, login, email, perfil, telefone, regiao, cidade, created_at FROM usuarios WHERE criado_por = $1 ORDER BY created_at',
     [req.effectiveId]
   );
   res.json(rows);
 });
 
 router.post('/', requireRole('candidato', 'admin'), async (req, res) => {
-  const { nome, login, senha, perfil, telefone, endereco, regiao, cidade } = req.body || {};
+  const { nome, login, senha, perfil, telefone, email, endereco, regiao, cidade, estado } = req.body || {};
   if (!nome || !login || !senha || !perfil) {
     return res.status(400).json({ error: 'Preencha todos os campos obrigatórios.' });
   }
@@ -39,17 +39,17 @@ router.post('/', requireRole('candidato', 'admin'), async (req, res) => {
     await client.query('BEGIN');
     const senhaHash = await hash(senha);
     const { rows } = await client.query(
-      `INSERT INTO usuarios (nome, login, senha_hash, perfil, criado_por, telefone, regiao, endereco, cidade)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, nome, login, perfil`,
-      [nome, login.trim().toLowerCase(), senhaHash, perfil, req.effectiveId, telefone || null, regiao || null, endereco || null, cidade || null]
+      `INSERT INTO usuarios (nome, login, senha_hash, perfil, criado_por, telefone, email, regiao, endereco, cidade)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id, nome, login, perfil, email`,
+      [nome, login.trim().toLowerCase(), senhaHash, perfil, req.effectiveId, telefone || null, email?.trim().toLowerCase() || null, regiao || null, endereco || null, cidade || null]
     );
     const novoUsuario = rows[0];
 
     if (perfil === 'lideranca') {
       await client.query(
-        `INSERT INTO apoiadores (nome, telefone, regiao, endereco, cidade, nivel, parent_id, cadastrado_por)
-         VALUES ($1,$2,$3,$4,$5,1,NULL,$6)`,
-        [nome, telefone || '—', regiao || '—', endereco || null, cidade || null, req.effectiveId]
+        `INSERT INTO apoiadores (nome, telefone, regiao, endereco, cidade, estado, nivel, parent_id, cadastrado_por)
+         VALUES ($1,$2,$3,$4,$5,$6,1,NULL,$7)`,
+        [nome, telefone || '—', regiao || '—', endereco || null, cidade || null, estado || null, req.effectiveId]
       );
     }
 
@@ -80,6 +80,18 @@ router.put('/:id/senha', requireRole('candidato', 'admin'), async (req, res) => 
   const senhaHash = await hash(novaSenha);
   await pool.query('UPDATE usuarios SET senha_hash = $1 WHERE id = $2', [senhaHash, id]);
   res.json({ senha: novaSenha });
+});
+
+router.put('/:id/email', requireRole('candidato', 'admin'), async (req, res) => {
+  const { id } = req.params;
+  const { email } = req.body || {};
+  const owned = await pool.query('SELECT id FROM usuarios WHERE id = $1 AND (criado_por = $2 OR $3 = true)', [
+    id, req.effectiveId, req.user.perfil === 'admin',
+  ]);
+  if (!owned.rows[0]) return res.status(404).json({ error: 'Usuário não encontrado.' });
+
+  await pool.query('UPDATE usuarios SET email = $1 WHERE id = $2', [email?.trim().toLowerCase() || null, id]);
+  res.json({ email: email?.trim().toLowerCase() || null });
 });
 
 router.delete('/:id', requireRole('candidato', 'admin'), async (req, res) => {

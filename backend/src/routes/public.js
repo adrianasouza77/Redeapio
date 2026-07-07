@@ -13,7 +13,7 @@ router.get('/lideranca/:id', async (req, res) => {
 });
 
 router.post('/autocadastro', async (req, res) => {
-  const { lideranca_id, nome, telefone, nascimento, endereco, regiao, cidade, titulo, secao, lgpd_aceite } = req.body || {};
+  const { lideranca_id, nome, telefone, nascimento, endereco, regiao, cidade, estado, titulo, secao, lgpd_aceite } = req.body || {};
 
   if (!lgpd_aceite) {
     return res.status(400).json({ error: 'É necessário aceitar o termo de consentimento LGPD.' });
@@ -33,9 +33,9 @@ router.post('/autocadastro', async (req, res) => {
   const nivel = parent.perfil === 'lideranca' ? 2 : 3;
 
   const { rows } = await pool.query(
-    `INSERT INTO apoiadores (nome, telefone, nascimento, regiao, endereco, cidade, titulo, secao, nivel, parent_id, cadastrado_por, lgpd_aceite, lgpd_aceite_em)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10,true,now()) RETURNING id`,
-    [nome, telefone, nascimento, regiao, endereco || null, cidade || 'Dourados', titulo || null, secao || null, nivel, parent.id]
+    `INSERT INTO apoiadores (nome, telefone, nascimento, regiao, endereco, cidade, estado, titulo, secao, nivel, parent_id, cadastrado_por, lgpd_aceite, lgpd_aceite_em)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$11,true,now()) RETURNING id`,
+    [nome, telefone, nascimento, regiao, endereco || null, cidade || null, estado || null, titulo || null, secao || null, nivel, parent.id]
   );
   res.status(201).json({ id: rows[0].id });
 });

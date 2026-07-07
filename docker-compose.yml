@@ -63,6 +63,13 @@ services:
       PGDATABASE:  redeapoio
       JWT_SECRET:  ${JWT_SECRET}
       PUBLIC_URL:  https://${DOMAIN}
+      # E-mail transacional (recuperação de senha) — Hostinger SMTP, mesmo padrão
+      # já usado no gtw-platform/gtw-imobi.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
       # Só necessárias para rodar migrate.sh (importação única do Supabase).
       # Adicione no Portainer só na hora da migração; depois de rodar e
       # rotacionar a service_role key no Supabase, remova estas duas daqui

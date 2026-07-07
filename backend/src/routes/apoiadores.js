@@ -44,7 +44,7 @@ router.get('/duplicados', requireRole('candidato', 'admin'), async (req, res) =>
 });
 
 router.post('/', requireRole('lideranca', 'apoiador'), async (req, res) => {
-  const { nome, telefone, nascimento, regiao, endereco, cidade, titulo, secao } = req.body || {};
+  const { nome, telefone, nascimento, regiao, endereco, cidade, estado, titulo, secao } = req.body || {};
   if (!nome || !telefone || !nascimento || !regiao) {
     return res.status(400).json({ error: 'Preencha nome, telefone, nascimento e bairro.' });
   }
@@ -62,9 +62,9 @@ router.post('/', requireRole('lideranca', 'apoiador'), async (req, res) => {
   }
 
   const { rows } = await pool.query(
-    `INSERT INTO apoiadores (nome, telefone, nascimento, regiao, endereco, cidade, titulo, secao, nivel, parent_id, cadastrado_por)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10) RETURNING *`,
-    [nome, telefone, nascimento, regiao, endereco || null, cidade || null, titulo || null, secao || null, novoNivel, req.user.id]
+    `INSERT INTO apoiadores (nome, telefone, nascimento, regiao, endereco, cidade, estado, titulo, secao, nivel, parent_id, cadastrado_por)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$11) RETURNING *`,
+    [nome, telefone, nascimento, regiao, endereco || null, cidade || null, estado || null, titulo || null, secao || null, novoNivel, req.user.id]
   );
   res.status(201).json(rows[0]);
 });
@@ -85,13 +85,13 @@ router.put('/:id', async (req, res) => {
   const { id } = req.params;
   if (!(await podeGerenciar(req, id))) return res.status(403).json({ error: 'Sem permissão para editar este registro.' });
 
-  const { nome, telefone, nascimento, endereco, regiao, cidade, titulo, secao } = req.body || {};
+  const { nome, telefone, nascimento, endereco, regiao, cidade, estado, titulo, secao } = req.body || {};
   if (!nome) return res.status(400).json({ error: 'Nome é obrigatório.' });
 
   const { rows } = await pool.query(
-    `UPDATE apoiadores SET nome=$1, telefone=$2, nascimento=$3, endereco=$4, regiao=$5, cidade=$6, titulo=$7, secao=$8
-     WHERE id = $9 RETURNING *`,
-    [nome, telefone || null, nascimento || null, endereco || null, regiao || null, cidade || 'Dourados', titulo || null, secao || null, id]
+    `UPDATE apoiadores SET nome=$1, telefone=$2, nascimento=$3, endereco=$4, regiao=$5, cidade=$6, estado=$7, titulo=$8, secao=$9
+     WHERE id = $10 RETURNING *`,
+    [nome, telefone || null, nascimento || null, endereco || null, regiao || null, cidade || null, estado || null, titulo || null, secao || null, id]
   );
   res.json(rows[0]);
 });

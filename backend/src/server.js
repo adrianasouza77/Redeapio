@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 
 const pool = require('./db');
 const { port, jwtSecret } = require('./config');
@@ -32,7 +33,10 @@ async function aplicarMigracoes(tentativas = 20, esperaMs = 3000) {
 }
 
 const app = express();
-app.use(cors());
+// origin:true reflete o Origin da requisição (necessário para credentials:true,
+// já que cookies com credenciais não podem usar Access-Control-Allow-Origin: *).
+app.use(cors({ origin: true, credentials: true }));
+app.use(cookieParser());
 app.use(express.json());
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));

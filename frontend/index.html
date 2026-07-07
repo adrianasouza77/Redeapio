@@ -166,13 +166,25 @@
 <div id="modal-esqueci" style="display:none;position:fixed;inset:0;background:rgba(15,31,61,0.8);z-index:9999;align-items:center;justify-content:center;">
   <div style="background:#fff;border-radius:16px;padding:32px;width:90%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
     <div style="font-family:'Source Serif 4',serif;font-size:20px;color:var(--navy);margin-bottom:8px">Recuperar acesso</div>
-    <div style="font-size:12px;color:var(--slate-light);margin-bottom:20px">Digite seu login e uma nova senha temporária será gerada</div>
+    <div style="font-size:12px;color:var(--slate-light);margin-bottom:20px">Digite seu login. Se houver um e-mail cadastrado, enviaremos um link para redefinir sua senha.</div>
     <div class="field"><label>Seu login</label><input type="text" id="rec-login" placeholder="Digite seu login"></div>
-    <div id="rec-result" style="display:none;background:#e6f4ec;border:1px solid #276749;border-radius:8px;padding:14px;margin-bottom:16px;font-size:13px;color:#276749"></div>
+    <div id="rec-result" style="display:none;border-radius:8px;padding:14px;margin-bottom:16px;font-size:13px"></div>
     <div style="display:flex;gap:10px">
       <button onclick="document.getElementById('modal-esqueci').style.display='none'" style="flex:1;padding:11px;background:var(--bg);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-family:'Public Sans',sans-serif;font-size:13px">Cancelar</button>
-      <button onclick="recuperarSenha()" style="flex:1.5;padding:11px;background:var(--navy);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:'Public Sans',sans-serif;font-size:13px;font-weight:600">Gerar senha temporária</button>
+      <button onclick="recuperarSenha()" style="flex:1.5;padding:11px;background:var(--navy);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:'Public Sans',sans-serif;font-size:13px;font-weight:600">Enviar link por e-mail</button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL NOVA SENHA (via link recebido por e-mail) -->
+<div id="modal-nova-senha" style="display:none;position:fixed;inset:0;background:rgba(15,31,61,0.8);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;padding:32px;width:90%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
+    <div style="font-family:'Source Serif 4',serif;font-size:20px;color:var(--navy);margin-bottom:8px">Definir nova senha</div>
+    <div style="font-size:12px;color:var(--slate-light);margin-bottom:20px">Escolha uma nova senha para sua conta.</div>
+    <div class="field"><label>Nova senha</label><input type="password" id="ns-senha" placeholder="Mínimo 4 caracteres"></div>
+    <div class="field"><label>Confirmar senha</label><input type="password" id="ns-senha2" placeholder="Repita a senha"></div>
+    <div id="ns-result" style="display:none;border-radius:8px;padding:14px;margin-bottom:16px;font-size:13px"></div>
+    <button onclick="confirmarNovaSenha()" style="width:100%;padding:11px;background:var(--navy);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:'Public Sans',sans-serif;font-size:13px;font-weight:600">Salvar nova senha</button>
   </div>
 </div>
 
@@ -184,18 +196,19 @@
     <div class="field"><label>Nome Completo *</label><input type="text" id="auto-nome" placeholder="Seu nome completo"></div>
     <div class="field"><label>Telefone *</label><input type="tel" id="auto-tel" placeholder="(67) 00000-0000"></div>
     <div class="field"><label>Data de Nascimento *</label><input type="date" id="auto-nasc"></div>
-    <div class="field"><label>Endereço (Rua e Número)</label><input type="text" id="auto-end" placeholder="Ex: Rua das Flores, 123"></div>
-    <div class="field"><label>Bairro / Região *</label>
-      <input type="text" id="auto-bairro" placeholder="Digite ou selecione" list="bairros-auto">
-      <datalist id="bairros-auto">
-        <option value="Centro"><option value="Jardim América"><option value="Jardim Climax">
-        <option value="Vila Planalto"><option value="Jardim São Pedro"><option value="Parque das Nações I">
-        <option value="Vila Rosa"><option value="Jardim Água Boa"><option value="Jardim Caramuru">
-        <option value="Jardim Universitário"><option value="Parque Alvorada"><option value="Área Rural">
-        <option value="Distrito de Indápolis"><option value="Distrito de Itahum"><option value="Distrito de Panambi">
-      </datalist>
+    <div class="field"><label>CEP</label>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="auto-cep" placeholder="00000-000" maxlength="9" oninput="mascaraCep(this)" onblur="buscarCep('auto-cep','auto-end','auto-bairro','auto-cidade','auto-uf','auto-cep-msg')">
+        <button type="button" class="btn-sm btn-outline" style="white-space:nowrap" onclick="buscarCep('auto-cep','auto-end','auto-bairro','auto-cidade','auto-uf','auto-cep-msg')">🔍 Buscar</button>
+      </div>
+      <div id="auto-cep-msg" style="font-size:11px;margin-top:4px;color:var(--slate-light)"></div>
     </div>
-    <div class="field"><label>Cidade</label><input type="text" id="auto-cidade" placeholder="Dourados" value="Dourados"></div>
+    <div class="field"><label>Endereço (Rua e Número)</label><input type="text" id="auto-end" placeholder="Preenchido automaticamente pelo CEP, ou digite"></div>
+    <div class="field"><label>Bairro / Região *</label><input type="text" id="auto-bairro" placeholder="Bairro"></div>
+    <div class="form-grid">
+      <div class="field"><label>Cidade *</label><input type="text" id="auto-cidade" placeholder="Cidade"></div>
+      <div class="field"><label>Estado</label><input type="text" id="auto-uf" placeholder="UF" maxlength="2" style="text-transform:uppercase"></div>
+    </div>
     <div class="field"><label>Nº Título Eleitoral</label><input type="text" id="auto-titulo" placeholder="0000000000000"></div>
     <div class="field"><label>Seção Eleitoral</label><input type="text" id="auto-secao" placeholder="0000"></div>
     <div class="lgpd-box">
@@ -283,12 +296,12 @@
 //  API
 // ══════════════════════════════════════════
 const API_BASE = '/api';
-let TOKEN = null;
 
 async function api(path, opts = {}) {
   const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
-  if (TOKEN) headers.Authorization = 'Bearer ' + TOKEN;
-  const resp = await fetch(API_BASE + path, { ...opts, headers });
+  // credentials:'include' manda o cookie httpOnly da sessão junto — o token
+  // não fica acessível pelo JS (protege contra roubo via XSS).
+  const resp = await fetch(API_BASE + path, { ...opts, headers, credentials: 'include' });
   let data = null;
   try { data = await resp.json(); } catch {}
   if (!resp.ok) {
@@ -359,14 +372,52 @@ async function recuperarSenha() {
   if(!login) { alert('Digite seu login primeiro.'); return; }
   const res = document.getElementById('rec-result');
   try {
-    const data = await api('/auth/recuperar-senha', { method:'POST', body: JSON.stringify({ login }) });
+    const data = await api('/auth/esqueci-senha', { method:'POST', body: JSON.stringify({ login }) });
     res.style.display = 'block';
     res.style.background = '#e6f4ec'; res.style.borderColor = '#276749'; res.style.color = '#276749';
-    res.innerHTML = `✅ Senha temporária gerada!<br><br><strong style="font-size:18px;letter-spacing:2px">${data.senha}</strong><br><br>Anote essa senha e use para entrar. Depois troque por uma nova.`;
+    res.innerHTML = `✅ ${data.mensagem || 'Verifique seu e-mail para redefinir a senha.'}`;
   } catch(e) {
     res.style.display = 'block';
     res.style.background = '#fff5f5'; res.style.borderColor = '#c53030'; res.style.color = '#c53030';
     res.innerHTML = '⚠️ ' + (e.message || 'Login não encontrado. Verifique e tente novamente.');
+  }
+}
+
+// Chega por e-mail como ?reset=1&token=... — mostra o modal de definir nova senha.
+let _resetToken = null;
+function verificarResetSenha() {
+  const params = new URLSearchParams(window.location.search);
+  if(params.get('reset') === '1' && params.get('token')) {
+    _resetToken = params.get('token');
+    document.getElementById('modal-nova-senha').style.display = 'flex';
+  }
+}
+
+async function confirmarNovaSenha() {
+  const senha = document.getElementById('ns-senha').value;
+  const senha2 = document.getElementById('ns-senha2').value;
+  const res = document.getElementById('ns-result');
+  if(!senha || senha.length < 4) {
+    res.style.display='block'; res.style.background='#fff5f5'; res.style.color='#c53030';
+    res.innerHTML = '⚠️ A senha precisa ter pelo menos 4 caracteres.';
+    return;
+  }
+  if(senha !== senha2) {
+    res.style.display='block'; res.style.background='#fff5f5'; res.style.color='#c53030';
+    res.innerHTML = '⚠️ As senhas não coincidem.';
+    return;
+  }
+  try {
+    await api('/auth/redefinir-senha', { method:'POST', body: JSON.stringify({ token: _resetToken, novaSenha: senha }) });
+    res.style.display='block'; res.style.background='#e6f4ec'; res.style.color='#276749';
+    res.innerHTML = '✅ Senha redefinida com sucesso! Você já pode fazer login.';
+    setTimeout(() => {
+      document.getElementById('modal-nova-senha').style.display = 'none';
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }, 2000);
+  } catch(e) {
+    res.style.display='block'; res.style.background='#fff5f5'; res.style.color='#c53030';
+    res.innerHTML = '❌ ' + (e.message || 'Não foi possível redefinir a senha.');
   }
 }
 
@@ -409,7 +460,8 @@ async function salvarAutoCadastro() {
   const nasc = document.getElementById('auto-nasc').value;
   const end = document.getElementById('auto-end').value.trim();
   const bairro = document.getElementById('auto-bairro').value.trim();
-  const cidade = document.getElementById('auto-cidade').value.trim() || 'Dourados';
+  const cidade = document.getElementById('auto-cidade').value.trim();
+  const uf = document.getElementById('auto-uf').value.trim();
   const titulo = document.getElementById('auto-titulo').value.trim();
   const secao = document.getElementById('auto-secao').value.trim();
   const lgpd = document.getElementById('auto-lgpd').checked;
@@ -431,7 +483,8 @@ async function salvarAutoCadastro() {
   try {
     await api('/public/autocadastro', { method:'POST', body: JSON.stringify({
       lideranca_id: _autoLiderancaId, nome, telefone: tel, nascimento: nasc,
-      endereco: end || null, regiao: bairro, cidade, titulo: titulo || null, secao: secao || null,
+      endereco: end || null, regiao: bairro, cidade: cidade || null, estado: uf || null,
+      titulo: titulo || null, secao: secao || null,
       lgpd_aceite: true,
     })});
     res.style.display = 'block';
@@ -445,6 +498,39 @@ async function salvarAutoCadastro() {
   }
 }
 
+async function entrarNaApp(user){
+  currentUser = user;
+  currentRole = user.perfil;
+
+  document.getElementById('auth-screen').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('user-name-display').textContent=user.nome;
+  document.getElementById('user-role-display').textContent=ROLE_LABELS[user.perfil];
+  document.getElementById('user-avatar').textContent=user.nome[0];
+  document.getElementById('nav-candidato').style.display=currentRole==='candidato'?'block':'none';
+  document.getElementById('nav-lideranca').style.display=currentRole==='lideranca'?'block':'none';
+  document.getElementById('nav-apoiador').style.display=currentRole==='apoiador'?'block':'none';
+  document.getElementById('nav-admin').style.display=currentRole==='admin'?'block':'none';
+
+  if(currentRole === 'admin') {
+    showPage('vagas');
+  } else {
+    await carregarApoiadores();
+    showPage('dashboard');
+  }
+}
+
+// Ao carregar a página, tenta restaurar a sessão pelo cookie httpOnly — evita
+// cair na tela de login a cada F5.
+async function restaurarSessao(){
+  try {
+    const data = await api('/auth/me');
+    await entrarNaApp(data.user);
+  } catch {
+    // sem sessão válida: fica na tela de login normalmente
+  }
+}
+
 async function doLogin() {
   const usuario = document.getElementById('login-user').value.trim();
   const senha   = document.getElementById('login-pass').value;
@@ -453,26 +539,7 @@ async function doLogin() {
   showLoading('Verificando acesso...');
   try {
     const data = await api('/auth/login', { method:'POST', body: JSON.stringify({ login: usuario, senha }) });
-    TOKEN = data.token;
-    currentUser = data.user;
-    currentRole = data.user.perfil;
-
-    document.getElementById('auth-screen').style.display='none';
-    document.getElementById('app').style.display='block';
-    document.getElementById('user-name-display').textContent=data.user.nome;
-    document.getElementById('user-role-display').textContent=ROLE_LABELS[data.user.perfil];
-    document.getElementById('user-avatar').textContent=data.user.nome[0];
-    document.getElementById('nav-candidato').style.display=currentRole==='candidato'?'block':'none';
-    document.getElementById('nav-lideranca').style.display=currentRole==='lideranca'?'block':'none';
-    document.getElementById('nav-apoiador').style.display=currentRole==='apoiador'?'block':'none';
-    document.getElementById('nav-admin').style.display=currentRole==='admin'?'block':'none';
-
-    if(currentRole === 'admin') {
-      showPage('vagas');
-    } else {
-      await carregarApoiadores();
-      showPage('dashboard');
-    }
+    await entrarNaApp(data.user);
     showToast('Bem-vindo(a), '+data.user.nome+'!','success');
   } catch(e){
     showToast(e.message || 'Usuário ou senha incorretos.', 'error');
@@ -482,7 +549,8 @@ async function doLogin() {
 }
 
 function doLogout(){
-  currentUser=null; currentRole=null; APOIADORES=[]; TOKEN=null; workspaceAdmin=null;
+  api('/auth/logout', { method:'POST' }).catch(()=>{});
+  currentUser=null; currentRole=null; APOIADORES=[]; workspaceAdmin=null;
   document.getElementById('workspace-bar').style.display='none';
   document.getElementById('app').style.display='none';
   document.getElementById('auth-screen').style.display='flex';
@@ -759,30 +827,17 @@ function renderCadastrar(){
       <div class="field full"><label>Nome Completo *</label><input type="text" id="c-nome" placeholder="Nome completo"></div>
       <div class="field"><label>Telefone *</label><input type="tel" id="c-tel" placeholder="(67) 00000-0000"></div>
       <div class="field"><label>Data de Nascimento *</label><input type="date" id="c-nasc"></div>
-      <div class="field full"><label>Endereço (Rua e Número)</label><input type="text" id="c-endereco" placeholder="Ex: Rua Hayel Bon Faker, 123"></div>
-      <div class="field"><label>Bairro / Região *</label>
-        <input type="text" id="c-reg" placeholder="Digite ou selecione o bairro" list="bairros-dourados">
-        <datalist id="bairros-dourados">
-          <option value="Centro"><option value="Jardim Água Boa"><option value="Jardim América">
-          <option value="Jardim Caramuru"><option value="Jardim Climax"><option value="Jardim Europa">
-          <option value="Jardim Flórida"><option value="Jardim Guanabara"><option value="Jardim Imperial">
-          <option value="Jardim Independência"><option value="Jardim Itália"><option value="Jardim João Paulo II">
-          <option value="Jardim Maracanã"><option value="Jardim Márcia"><option value="Jardim Novo Horizonte">
-          <option value="Jardim Oásis"><option value="Jardim Paulista"><option value="Jardim Rigotti">
-          <option value="Jardim São Pedro"><option value="Jardim Tropical"><option value="Jardim Universitário">
-          <option value="Jardim Vera Cruz"><option value="Parque das Nações I"><option value="Parque das Nações II">
-          <option value="Parque do Lago I"><option value="Parque do Lago II"><option value="Parque Alvorada">
-          <option value="Vila Amaral"><option value="Vila Cachoeirinha"><option value="Vila Formosa">
-          <option value="Vila Lili"><option value="Vila Matos"><option value="Vila Maxwell">
-          <option value="Vila Planalto"><option value="Vila Progresso"><option value="Vila Rosa">
-          <option value="Vila São Francisco"><option value="Vila São Jorge"><option value="Vila Santo André">
-          <option value="Vila Tonani"><option value="Bairro Antônio João"><option value="Bairro dos Jequitibás">
-          <option value="Chácara Califórnia"><option value="Residencial Esplanada"><option value="Área Rural">
-          <option value="Distrito de Indápolis"><option value="Distrito de Itahum"><option value="Distrito de Panambi">
-          <option value="Distrito de Formosa"><option value="Distrito de Macaúba">
-        </datalist>
+      <div class="field"><label>CEP</label>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="c-cep" placeholder="00000-000" maxlength="9" oninput="mascaraCep(this)" onblur="buscarCep('c-cep','c-endereco','c-reg','c-cidade','c-uf','c-cep-msg')">
+          <button type="button" class="btn-sm btn-outline" style="white-space:nowrap" onclick="buscarCep('c-cep','c-endereco','c-reg','c-cidade','c-uf','c-cep-msg')">🔍 Buscar</button>
+        </div>
+        <div id="c-cep-msg" style="font-size:11px;margin-top:4px;color:var(--slate-light)"></div>
       </div>
-      <div class="field"><label>Cidade</label><input type="text" id="c-cidade" placeholder="Dourados" value="Dourados"></div>
+      <div class="field"><label>Endereço (Rua e Número)</label><input type="text" id="c-endereco" placeholder="Preenchido automaticamente pelo CEP, ou digite"></div>
+      <div class="field full"><label>Bairro / Região *</label><input type="text" id="c-reg" placeholder="Bairro"></div>
+      <div class="field"><label>Cidade *</label><input type="text" id="c-cidade" placeholder="Cidade"></div>
+      <div class="field"><label>Estado</label><input type="text" id="c-uf" placeholder="UF" maxlength="2" style="text-transform:uppercase"></div>
       <div class="field"><label>Nº Título Eleitoral</label><input type="text" id="c-titulo" placeholder="0000000000000"></div>
       <div class="field"><label>Seção Eleitoral</label><input type="text" id="c-secao" placeholder="0000"></div>
     </div>
@@ -807,30 +862,18 @@ function renderUsuarios(){
         <select id="nu-role"><option value="">Selecione...</option><option value="lideranca">Liderança (Nível 1)</option><option value="apoiador">Apoiador (Nível 2)</option></select>
       </div>
       <div class="field"><label>Telefone</label><input type="tel" id="nu-tel" placeholder="(67) 00000-0000"></div>
-      <div class="field full"><label>Endereço (Rua e Número)</label><input type="text" id="nu-endereco" placeholder="Ex: Rua Hayel Bon Faker, 123"></div>
-      <div class="field"><label>Bairro / Região</label>
-        <input type="text" id="nu-regiao" placeholder="Digite ou selecione o bairro" list="bairros-dourados-nu">
-        <datalist id="bairros-dourados-nu">
-          <option value="Centro"><option value="Jardim Água Boa"><option value="Jardim América">
-          <option value="Jardim Caramuru"><option value="Jardim Climax"><option value="Jardim Europa">
-          <option value="Jardim Flórida"><option value="Jardim Guanabara"><option value="Jardim Imperial">
-          <option value="Jardim Independência"><option value="Jardim Itália"><option value="Jardim João Paulo II">
-          <option value="Jardim Maracanã"><option value="Jardim Márcia"><option value="Jardim Novo Horizonte">
-          <option value="Jardim Oásis"><option value="Jardim Paulista"><option value="Jardim Rigotti">
-          <option value="Jardim São Pedro"><option value="Jardim Tropical"><option value="Jardim Universitário">
-          <option value="Jardim Vera Cruz"><option value="Parque das Nações I"><option value="Parque das Nações II">
-          <option value="Parque do Lago I"><option value="Parque do Lago II"><option value="Parque Alvorada">
-          <option value="Vila Amaral"><option value="Vila Cachoeirinha"><option value="Vila Formosa">
-          <option value="Vila Lili"><option value="Vila Matos"><option value="Vila Maxwell">
-          <option value="Vila Planalto"><option value="Vila Progresso"><option value="Vila Rosa">
-          <option value="Vila São Francisco"><option value="Vila São Jorge"><option value="Vila Santo André">
-          <option value="Vila Tonani"><option value="Bairro Antônio João"><option value="Bairro dos Jequitibás">
-          <option value="Chácara Califórnia"><option value="Residencial Esplanada"><option value="Área Rural">
-          <option value="Distrito de Indápolis"><option value="Distrito de Itahum"><option value="Distrito de Panambi">
-          <option value="Distrito de Formosa"><option value="Distrito de Macaúba">
-        </datalist>
+      <div class="field"><label>E-mail</label><input type="email" id="nu-email" placeholder="para recuperação de senha"></div>
+      <div class="field"><label>CEP</label>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="nu-cep" placeholder="00000-000" maxlength="9" oninput="mascaraCep(this)" onblur="buscarCep('nu-cep','nu-endereco','nu-regiao','nu-cidade','nu-uf','nu-cep-msg')">
+          <button type="button" class="btn-sm btn-outline" style="white-space:nowrap" onclick="buscarCep('nu-cep','nu-endereco','nu-regiao','nu-cidade','nu-uf','nu-cep-msg')">🔍 Buscar</button>
+        </div>
+        <div id="nu-cep-msg" style="font-size:11px;margin-top:4px;color:var(--slate-light)"></div>
       </div>
-      <div class="field"><label>Cidade</label><input type="text" id="nu-cidade" placeholder="Dourados" value="Dourados"></div>
+      <div class="field full"><label>Endereço (Rua e Número)</label><input type="text" id="nu-endereco" placeholder="Preenchido automaticamente pelo CEP, ou digite"></div>
+      <div class="field"><label>Bairro / Região</label><input type="text" id="nu-regiao" placeholder="Bairro"></div>
+      <div class="field"><label>Cidade</label><input type="text" id="nu-cidade" placeholder="Cidade"></div>
+      <div class="field"><label>Estado</label><input type="text" id="nu-uf" placeholder="UF" maxlength="2" style="text-transform:uppercase"></div>
     </div>
     <button class="btn-sm btn-navy" onclick="criarUsuario()" style="margin-top:8px">➕ Criar Usuário</button>
   </div>
@@ -849,16 +892,33 @@ async function carregarListaUsuarios(){
   const rLabel={candidato:'Candidato',lideranca:'Liderança',apoiador:'Apoiador'};
   card.innerHTML=`
   <div class="card-header"><div class="card-title">Usuários (${data.length})</div></div>
-  <table><thead><tr><th>Nome</th><th>Login</th><th>Perfil</th><th>Ações</th></tr></thead>
+  <table><thead><tr><th>Nome</th><th>Login</th><th>E-mail</th><th>Perfil</th><th>Ações</th></tr></thead>
   <tbody>${data.map(u=>`
     <tr><td><strong>${u.nome}</strong></td>
     <td><code style="background:#f0f2f8;padding:2px 8px;border-radius:4px;font-size:12px">${u.login}</code></td>
+    <td>${u.email ? u.email : '<span style="color:var(--slate-light)">— sem e-mail</span>'}</td>
     <td><span class="badge ${rBadge[u.perfil]||'badge'}">${rLabel[u.perfil]||u.perfil}</span></td>
     <td><div style="display:flex;gap:6px">
+      <button class="btn-sm btn-outline" style="padding:5px 10px;font-size:11px" onclick="editarEmailUsuario('${u.id}','${escapeAttr(u.nome)}','${escapeAttr(u.email||'')}')">✉️ E-mail</button>
       <button class="btn-sm btn-outline" style="padding:5px 10px;font-size:11px" onclick="trocarSenha('${u.id}','${escapeAttr(u.nome)}')">🔑 Senha</button>
       <button class="btn-del" onclick="excluirUsuario('${u.id}','${escapeAttr(u.nome)}')">🗑</button>
     </div></td></tr>`).join('')}
   </tbody></table>`;
+}
+
+async function editarEmailUsuario(id, nome, emailAtual){
+  const novo = prompt(`E-mail de "${nome}" (usado para recuperação de senha):`, emailAtual || '');
+  if(novo === null) return;
+  showLoading('Salvando e-mail...');
+  try {
+    await api(`/usuarios/${id}/email${wsQuery()}`, { method:'PUT', body: JSON.stringify({ email: novo.trim() }) });
+    hideLoading();
+    showToast('E-mail atualizado!','success');
+    carregarListaUsuarios();
+  } catch(e){
+    hideLoading();
+    showToast(e.message || 'Erro ao salvar e-mail.', 'error');
+  }
 }
 
 function renderConfiguracoes(){
@@ -984,6 +1044,7 @@ function renderVagas(){
     <div class="card-header"><div class="card-title">Criar novo workspace</div></div>
     <div style="display:flex;gap:10px">
       <input class="search-input" id="novo-candidato-nome" placeholder="Nome do candidato (opcional)">
+      <input class="search-input" id="novo-candidato-email" type="email" placeholder="E-mail (opcional)">
       <button class="btn-sm btn-navy" onclick="criarCandidato()" style="white-space:nowrap">➕ Criar próximo login</button>
     </div>
     <p style="font-size:12px;color:var(--slate-light);margin-top:8px">Cria automaticamente o próximo login sequencial (candidatoN) com uma senha temporária.</p>
@@ -1012,7 +1073,9 @@ async function carregarVagas(){
           <code style="background:#f0f2f8;padding:2px 6px;border-radius:4px">${c.login}</code>
           ${c.em_uso? '<span class="badge badge-navy" style="margin-left:6px">Em uso</span>' : '<span class="badge badge-green" style="margin-left:6px">Disponível</span>'}
         </div>
+        <div style="font-size:11px;color:var(--slate-light);margin-top:2px">${c.email || 'sem e-mail cadastrado'}</div>
       </div>
+      <button class="btn-sm btn-outline" style="font-size:11px;padding:6px 10px;white-space:nowrap" onclick="editarEmailCandidato('${c.id}','${escapeAttr(c.login)}','${escapeAttr(c.email||'')}')">✉️ E-mail</button>
       <button class="btn-sm btn-outline" style="font-size:11px;padding:6px 10px;white-space:nowrap" onclick="trocarSenhaCandidato('${c.id}','${escapeAttr(c.login)}')">🔑 Senha</button>
       <button class="btn-sm btn-navy" style="white-space:nowrap" onclick="abrirWorkspace('${c.id}','${escapeAttr(c.nome)}')">Abrir workspace →</button>
     </div>
@@ -1021,15 +1084,30 @@ async function carregarVagas(){
 
 async function criarCandidato(){
   const nome = document.getElementById('novo-candidato-nome')?.value.trim();
+  const email = document.getElementById('novo-candidato-email')?.value.trim();
   showLoading('Criando login...');
   try {
-    const data = await api('/admin/candidatos', { method:'POST', body: JSON.stringify(nome ? { nome } : {}) });
+    const data = await api('/admin/candidatos', { method:'POST', body: JSON.stringify({ nome: nome || undefined, email: email || undefined }) });
     hideLoading();
     showToast(`Login "${data.login}" criado! Senha: ${data.senha}`, 'success');
-    const input = document.getElementById('novo-candidato-nome');
-    if(input) input.value = '';
+    const nomeInput = document.getElementById('novo-candidato-nome');
+    const emailInput = document.getElementById('novo-candidato-email');
+    if(nomeInput) nomeInput.value = '';
+    if(emailInput) emailInput.value = '';
     await carregarVagas();
   } catch(e){ hideLoading(); showToast(e.message,'error'); }
+}
+
+async function editarEmailCandidato(id, login, emailAtual){
+  const novo = prompt(`E-mail de "${login}" (usado para recuperação de senha):`, emailAtual || '');
+  if(novo === null) return;
+  showLoading('Salvando e-mail...');
+  try {
+    await api(`/admin/candidatos/${id}/email`, { method:'PUT', body: JSON.stringify({ email: novo.trim() }) });
+    hideLoading();
+    showToast('E-mail atualizado!','success');
+    await carregarVagas();
+  } catch(e){ hideLoading(); showToast(e.message||'Erro ao salvar e-mail.','error'); }
 }
 
 // ══════════════════════════════════════════
@@ -1095,9 +1173,17 @@ function editarApoiador(id) {
           <div class="field full"><label>Nome Completo *</label><input type="text" id="ed-nome" value="${a.nome||''}" placeholder="Nome completo"></div>
           <div class="field"><label>Telefone</label><input type="tel" id="ed-tel" value="${a.telefone||''}" placeholder="(67) 00000-0000"></div>
           <div class="field"><label>Data de Nascimento</label><input type="date" id="ed-nasc" value="${a.nascimento?String(a.nascimento).slice(0,10):''}"></div>
+          <div class="field"><label>CEP</label>
+            <div style="display:flex;gap:8px">
+              <input type="text" id="ed-cep" placeholder="00000-000" maxlength="9" oninput="mascaraCep(this)" onblur="buscarCep('ed-cep','ed-end','ed-reg','ed-cidade','ed-uf','ed-cep-msg')">
+              <button type="button" class="btn-sm btn-outline" style="white-space:nowrap" onclick="buscarCep('ed-cep','ed-end','ed-reg','ed-cidade','ed-uf','ed-cep-msg')">🔍 Buscar</button>
+            </div>
+            <div id="ed-cep-msg" style="font-size:11px;margin-top:4px;color:var(--slate-light)"></div>
+          </div>
           <div class="field full"><label>Endereço</label><input type="text" id="ed-end" value="${a.endereco||''}" placeholder="Rua e número"></div>
           <div class="field"><label>Bairro / Região</label><input type="text" id="ed-reg" value="${a.regiao||''}" placeholder="Bairro"></div>
-          <div class="field"><label>Cidade</label><input type="text" id="ed-cidade" value="${a.cidade||'Dourados'}"></div>
+          <div class="field"><label>Cidade</label><input type="text" id="ed-cidade" value="${a.cidade||''}"></div>
+          <div class="field"><label>Estado</label><input type="text" id="ed-uf" value="${a.estado||''}" maxlength="2" style="text-transform:uppercase"></div>
           <div class="field"><label>Nº Título Eleitoral</label><input type="text" id="ed-titulo" value="${a.titulo||''}" placeholder="0000000000000"></div>
           <div class="field"><label>Seção Eleitoral</label><input type="text" id="ed-secao" value="${a.secao||''}" placeholder="0000"></div>
         </div>
@@ -1121,7 +1207,8 @@ async function salvarEdicao(id) {
       nascimento: document.getElementById('ed-nasc').value || null,
       endereco: document.getElementById('ed-end').value.trim() || null,
       regiao: document.getElementById('ed-reg').value.trim() || null,
-      cidade: document.getElementById('ed-cidade').value.trim() || 'Dourados',
+      cidade: document.getElementById('ed-cidade').value.trim() || null,
+      estado: document.getElementById('ed-uf').value.trim() || null,
       titulo: document.getElementById('ed-titulo').value.trim() || null,
       secao: document.getElementById('ed-secao').value.trim() || null,
     })});
@@ -1143,6 +1230,7 @@ async function salvarApoiador(){
   const reg=document.getElementById('c-reg').value.trim();
   const endereco=document.getElementById('c-endereco').value.trim();
   const cidade=document.getElementById('c-cidade').value.trim();
+  const uf=document.getElementById('c-uf').value.trim();
   const tit=document.getElementById('c-titulo').value.trim();
   const sec=document.getElementById('c-secao').value.trim();
   if(!nome||!tel||!nasc||!reg){showToast('Preencha os campos obrigatórios.','error');return;}
@@ -1150,7 +1238,7 @@ async function salvarApoiador(){
   try {
     await api('/apoiadores', { method:'POST', body: JSON.stringify({
       nome, telefone:tel, nascimento:nasc, regiao:reg,
-      endereco:endereco||null, cidade:cidade||null, titulo:tit||null, secao:sec||null,
+      endereco:endereco||null, cidade:cidade||null, estado:uf||null, titulo:tit||null, secao:sec||null,
     })});
     await carregarApoiadores();
     hideLoading();
@@ -1169,9 +1257,11 @@ async function criarUsuario(){
   const senha2=document.getElementById('nu-senha2').value;
   const perfil=document.getElementById('nu-role').value;
   const tel=document.getElementById('nu-tel').value.trim();
+  const email=document.getElementById('nu-email').value.trim();
   const endereco=document.getElementById('nu-endereco').value.trim();
   const regiao=document.getElementById('nu-regiao').value.trim();
   const cidade=document.getElementById('nu-cidade').value.trim();
+  const uf=document.getElementById('nu-uf').value.trim();
   if(!nome||!login||!senha||!perfil){showToast('Preencha todos os campos.','error');return;}
   if(senha!==senha2){showToast('As senhas não coincidem.','error');return;}
   if(senha.length<4){showToast('Senha muito curta.','error');return;}
@@ -1179,7 +1269,8 @@ async function criarUsuario(){
   let result;
   try {
     result = await api('/usuarios', { method:'POST', body: JSON.stringify({
-      nome, login, senha, perfil, telefone: tel || null, endereco: endereco || null, regiao: regiao || null, cidade: cidade || null,
+      nome, login, senha, perfil, telefone: tel || null, email: email || null,
+      endereco: endereco || null, regiao: regiao || null, cidade: cidade || null, estado: uf || null,
       as: workspaceAdmin?.id,
     })});
   } catch(e) {
@@ -1261,7 +1352,7 @@ function showDetail(id){
     <div class="detail-row"><span class="detail-key">Nível</span><span class="detail-val">${nivelBadge(a.nivel)}</span></div>
     <div class="detail-row"><span class="detail-key">Telefone</span><span class="detail-val ${canSee?'':'sensitive'}" onclick="this.classList.toggle('revealed')">${a.telefone}</span></div>
     <div class="detail-row"><span class="detail-key">Endereço</span><span class="detail-val ${canSee?'':'sensitive'}" onclick="this.classList.toggle('revealed')">${a.endereco||'—'}</span></div>
-    <div class="detail-row"><span class="detail-key">Cidade</span><span class="detail-val">${a.cidade||'—'}</span></div>
+    <div class="detail-row"><span class="detail-key">Cidade</span><span class="detail-val">${a.cidade||'—'}${a.estado?' / '+a.estado:''}</span></div>
     <div class="detail-row"><span class="detail-key">Nascimento</span><span class="detail-val ${canSee?'':'sensitive'}" onclick="this.classList.toggle('revealed')">${formatDate(a.nascimento)}</span></div>
     <div class="detail-row"><span class="detail-key">Título Eleitoral</span><span class="detail-val ${canSee?'':'sensitive'}" onclick="this.classList.toggle('revealed')">${a.titulo||'—'}</span></div>
     <div class="detail-row"><span class="detail-key">Seção Eleitoral</span><span class="detail-val ${canSee?'':'sensitive'}" onclick="this.classList.toggle('revealed')">${a.secao||'—'}</span></div>
@@ -1297,10 +1388,51 @@ function formatDate(d){
 function escapeAttr(s){return String(s).replace(/'/g,"\\'").replace(/"/g,'&quot;');}
 function showToast(msg,type='success'){const t=document.getElementById('toast');t.textContent=msg;t.className=`toast ${type} show`;setTimeout(()=>t.classList.remove('show'),3000);}
 
+// ══════════════════════════════════════════
+//  CEP → ENDEREÇO (ViaCEP, cobre o Brasil inteiro)
+// ══════════════════════════════════════════
+function mascaraCep(input){
+  let v = input.value.replace(/\D/g,'').slice(0,8);
+  if(v.length > 5) v = v.slice(0,5) + '-' + v.slice(5);
+  input.value = v;
+}
+
+async function buscarCep(cepId, enderecoId, bairroId, cidadeId, ufId, msgId){
+  const cepInput = document.getElementById(cepId);
+  const msg = msgId ? document.getElementById(msgId) : null;
+  const cep = (cepInput?.value || '').replace(/\D/g,'');
+  if(cep.length !== 8){
+    if(cep.length > 0 && msg){ msg.textContent = 'CEP precisa ter 8 dígitos.'; msg.style.color = 'var(--red)'; }
+    return;
+  }
+  if(msg){ msg.textContent = 'Buscando...'; msg.style.color = 'var(--slate-light)'; }
+  try {
+    const resp = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+    const data = await resp.json();
+    if(data.erro){
+      if(msg){ msg.textContent = 'CEP não encontrado.'; msg.style.color = 'var(--red)'; }
+      return;
+    }
+    // Só preenche campos vazios — nunca sobrescreve dado já digitado ou salvo antes.
+    const preencherSeVazio = (id, valor) => {
+      if(!id || !valor) return;
+      const el = document.getElementById(id);
+      if(el && !el.value.trim()) el.value = valor;
+    };
+    preencherSeVazio(enderecoId, data.logradouro);
+    preencherSeVazio(bairroId, data.bairro);
+    preencherSeVazio(cidadeId, data.localidade);
+    preencherSeVazio(ufId, data.uf);
+    if(msg){ msg.textContent = '✓ Endereço encontrado.'; msg.style.color = 'var(--green)'; }
+  } catch(e){
+    if(msg){ msg.textContent = 'Não foi possível consultar o CEP agora. Preencha manualmente.'; msg.style.color = 'var(--red)'; }
+  }
+}
+
 document.querySelectorAll('.modal-overlay').forEach(el=>{el.addEventListener('click',function(e){if(e.target===this)this.classList.remove('open');});});
 
 // Verifica se é um link de autocadastro ao carregar a página
-window.addEventListener('load', verificarAutoCadastro);
+window.addEventListener('load', () => { restaurarSessao(); verificarAutoCadastro(); verificarResetSenha(); });
 </script>
 </body>
 </html>
