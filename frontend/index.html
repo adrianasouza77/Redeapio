@@ -218,10 +218,10 @@
       <div class="field"><label>Cidade *</label><input type="text" id="auto-cidade" placeholder="Cidade"></div>
       <div class="field"><label>Estado</label><input type="text" id="auto-uf" placeholder="UF" maxlength="2" style="text-transform:uppercase"></div>
     </div>
-    <div class="field"><label>Nº Título Eleitoral</label><input type="text" id="auto-titulo" placeholder="0000000000000"></div>
+    <div class="field"><label>Nº Título Eleitoral *</label><input type="text" id="auto-titulo" placeholder="0000000000000"></div>
     <div class="form-grid">
-      <div class="field"><label>Zona Eleitoral</label><input type="text" id="auto-zona" placeholder="000"></div>
-      <div class="field"><label>Seção Eleitoral</label><input type="text" id="auto-secao" placeholder="0000"></div>
+      <div class="field"><label>Zona Eleitoral *</label><input type="text" id="auto-zona" placeholder="000"></div>
+      <div class="field"><label>Seção Eleitoral *</label><input type="text" id="auto-secao" placeholder="0000"></div>
     </div>
     <div class="lgpd-box">
       <input type="checkbox" id="auto-lgpd" style="margin-top:3px;flex-shrink:0">
@@ -492,6 +492,12 @@ async function salvarAutoCadastro() {
     res.style.display = 'block';
     res.style.background = '#fff5f5'; res.style.border = '1px solid #c53030'; res.style.color = '#c53030';
     res.innerHTML = '⚠️ Preencha nome, telefone, nascimento e bairro.';
+    return;
+  }
+  if(!titulo || !zona || !secao) {
+    res.style.display = 'block';
+    res.style.background = '#fff5f5'; res.style.border = '1px solid #c53030'; res.style.color = '#c53030';
+    res.innerHTML = '⚠️ Preencha título, zona e seção eleitoral — são obrigatórios para evitar problemas no cadastro.';
     return;
   }
   if(!lgpd) {

@@ -21,6 +21,9 @@ router.post('/autocadastro', async (req, res) => {
   if (!nome || !telefone || !nascimento || !regiao) {
     return res.status(400).json({ error: 'Preencha nome, telefone, nascimento e bairro.' });
   }
+  if (!titulo || !zona || !secao) {
+    return res.status(400).json({ error: 'Título, zona e seção eleitoral são obrigatórios.' });
+  }
   if (!lideranca_id) return res.status(400).json({ error: 'Link de cadastro inválido.' });
 
   const { rows: parentRows } = await pool.query(
