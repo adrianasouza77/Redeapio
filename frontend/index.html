@@ -216,6 +216,10 @@
       <button class="btn-logout" onclick="doLogout()">Sair</button>
     </div>
   </div>
+  <div id="workspace-bar" style="display:none;align-items:center;justify-content:space-between;background:#fdf5e0;border-bottom:1px solid var(--gold);padding:10px 32px;">
+    <span style="font-size:13px;color:#8a6a10;font-weight:600">🗝️ Visualizando workspace de <span id="workspace-bar-nome"></span></span>
+    <button class="btn-sm btn-outline" onclick="fecharWorkspace()">← Voltar à Central de Vagas</button>
+  </div>
   <div class="layout">
     <div class="sidebar">
       <div class="sidebar-section" id="nav-candidato" style="display:none">
@@ -310,8 +314,15 @@ let currentUser = null;
 let currentRole = null;
 let APOIADORES = [];
 let paginaAtual = 'dashboard';
+let workspaceAdmin = null; // {id, nome} — preenchido quando o admin abre o workspace de um candidato
 
 const ROLE_LABELS = {candidato:'Candidato', lideranca:'Liderança', apoiador:'Apoiador', admin:'Administrador'};
+
+// Enquanto o admin está "dentro" do workspace de um candidato, a UI se comporta
+// como se fosse o próprio candidato logado (mesmas telas, mesmos dados).
+function papelEfetivo(){ return workspaceAdmin ? 'candidato' : currentRole; }
+function idEfetivo(){ return workspaceAdmin ? workspaceAdmin.id : currentUser?.id; }
+function wsQuery(sep='?'){ return workspaceAdmin ? `${sep}as=${workspaceAdmin.id}` : ''; }
 
 // ══════════════════════════════════════════
 //  LOADING
@@ -461,7 +472,8 @@ async function doLogin() {
 }
 
 function doLogout(){
-  currentUser=null; currentRole=null; APOIADORES=[]; TOKEN=null;
+  currentUser=null; currentRole=null; APOIADORES=[]; TOKEN=null; workspaceAdmin=null;
+  document.getElementById('workspace-bar').style.display='none';
   document.getElementById('app').style.display='none';
   document.getElementById('auth-screen').style.display='flex';
   document.getElementById('login-user').value='';
@@ -473,7 +485,7 @@ function doLogout(){
 // ══════════════════════════════════════════
 async function carregarApoiadores() {
   showLoading('Carregando rede...');
-  try { APOIADORES = await api('/apoiadores'); }
+  try { APOIADORES = await api('/apoiadores' + wsQuery()); }
   catch(e) { showToast(e.message, 'error'); }
   hideLoading();
 }
@@ -506,7 +518,7 @@ function showPage(page) {
 //  PÁGINAS
 // ══════════════════════════════════════════
 function renderDashboard(){
-  if(currentRole==='candidato'){
+  if(papelEfetivo()==='candidato'){
     const total=APOIADORES.length;
     const n1=APOIADORES.filter(a=>a.nivel===1).length;
     const n2=APOIADORES.filter(a=>a.nivel===2).length;
@@ -603,7 +615,7 @@ function renderRede(){
 }
 
 function renderApoiadores(){
-  const podeExcluir = currentRole==='candidato';
+  const podeExcluir = papelEfetivo()==='candidato';
   return `
   <div class="page-header"><h1>Todos os Apoiadores</h1><p>Total: ${APOIADORES.length} — clique para ver detalhes</p></div>
   ${podeExcluir?`
@@ -642,7 +654,7 @@ async function buscarDuplicados(){
   const el = document.getElementById('duplicados-result');
   el.innerHTML = '<div class="card"><p style="font-size:13px;color:var(--slate-light)">Buscando...</p></div>';
   try {
-    const grupos = await api('/apoiadores/duplicados');
+    const grupos = await api('/apoiadores/duplicados' + wsQuery());
     if(!grupos.length){
       el.innerHTML = '<div class="card"><p style="font-size:13px;color:var(--slate-light)">✔ Nenhum cadastro duplicado encontrado.</p></div>';
       return;
@@ -821,7 +833,7 @@ async function carregarListaUsuarios(){
   const card = document.getElementById('lista-usuarios-card');
   if(!card) return;
   let data;
-  try { data = await api('/usuarios'); }
+  try { data = await api('/usuarios' + wsQuery()); }
   catch(e) { card.innerHTML = `<p style="color:var(--red)">${e.message}</p>`; return; }
   const rBadge={candidato:'badge-gold',lideranca:'badge-navy',apoiador:'badge-green'};
   const rLabel={candidato:'Candidato',lideranca:'Liderança',apoiador:'Apoiador'};
@@ -957,14 +969,16 @@ function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x
 // ══════════════════════════════════════════
 function renderVagas(){
   return `
-  <div class="page-header"><h1>Central de Vagas</h1><p>Gerencie os logins de candidato para venda</p></div>
+  <div class="page-header"><h1>Central de Vagas</h1><p>Cada candidato é um workspace isolado — abra para gerenciar como se fosse ele</p></div>
   <div class="card">
-    <div class="card-header"><div class="card-title">Criar novo login de candidato</div>
-      <button class="btn-sm btn-navy" onclick="criarCandidato()">➕ Criar próximo login</button>
+    <div class="card-header"><div class="card-title">Criar novo workspace</div></div>
+    <div style="display:flex;gap:10px">
+      <input class="search-input" id="novo-candidato-nome" placeholder="Nome do candidato (opcional)">
+      <button class="btn-sm btn-navy" onclick="criarCandidato()" style="white-space:nowrap">➕ Criar próximo login</button>
     </div>
-    <p style="font-size:12px;color:var(--slate-light)">Cria automaticamente o próximo login sequencial (candidatoN) com uma senha temporária.</p>
+    <p style="font-size:12px;color:var(--slate-light);margin-top:8px">Cria automaticamente o próximo login sequencial (candidatoN) com uma senha temporária.</p>
   </div>
-  <div class="card" id="vagas-lista"><p style="font-size:13px;color:var(--slate-light)">Carregando...</p></div>`;
+  <div id="vagas-lista"><div class="card"><p style="font-size:13px;color:var(--slate-light)">Carregando...</p></div></div>`;
 }
 
 async function carregarVagas(){
@@ -972,27 +986,63 @@ async function carregarVagas(){
   if(!el) return;
   let candidatos;
   try { candidatos = await api('/admin/candidatos'); }
-  catch(e){ el.innerHTML = `<p style="color:var(--red)">${e.message}</p>`; return; }
-  el.innerHTML = `
-  <div class="card-header"><div class="card-title">Logins (${candidatos.length})</div></div>
-  <table><thead><tr><th>Login</th><th>Nome</th><th>Status</th><th>Ações</th></tr></thead>
-  <tbody>${candidatos.map(c=>`
-    <tr><td><code style="background:#f0f2f8;padding:2px 8px;border-radius:4px;font-size:12px">${c.login}</code></td>
-    <td>${c.nome}</td>
-    <td>${c.em_uso? '<span class="badge badge-navy">Em uso</span>' : '<span class="badge badge-green">Disponível</span>'}</td>
-    <td><button class="btn-sm btn-outline" style="font-size:11px;padding:5px 10px" onclick="trocarSenhaCandidato('${c.id}','${escapeAttr(c.login)}')">🔑 Trocar senha</button></td>
-    </tr>`).join('')}
-  </tbody></table>`;
+  catch(e){ el.innerHTML = `<div class="card"><p style="color:var(--red)">${e.message}</p></div>`; return; }
+
+  if(!candidatos.length){
+    el.innerHTML = '<div class="card"><div class="empty-state"><div class="icon">🗝️</div><p>Nenhum workspace criado ainda.</p></div></div>';
+    return;
+  }
+
+  el.innerHTML = candidatos.map(c => `
+    <div class="card" style="display:flex;align-items:center;gap:16px">
+      <div style="width:44px;height:44px;border-radius:12px;background:${c.em_uso?'#e8edf7':'#f0f2f8'};display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:var(--navy);flex-shrink:0">${c.nome[0].toUpperCase()}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:14px;color:var(--navy)">${c.nome}</div>
+        <div style="font-size:12px;color:var(--slate-light);margin-top:2px">
+          <code style="background:#f0f2f8;padding:2px 6px;border-radius:4px">${c.login}</code>
+          ${c.em_uso? '<span class="badge badge-navy" style="margin-left:6px">Em uso</span>' : '<span class="badge badge-green" style="margin-left:6px">Disponível</span>'}
+        </div>
+      </div>
+      <button class="btn-sm btn-outline" style="font-size:11px;padding:6px 10px;white-space:nowrap" onclick="trocarSenhaCandidato('${c.id}','${escapeAttr(c.login)}')">🔑 Senha</button>
+      <button class="btn-sm btn-navy" style="white-space:nowrap" onclick="abrirWorkspace('${c.id}','${escapeAttr(c.nome)}')">Abrir workspace →</button>
+    </div>
+  `).join('');
 }
 
 async function criarCandidato(){
+  const nome = document.getElementById('novo-candidato-nome')?.value.trim();
   showLoading('Criando login...');
   try {
-    const data = await api('/admin/candidatos', { method:'POST', body: JSON.stringify({}) });
+    const data = await api('/admin/candidatos', { method:'POST', body: JSON.stringify(nome ? { nome } : {}) });
     hideLoading();
     showToast(`Login "${data.login}" criado! Senha: ${data.senha}`, 'success');
+    const input = document.getElementById('novo-candidato-nome');
+    if(input) input.value = '';
     await carregarVagas();
   } catch(e){ hideLoading(); showToast(e.message,'error'); }
+}
+
+// ══════════════════════════════════════════
+//  MODO WORKSPACE (admin navegando "como" um candidato)
+// ══════════════════════════════════════════
+async function abrirWorkspace(id, nome){
+  workspaceAdmin = { id, nome };
+  document.getElementById('nav-admin').style.display = 'none';
+  document.getElementById('nav-candidato').style.display = 'block';
+  document.getElementById('workspace-bar').style.display = 'flex';
+  document.getElementById('workspace-bar-nome').textContent = nome;
+  await carregarApoiadores();
+  showPage('dashboard');
+}
+
+function fecharWorkspace(){
+  workspaceAdmin = null;
+  APOIADORES = [];
+  document.getElementById('nav-candidato').style.display = 'none';
+  document.getElementById('nav-admin').style.display = 'block';
+  document.getElementById('workspace-bar').style.display = 'none';
+  showPage('vagas');
+  setTimeout(carregarVagas, 50);
 }
 
 async function trocarSenhaCandidato(id, login){
@@ -1013,7 +1063,7 @@ async function excluirApoiador(id, nome) {
   if(!confirm(`Excluir "${nome}" da rede?\n\nEsta ação não pode ser desfeita.`)) return;
   showLoading('Excluindo...');
   try {
-    await api(`/apoiadores/${id}`, { method:'DELETE' });
+    await api(`/apoiadores/${id}${wsQuery()}`, { method:'DELETE' });
     showToast(`"${nome}" removido da rede.`, 'success');
     await carregarApoiadores();
     hideLoading();
@@ -1055,7 +1105,7 @@ async function salvarEdicao(id) {
   if(!nome) { alert('Nome é obrigatório.'); return; }
   showLoading('Salvando...');
   try {
-    await api(`/apoiadores/${id}`, { method:'PUT', body: JSON.stringify({
+    await api(`/apoiadores/${id}${wsQuery()}`, { method:'PUT', body: JSON.stringify({
       nome,
       telefone: document.getElementById('ed-tel').value.trim() || null,
       nascimento: document.getElementById('ed-nasc').value || null,
@@ -1120,6 +1170,7 @@ async function criarUsuario(){
   try {
     result = await api('/usuarios', { method:'POST', body: JSON.stringify({
       nome, login, senha, perfil, telefone: tel || null, endereco: endereco || null, regiao: regiao || null, cidade: cidade || null,
+      as: workspaceAdmin?.id,
     })});
   } catch(e) {
     hideLoading();
@@ -1178,7 +1229,7 @@ async function excluirUsuario(id,nome){
   if(!confirm(`Excluir o usuário "${nome}"?\nEsta ação não pode ser desfeita.`))return;
   showLoading('Excluindo...');
   try {
-    await api(`/usuarios/${id}`, { method:'DELETE' });
+    await api(`/usuarios/${id}${wsQuery()}`, { method:'DELETE' });
     hideLoading();
     showToast('Usuário excluído.','success');
     showPage('usuarios');
@@ -1192,7 +1243,7 @@ async function excluirUsuario(id,nome){
 function showDetail(id){
   const a=APOIADORES.find(x=>x.id===id);
   if(!a)return;
-  const canSee=currentRole==='candidato'||String(a.parent_id)===String(currentUser?.id)||String(currentUser?.id)===String(a.id);
+  const canSee=papelEfetivo()==='candidato'||String(a.parent_id)===String(currentUser?.id)||String(currentUser?.id)===String(a.id);
   document.getElementById('modal-detail-title').textContent=a.nome;
   document.getElementById('modal-detail-body').innerHTML=`
     <div class="detail-row"><span class="detail-key">Nome</span><span class="detail-val">${a.nome}</span></div>

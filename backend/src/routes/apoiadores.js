@@ -1,10 +1,11 @@
 const express = require('express');
 const pool = require('../db');
 const { authRequired, requireRole } = require('../middleware/auth');
+const resolveWorkspace = require('../middleware/workspace');
 const { limites } = require('../config');
 
 const router = express.Router();
-router.use(authRequired);
+router.use(authRequired, resolveWorkspace);
 
 // Query recursiva: resolve toda a árvore de usuários (lideranças/apoiadores com login)
 // criada em cascata a partir de um candidato, e traz todos os apoiadores ligados a
@@ -26,12 +27,12 @@ const SQL_ARVORE_CANDIDATO = `
 // a árvore inteira; para lideranca/apoiador, a árvore não desce (eles não criam
 // usuarios), então o resultado já vem naturalmente restrito à própria sub-rede.
 router.get('/', async (req, res) => {
-  const { rows } = await pool.query(SQL_ARVORE_CANDIDATO, [req.user.id]);
+  const { rows } = await pool.query(SQL_ARVORE_CANDIDATO, [req.effectiveId]);
   res.json(rows);
 });
 
 router.get('/duplicados', requireRole('candidato', 'admin'), async (req, res) => {
-  const { rows: arvore } = await pool.query(SQL_ARVORE_CANDIDATO, [req.user.id]);
+  const { rows: arvore } = await pool.query(SQL_ARVORE_CANDIDATO, [req.effectiveId]);
   const grupos = new Map();
   for (const a of arvore) {
     const chave = a.nome.trim().toLowerCase();
@@ -69,8 +70,8 @@ router.post('/', requireRole('lideranca', 'apoiador'), async (req, res) => {
 });
 
 async function podeGerenciar(req, id) {
-  if (req.user.perfil === 'candidato' || req.user.perfil === 'admin') {
-    const { rows } = await pool.query(SQL_ARVORE_CANDIDATO, [req.user.id]);
+  if (req.effectivePerfil === 'candidato' || req.user.perfil === 'admin') {
+    const { rows } = await pool.query(SQL_ARVORE_CANDIDATO, [req.effectiveId]);
     return rows.some((a) => a.id === id);
   }
   const { rows } = await pool.query(
