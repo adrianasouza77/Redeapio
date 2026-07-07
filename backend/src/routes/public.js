@@ -1,18 +1,19 @@
 const express = require('express');
 const pool = require('../db');
+const asyncHandler = require('../utils/asyncHandler');
 
 const router = express.Router();
 
-router.get('/lideranca/:id', async (req, res) => {
+router.get('/lideranca/:id', asyncHandler(async (req, res) => {
   const { rows } = await pool.query(
     "SELECT nome, perfil FROM usuarios WHERE id = $1 AND perfil IN ('lideranca','apoiador')",
     [req.params.id]
   );
   if (!rows[0]) return res.status(404).json({ error: 'Link inválido.' });
   res.json({ nome: rows[0].nome });
-});
+}));
 
-router.post('/autocadastro', async (req, res) => {
+router.post('/autocadastro', asyncHandler(async (req, res) => {
   const { lideranca_id, nome, telefone, nascimento, endereco, regiao, cidade, estado, titulo, zona, secao, lgpd_aceite } = req.body || {};
 
   if (!lgpd_aceite) {
@@ -41,6 +42,6 @@ router.post('/autocadastro', async (req, res) => {
     [nome, telefone, nascimento, regiao, endereco || null, cidade || null, estado || null, titulo || null, zona || null, secao || null, nivel, parent.id]
   );
   res.status(201).json({ id: rows[0].id });
-});
+}));
 
 module.exports = router;

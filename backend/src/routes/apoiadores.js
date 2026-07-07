@@ -3,6 +3,7 @@ const pool = require('../db');
 const { authRequired, requireRole } = require('../middleware/auth');
 const resolveWorkspace = require('../middleware/workspace');
 const { limites } = require('../config');
+const asyncHandler = require('../utils/asyncHandler');
 
 const router = express.Router();
 router.use(authRequired, resolveWorkspace);
@@ -26,12 +27,12 @@ const SQL_ARVORE_CANDIDATO = `
 // A mesma CTE recursiva serve para todos os perfis: para um candidato ela resolve
 // a árvore inteira; para lideranca/apoiador, a árvore não desce (eles não criam
 // usuarios), então o resultado já vem naturalmente restrito à própria sub-rede.
-router.get('/', async (req, res) => {
+router.get('/', asyncHandler(async (req, res) => {
   const { rows } = await pool.query(SQL_ARVORE_CANDIDATO, [req.effectiveId]);
   res.json(rows);
-});
+}));
 
-router.get('/duplicados', requireRole('candidato', 'admin'), async (req, res) => {
+router.get('/duplicados', requireRole('candidato', 'admin'), asyncHandler(async (req, res) => {
   const { rows: arvore } = await pool.query(SQL_ARVORE_CANDIDATO, [req.effectiveId]);
   const grupos = new Map();
   for (const a of arvore) {
@@ -41,9 +42,9 @@ router.get('/duplicados', requireRole('candidato', 'admin'), async (req, res) =>
   }
   const duplicados = [...grupos.values()].filter((g) => g.length > 1);
   res.json(duplicados);
-});
+}));
 
-router.post('/', requireRole('lideranca', 'apoiador'), async (req, res) => {
+router.post('/', requireRole('lideranca', 'apoiador'), asyncHandler(async (req, res) => {
   const { nome, telefone, nascimento, regiao, endereco, cidade, estado, titulo, zona, secao } = req.body || {};
   if (!nome || !telefone || !nascimento || !regiao) {
     return res.status(400).json({ error: 'Preencha nome, telefone, nascimento e bairro.' });
@@ -67,7 +68,7 @@ router.post('/', requireRole('lideranca', 'apoiador'), async (req, res) => {
     [nome, telefone, nascimento, regiao, endereco || null, cidade || null, estado || null, titulo || null, zona || null, secao || null, novoNivel, req.user.id]
   );
   res.status(201).json(rows[0]);
-});
+}));
 
 async function podeGerenciar(req, id) {
   if (req.effectivePerfil === 'candidato' || req.user.perfil === 'admin') {
@@ -81,7 +82,7 @@ async function podeGerenciar(req, id) {
   return !!rows[0];
 }
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
   if (!(await podeGerenciar(req, id))) return res.status(403).json({ error: 'Sem permissão para editar este registro.' });
 
@@ -94,13 +95,13 @@ router.put('/:id', async (req, res) => {
     [nome, telefone || null, nascimento || null, endereco || null, regiao || null, cidade || null, estado || null, titulo || null, zona || null, secao || null, id]
   );
   res.json(rows[0]);
-});
+}));
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
   if (!(await podeGerenciar(req, id))) return res.status(403).json({ error: 'Sem permissão para excluir este registro.' });
   await pool.query('DELETE FROM apoiadores WHERE id = $1', [id]);
   res.status(204).end();
-});
+}));
 
 module.exports = router;

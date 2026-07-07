@@ -79,11 +79,25 @@ WHERE u.perfil IN ('lideranca','apoiador')
 -- painel do Supabase) e nunca ganharam a linha-espelho em "apoiadores" —
 -- a tela de Usuários não é afetada, pois lista direto da tabela "usuarios".
 -- Idempotente: roda em todo boot, mas só insere quem realmente está faltando.
-INSERT INTO apoiadores (id, nome, telefone, regiao, endereco, cidade, nivel, parent_id, cadastrado_por)
+INSERT INTO apoiadores (id, nome, telefone, regiao, endereco, cidade, titulo, zona, secao, nivel, parent_id, cadastrado_por)
 SELECT u.id, u.nome, COALESCE(u.telefone, '—'), COALESCE(u.regiao, '—'), u.endereco, u.cidade,
+       u.titulo, u.zona, u.secao,
        CASE WHEN u.perfil = 'lideranca' THEN 1 ELSE 2 END, NULL, u.criado_por
 FROM usuarios u
 WHERE u.perfil IN ('lideranca','apoiador')
   AND u.criado_por IS NOT NULL
   AND NOT EXISTS (SELECT 1 FROM apoiadores a WHERE a.id = u.id)
 ON CONFLICT (id) DO NOTHING;
+
+-- Preenche título/zona/seção na ficha-espelho quando ela existia de antes
+-- desses campos serem adicionados (fica com os 3 vazios) e o usuário já tem
+-- o dado. Só preenche o que está vazio — nunca sobrescreve uma edição feita
+-- direto na ficha (tela "Todos os Apoiadores"), pra não apagar dado editado
+-- por lá em cada boot.
+UPDATE apoiadores a
+SET titulo = u.titulo, zona = u.zona, secao = u.secao
+FROM usuarios u
+WHERE a.id = u.id
+  AND u.perfil IN ('lideranca','apoiador')
+  AND a.titulo IS NULL AND a.zona IS NULL AND a.secao IS NULL
+  AND (u.titulo IS NOT NULL OR u.zona IS NOT NULL OR u.secao IS NOT NULL);

@@ -4,6 +4,7 @@ const { authRequired, requireRole } = require('../middleware/auth');
 const resolveWorkspace = require('../middleware/workspace');
 const { hash, gerarSenhaTemporaria } = require('../utils/password');
 const { publicUrl } = require('../config');
+const asyncHandler = require('../utils/asyncHandler');
 
 const router = express.Router();
 router.use(authRequired, resolveWorkspace);
@@ -16,15 +17,15 @@ function linkAutocadastro(liderancaId, candidatoId) {
 
 // Candidato: lista as próprias lideranças/apoiadores criados por ele.
 // Admin com ?as=<candidatoId>: lista as do workspace daquele candidato.
-router.get('/', requireRole('candidato', 'admin'), async (req, res) => {
+router.get('/', requireRole('candidato', 'admin'), asyncHandler(async (req, res) => {
   const { rows } = await pool.query(
     'SELECT id, nome, login, email, perfil, telefone, regiao, cidade, titulo, zona, secao, created_at FROM usuarios WHERE criado_por = $1 ORDER BY created_at',
     [req.effectiveId]
   );
   res.json(rows);
-});
+}));
 
-router.post('/', requireRole('candidato', 'admin'), async (req, res) => {
+router.post('/', requireRole('candidato', 'admin'), asyncHandler(async (req, res) => {
   const { nome, login, senha, perfil, telefone, email, endereco, regiao, cidade, estado, titulo, zona, secao } = req.body || {};
   if (!nome || !login || !senha || !perfil) {
     return res.status(400).json({ error: 'Preencha todos os campos obrigatórios.' });
@@ -72,9 +73,9 @@ router.post('/', requireRole('candidato', 'admin'), async (req, res) => {
   } finally {
     client.release();
   }
-});
+}));
 
-router.put('/:id/senha', requireRole('candidato', 'admin'), async (req, res) => {
+router.put('/:id/senha', requireRole('candidato', 'admin'), asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { senha } = req.body || {};
   const owned = await pool.query('SELECT id FROM usuarios WHERE id = $1 AND (criado_por = $2 OR $3 = true)', [
@@ -86,9 +87,9 @@ router.put('/:id/senha', requireRole('candidato', 'admin'), async (req, res) => 
   const senhaHash = await hash(novaSenha);
   await pool.query('UPDATE usuarios SET senha_hash = $1 WHERE id = $2', [senhaHash, id]);
   res.json({ senha: novaSenha });
-});
+}));
 
-router.put('/:id/email', requireRole('candidato', 'admin'), async (req, res) => {
+router.put('/:id/email', requireRole('candidato', 'admin'), asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { email } = req.body || {};
   const owned = await pool.query('SELECT id FROM usuarios WHERE id = $1 AND (criado_por = $2 OR $3 = true)', [
@@ -98,9 +99,9 @@ router.put('/:id/email', requireRole('candidato', 'admin'), async (req, res) => 
 
   await pool.query('UPDATE usuarios SET email = $1 WHERE id = $2', [email?.trim().toLowerCase() || null, id]);
   res.json({ email: email?.trim().toLowerCase() || null });
-});
+}));
 
-router.put('/:id/eleitorais', requireRole('candidato', 'admin'), async (req, res) => {
+router.put('/:id/eleitorais', requireRole('candidato', 'admin'), asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { titulo, zona, secao } = req.body || {};
   const owned = await pool.query('SELECT id FROM usuarios WHERE id = $1 AND (criado_por = $2 OR $3 = true)', [
@@ -113,13 +114,13 @@ router.put('/:id/eleitorais', requireRole('candidato', 'admin'), async (req, res
   // Mantém a ficha-espelho em apoiadores (pirâmide/Todos os Apoiadores) sincronizada.
   await pool.query('UPDATE apoiadores SET titulo = $1, zona = $2, secao = $3 WHERE id = $4', vals);
   res.json({ titulo: vals[0], zona: vals[1], secao: vals[2] });
-});
+}));
 
-router.delete('/:id', requireRole('candidato', 'admin'), async (req, res) => {
+router.delete('/:id', requireRole('candidato', 'admin'), asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { rowCount } = await pool.query('DELETE FROM usuarios WHERE id = $1 AND criado_por = $2', [id, req.effectiveId]);
   if (!rowCount) return res.status(404).json({ error: 'Usuário não encontrado.' });
   res.status(204).end();
-});
+}));
 
 module.exports = router;

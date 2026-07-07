@@ -6,6 +6,7 @@ const { jwtSecret, tokenExpiresIn, cookieMaxAgeMs, publicUrl } = require('../con
 const { authRequired } = require('../middleware/auth');
 const { hash, compare } = require('../utils/password');
 const mail = require('../services/mail');
+const asyncHandler = require('../utils/asyncHandler');
 
 const router = express.Router();
 
@@ -16,7 +17,7 @@ const COOKIE_OPTS = {
   maxAge: cookieMaxAgeMs,
 };
 
-router.post('/login', async (req, res) => {
+router.post('/login', asyncHandler(async (req, res) => {
   const { login, senha, perfil } = req.body || {};
   if (!login || !senha || !perfil) {
     return res.status(400).json({ error: 'Preencha usuário, senha e perfil.' });
@@ -43,13 +44,13 @@ router.post('/login', async (req, res) => {
   res.json({
     user: { id: user.id, nome: user.nome, perfil: user.perfil, criado_por: user.criado_por },
   });
-});
+}));
 
-router.get('/me', authRequired, async (req, res) => {
+router.get('/me', authRequired, asyncHandler(async (req, res) => {
   const { rows } = await pool.query('SELECT id, nome, perfil, criado_por FROM usuarios WHERE id = $1 AND ativo = true', [req.user.id]);
   if (!rows[0]) return res.status(401).json({ error: 'Sessão inválida.' });
   res.json({ user: rows[0] });
-});
+}));
 
 router.post('/logout', (req, res) => {
   res.clearCookie('token', COOKIE_OPTS);
@@ -59,7 +60,7 @@ router.post('/logout', (req, res) => {
 // Autoatendimento: só funciona se o usuário tiver e-mail cadastrado (canal
 // verificado). Sem e-mail, precisa falar com o candidato/admin — que pode
 // gerar uma senha temporária diretamente (tela de Usuários / Central de Vagas).
-router.post('/esqueci-senha', async (req, res) => {
+router.post('/esqueci-senha', asyncHandler(async (req, res) => {
   const { login } = req.body || {};
   if (!login) return res.status(400).json({ error: 'Digite seu login.' });
 
@@ -86,9 +87,9 @@ router.post('/esqueci-senha', async (req, res) => {
   });
 
   res.json({ ok: true, mensagem: 'Enviamos um link de recuperação para o e-mail cadastrado.' });
-});
+}));
 
-router.post('/redefinir-senha', async (req, res) => {
+router.post('/redefinir-senha', asyncHandler(async (req, res) => {
   const { token, novaSenha } = req.body || {};
   if (!token || !novaSenha || novaSenha.length < 4) {
     return res.status(400).json({ error: 'Preencha uma senha com pelo menos 4 caracteres.' });
@@ -107,6 +108,6 @@ router.post('/redefinir-senha', async (req, res) => {
     [senhaHash, rows[0].id]
   );
   res.json({ ok: true });
-});
+}));
 
 module.exports = router;
