@@ -63,6 +63,12 @@ services:
       PGDATABASE:  redeapoio
       JWT_SECRET:  ${JWT_SECRET}
       PUBLIC_URL:  https://${DOMAIN}
+      # Só necessárias para rodar migrate.sh (importação única do Supabase).
+      # Adicione no Portainer só na hora da migração; depois de rodar e
+      # rotacionar a service_role key no Supabase, remova estas duas daqui
+      # e atualize a stack de novo — elas não servem para mais nada depois disso.
+      SUPABASE_URL:         ${SUPABASE_URL:-}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY:-}
     networks:
       - network_public
       - redeapoio_internal

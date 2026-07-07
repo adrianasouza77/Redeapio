@@ -51,20 +51,31 @@ schema.
 
 ## 3. Migrar os dados do Supabase (rodar uma única vez)
 
-Depois que a stack estiver de pé, rode:
+Não precisa de nenhum arquivo `.env` no servidor — as credenciais vêm direto
+das Environment Variables da stack no Portainer, iguais às outras (DOMAIN,
+DB_PASSWORD, JWT_SECRET):
 
-```bash
-cp .env.example .env   # se ainda não fez isso — preencha SUPABASE_URL e SUPABASE_SERVICE_KEY
-bash migrate.sh
-```
+1. Em **Portainer → Stacks → redeapoio → Editor → Environment variables**,
+   adicione temporariamente:
+   - `SUPABASE_URL` = `https://bvpvsqzdvruachbgyvzq.supabase.co`
+   - `SUPABASE_SERVICE_KEY` = a service_role key antiga
+2. Clique em **Update the stack** (isso reinicia o container `redeapoio-app`
+   já com essas duas variáveis disponíveis).
+3. No servidor:
+   ```bash
+   bash migrate.sh
+   ```
 
 O `migrate.sh` encontra sozinho o container do app e roda a migração dentro
-dele — não precisa mais entrar manualmente no container. O script de migração:
+dele, usando as variáveis que já estão no ambiente do container — não precisa
+digitar nem colar nada na hora. O script de migração:
 - Importa todos os `usuarios` e `apoiadores` do Supabase, convertendo senhas em texto puro para hash bcrypt.
 - Cria uma conta `admin` (login `adriana`) se ainda não existir, e imprime a senha temporária uma única vez no terminal — anote e troque depois pela tela "Esqueci minha senha".
 - É seguro rodar mais de uma vez (usa `ON CONFLICT DO NOTHING`, não duplica nada).
 
-Depois de confirmar que os dados migraram corretamente, **revogue a service_role key antiga no Supabase** (passo 0) — a partir daqui o Supabase não é mais usado.
+Depois de confirmar que os dados migraram corretamente:
+- **Remova** `SUPABASE_URL`/`SUPABASE_SERVICE_KEY` das Environment Variables da stack no Portainer e clique em **Update the stack** de novo — elas não servem para mais nada.
+- **Revogue a service_role key antiga no Supabase** (passo 0) — a partir daqui o Supabase não é mais usado.
 
 ## 4. Domínio e certificado
 
