@@ -51,17 +51,15 @@ schema.
 
 ## 3. Migrar os dados do Supabase (rodar uma única vez)
 
-Depois que a stack estiver de pé, rode a migração **de dentro do container do app**:
+Depois que a stack estiver de pé, rode:
 
 ```bash
-docker exec -it $(docker ps -q -f name=redeapoio_redeapoio-app) sh
-# dentro do container:
-SUPABASE_URL=https://bvpvsqzdvruachbgyvzq.supabase.co \
-SUPABASE_SERVICE_KEY=<service_role_key_antiga> \
-node scripts/migrate-from-supabase.js
+cp .env.example .env   # se ainda não fez isso — preencha SUPABASE_URL e SUPABASE_SERVICE_KEY
+bash migrate.sh
 ```
 
-O script:
+O `migrate.sh` encontra sozinho o container do app e roda a migração dentro
+dele — não precisa mais entrar manualmente no container. O script de migração:
 - Importa todos os `usuarios` e `apoiadores` do Supabase, convertendo senhas em texto puro para hash bcrypt.
 - Cria uma conta `admin` (login `adriana`) se ainda não existir, e imprime a senha temporária uma única vez no terminal — anote e troque depois pela tela "Esqueci minha senha".
 - É seguro rodar mais de uma vez (usa `ON CONFLICT DO NOTHING`, não duplica nada).
