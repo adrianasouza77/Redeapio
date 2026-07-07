@@ -51,11 +51,18 @@ services:
   redeapoio-app:
     image: redeapoio-app:latest
     environment:
-      NODE_ENV:     production
-      PORT:         "3000"
-      DATABASE_URL: postgresql://redeapoio:${DB_PASSWORD}@redeapoio-postgres:5432/redeapoio
-      JWT_SECRET:   ${JWT_SECRET}
-      PUBLIC_URL:   https://${DOMAIN}
+      NODE_ENV:    production
+      PORT:        "3000"
+      # Variáveis discretas em vez de uma DATABASE_URL montada por interpolação:
+      # se a senha tiver caracteres como / @ : # (comuns em senhas fortes geradas
+      # aleatoriamente), eles quebrariam o parser de URL de conexão.
+      PGHOST:      redeapoio-postgres
+      PGPORT:      "5432"
+      PGUSER:      redeapoio
+      PGPASSWORD:  ${DB_PASSWORD}
+      PGDATABASE:  redeapoio
+      JWT_SECRET:  ${JWT_SECRET}
+      PUBLIC_URL:  https://${DOMAIN}
     networks:
       - network_public
       - redeapoio_internal

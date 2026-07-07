@@ -3,7 +3,9 @@
 // senha de usuário fica salva em claro no banco novo.
 //
 // Uso:
-//   SUPABASE_URL=... SUPABASE_SERVICE_KEY=... DATABASE_URL=... node scripts/migrate-from-supabase.js
+//   SUPABASE_URL=... SUPABASE_SERVICE_KEY=... node scripts/migrate-from-supabase.js
+// (a conexão com o Postgres usa PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE,
+// já definidos no ambiente do container pela stack)
 require('dotenv').config();
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
@@ -16,7 +18,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
   process.exit(1);
 }
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const pool = new Pool();
 
 async function fetchSupabase(tabela) {
   const resp = await fetch(`${SUPABASE_URL}/rest/v1/${tabela}?select=*`, {

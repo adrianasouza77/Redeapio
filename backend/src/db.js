@@ -1,7 +1,8 @@
 const { Pool } = require('pg');
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+// Usa variáveis discretas (PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE), lidas
+// automaticamente pelo driver — evita montar uma connection string única, onde
+// caracteres especiais na senha (/, @, :, # etc.) quebrariam o parser de URL.
+const pool = new Pool();
 
 module.exports = pool;
