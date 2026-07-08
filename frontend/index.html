@@ -161,7 +161,7 @@
       <button class="auth-tab" onclick="setAuthTab('apoiador')">Apoiador</button>
       <button class="auth-tab" onclick="setAuthTab('admin')">Administrador</button>
     </div>
-    <div class="field"><label>Usuário</label><input type="text" id="login-user" placeholder="Digite seu usuário"></div>
+    <div class="field"><label>Usuário ou e-mail</label><input type="text" id="login-user" placeholder="Digite seu usuário ou e-mail"></div>
     <div class="field"><label>Senha</label><input type="password" id="login-pass" placeholder="••••••••"></div>
     <button class="btn-primary" onclick="doLogin()">Entrar com segurança</button>
     <div class="auth-note">🔒 Dados protegidos — acesso restrito por senha</div>
@@ -175,8 +175,8 @@
 <div id="modal-esqueci" style="display:none;position:fixed;inset:0;background:rgba(15,31,61,0.8);z-index:9999;align-items:center;justify-content:center;">
   <div style="background:#fff;border-radius:16px;padding:32px;width:90%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
     <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--navy);margin-bottom:8px">Recuperar acesso</div>
-    <div style="font-size:12px;color:var(--slate-light);margin-bottom:20px">Digite seu login. Se houver um e-mail cadastrado, enviaremos um link para redefinir sua senha.</div>
-    <div class="field"><label>Seu login</label><input type="text" id="rec-login" placeholder="Digite seu login"></div>
+    <div style="font-size:12px;color:var(--slate-light);margin-bottom:20px">Digite seu login ou e-mail. Se houver um e-mail cadastrado, enviaremos um link para redefinir sua senha.</div>
+    <div class="field"><label>Seu login ou e-mail</label><input type="text" id="rec-login" placeholder="Digite seu login ou e-mail"></div>
     <div id="rec-result" style="display:none;border-radius:8px;padding:14px;margin-bottom:16px;font-size:13px"></div>
     <div style="display:flex;gap:10px">
       <button onclick="document.getElementById('modal-esqueci').style.display='none'" style="flex:1;padding:11px;background:var(--bg);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif;font-size:13px">Cancelar</button>

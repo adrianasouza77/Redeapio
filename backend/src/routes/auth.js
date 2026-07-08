@@ -22,9 +22,13 @@ router.post('/login', asyncHandler(async (req, res) => {
   if (!login || !senha || !perfil) {
     return res.status(400).json({ error: 'Preencha usuário, senha e perfil.' });
   }
+  // Aceita tanto o login quanto o e-mail cadastrado — quem esquece o usuário
+  // geralmente lembra do e-mail. Continua exigindo o perfil correto (aba
+  // selecionada) pra não misturar contas de perfis diferentes com mesmo e-mail.
+  const identificador = login.trim().toLowerCase();
   const { rows } = await pool.query(
-    'SELECT * FROM usuarios WHERE login = $1 AND perfil = $2 AND ativo = true',
-    [login.trim().toLowerCase(), perfil]
+    'SELECT * FROM usuarios WHERE (login = $1 OR email = $1) AND perfil = $2 AND ativo = true',
+    [identificador, perfil]
   );
   const user = rows[0];
   if (!user) return res.status(401).json({ error: 'Usuário ou senha incorretos.' });
@@ -64,7 +68,11 @@ router.post('/esqueci-senha', asyncHandler(async (req, res) => {
   const { login } = req.body || {};
   if (!login) return res.status(400).json({ error: 'Digite seu login.' });
 
-  const { rows } = await pool.query('SELECT id, nome, email FROM usuarios WHERE login = $1 AND ativo = true', [login.trim().toLowerCase()]);
+  const identificador = login.trim().toLowerCase();
+  const { rows } = await pool.query(
+    'SELECT id, nome, email FROM usuarios WHERE (login = $1 OR email = $1) AND ativo = true LIMIT 1',
+    [identificador]
+  );
   const user = rows[0];
   if (!user) return res.status(404).json({ error: 'Login não encontrado. Verifique e tente novamente.' });
   if (!user.email) {
