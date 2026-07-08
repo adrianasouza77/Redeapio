@@ -198,7 +198,7 @@
 </div>
 
 <!-- MODAL AUTOCADASTRO APOIADOR -->
-<div id="modal-autocadastro" style="display:none;position:fixed;inset:0;background:rgba(15,31,61,0.8);z-index:9999;align-items:center;justify-content:center;overflow-y:auto;">
+<div id="modal-autocadastro" style="display:none;position:fixed;inset:0;background:rgba(15,31,61,0.8);z-index:9999;align-items:flex-start;justify-content:center;overflow-y:auto;">
   <div style="background:#fff;border-radius:16px;padding:32px;width:90%;max-width:480px;margin:20px auto;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
     <div style="font-family:'DM Serif Display',serif;font-size:22px;color:var(--navy);margin-bottom:4px">Meu Cadastro</div>
     <div id="auto-descricao" style="font-size:12px;color:var(--slate-light);margin-bottom:20px">Preencha seus dados para entrar na rede</div>
@@ -974,7 +974,7 @@ async function carregarListaUsuarios(){
 
 async function editarDadosEleitoraisUsuario(id, nome, tituloAtual, zonaAtual, secaoAtual){
   document.getElementById('main-content').insertAdjacentHTML('afterbegin', `
-    <div id="modal-eleitorais" style="position:fixed;inset:0;background:rgba(15,31,61,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;overflow-y:auto;">
+    <div id="modal-eleitorais" style="position:fixed;inset:0;background:rgba(15,31,61,0.85);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;">
       <div style="background:#fff;border-radius:16px;padding:28px;width:90%;max-width:420px;margin:20px auto;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
         <div style="font-family:'DM Serif Display',serif;font-size:20px;color:#0F1F3D;margin-bottom:16px">🗳️ Dados eleitorais — ${nome}</div>
         <div class="form-grid">
@@ -1267,7 +1267,7 @@ function editarApoiador(id) {
   const a = APOIADORES.find(x => x.id === id);
   if(!a) return;
   document.getElementById('main-content').insertAdjacentHTML('afterbegin', `
-    <div id="modal-editar" style="position:fixed;inset:0;background:rgba(15,31,61,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;overflow-y:auto;">
+    <div id="modal-editar" style="position:fixed;inset:0;background:rgba(15,31,61,0.85);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;">
       <div style="background:#fff;border-radius:16px;padding:28px;width:90%;max-width:480px;margin:20px auto;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
         <div style="font-family:'DM Serif Display',serif;font-size:20px;color:#0F1F3D;margin-bottom:16px">✏️ Editar Cadastro</div>
         <div class="form-grid">
