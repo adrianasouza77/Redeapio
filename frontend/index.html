@@ -905,6 +905,38 @@ function renderCadastrar(){
   </div>`;
 }
 
+// Feedback em tempo real (borda verde/vermelha) nos campos de login de cadastro,
+// consultando GET /usuarios/verificar-login com debounce pra não bater na API a
+// cada tecla digitada.
+const _loginCheckTimeouts = {};
+async function verificarLoginInput(inputId, msgId){
+  const input = document.getElementById(inputId);
+  const msg = document.getElementById(msgId);
+  if(!input || !msg) return;
+  const login = input.value.trim().toLowerCase();
+  clearTimeout(_loginCheckTimeouts[inputId]);
+  if(!login){
+    input.style.borderColor = 'var(--border)';
+    msg.textContent = '';
+    return;
+  }
+  _loginCheckTimeouts[inputId] = setTimeout(async () => {
+    let data;
+    try { data = await api(`/usuarios/verificar-login?login=${encodeURIComponent(login)}`); }
+    catch(e) { return; }
+    if(input.value.trim().toLowerCase() !== login) return; // resposta desatualizada, usuário já digitou outra coisa
+    if(data.disponivel){
+      input.style.borderColor = '#2f9e44';
+      msg.textContent = '✅ Login disponível';
+      msg.style.color = '#2f9e44';
+    } else {
+      input.style.borderColor = '#c53030';
+      msg.textContent = '❌ Esse usuário já existe, tente outro.';
+      msg.style.color = '#c53030';
+    }
+  }, 400);
+}
+
 function renderUsuarios(){
   return `
   <div class="page-header"><h1>Gestão de Usuários</h1><p>Cadastre e gerencie acessos</p></div>
@@ -912,7 +944,7 @@ function renderUsuarios(){
     <div class="card-header"><div class="card-title">Novo Usuário</div></div>
     <div class="form-grid">
       <div class="field"><label>Nome Completo *</label><input type="text" id="nu-nome" placeholder="Nome"></div>
-      <div class="field"><label>Login *</label><input type="text" id="nu-login" placeholder="Ex: lideranca3"></div>
+      <div class="field"><label>Login *</label><input type="text" id="nu-login" placeholder="Ex: lideranca3" oninput="verificarLoginInput('nu-login','nu-login-msg')"><div id="nu-login-msg" style="font-size:11px;margin-top:4px"></div></div>
       <div class="field"><label>Senha *</label><input type="password" id="nu-senha" placeholder="Mínimo 4 caracteres"></div>
       <div class="field"><label>Confirmar Senha *</label><input type="password" id="nu-senha2" placeholder="Repita a senha"></div>
       <div class="field"><label>Perfil *</label>
@@ -1143,12 +1175,16 @@ function renderVagas(){
   <div class="page-header"><h1>Central de Vagas</h1><p>Cada candidato é um workspace isolado — abra para gerenciar como se fosse ele</p></div>
   <div class="card">
     <div class="card-header"><div class="card-title">Criar novo workspace</div></div>
-    <div style="display:flex;gap:10px">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start">
       <input class="search-input" id="novo-candidato-nome" placeholder="Nome do candidato (opcional)">
+      <div style="flex:1;min-width:160px">
+        <input class="search-input" id="novo-candidato-login" placeholder="Login desejado (opcional)" style="width:100%" oninput="verificarLoginInput('novo-candidato-login','novo-candidato-login-msg')">
+        <div id="novo-candidato-login-msg" style="font-size:11px;margin-top:4px"></div>
+      </div>
       <input class="search-input" id="novo-candidato-email" type="email" placeholder="E-mail (opcional)">
-      <button class="btn-sm btn-navy" onclick="criarCandidato()" style="white-space:nowrap">➕ Criar próximo login</button>
+      <button class="btn-sm btn-navy" onclick="criarCandidato()" style="white-space:nowrap">➕ Criar login</button>
     </div>
-    <p style="font-size:12px;color:var(--slate-light);margin-top:8px">Cria automaticamente o próximo login sequencial (candidatoN) com uma senha temporária.</p>
+    <p style="font-size:12px;color:var(--slate-light);margin-top:8px">Deixe o login em branco para gerar automaticamente o próximo sequencial (candidatoN), ou digite o login desejado (ex: ruanoliveira).</p>
   </div>
   <div id="vagas-lista"><div class="card"><p style="font-size:13px;color:var(--slate-light)">Carregando...</p></div></div>`;
 }
@@ -1185,16 +1221,21 @@ async function carregarVagas(){
 
 async function criarCandidato(){
   const nome = document.getElementById('novo-candidato-nome')?.value.trim();
+  const login = document.getElementById('novo-candidato-login')?.value.trim();
   const email = document.getElementById('novo-candidato-email')?.value.trim();
   showLoading('Criando login...');
   try {
-    const data = await api('/admin/candidatos', { method:'POST', body: JSON.stringify({ nome: nome || undefined, email: email || undefined }) });
+    const data = await api('/admin/candidatos', { method:'POST', body: JSON.stringify({ nome: nome || undefined, login: login || undefined, email: email || undefined }) });
     hideLoading();
     showToast(`Login "${data.login}" criado! Senha: ${data.senha}`, 'success');
     const nomeInput = document.getElementById('novo-candidato-nome');
+    const loginInput = document.getElementById('novo-candidato-login');
     const emailInput = document.getElementById('novo-candidato-email');
     if(nomeInput) nomeInput.value = '';
+    if(loginInput) { loginInput.value = ''; loginInput.style.borderColor = 'var(--border)'; }
     if(emailInput) emailInput.value = '';
+    const loginMsg = document.getElementById('novo-candidato-login-msg');
+    if(loginMsg) loginMsg.textContent = '';
     await carregarVagas();
   } catch(e){ hideLoading(); showToast(e.message,'error'); }
 }

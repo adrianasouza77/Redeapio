@@ -19,26 +19,40 @@ router.get('/candidatos', asyncHandler(async (req, res) => {
 }));
 
 router.post('/candidatos', asyncHandler(async (req, res) => {
-  const { rows: existentes } = await pool.query(
-    "SELECT login FROM usuarios WHERE perfil = 'candidato' AND login ~ '^candidato[0-9]+$'"
-  );
-  const proximoNumero =
-    existentes
-      .map((r) => parseInt(r.login.replace('candidato', ''), 10))
-      .reduce((max, n) => Math.max(max, n), 0) + 1;
+  const loginCustom = req.body?.login?.trim().toLowerCase();
+  if (loginCustom && !/^[a-z0-9._-]+$/.test(loginCustom)) {
+    return res.status(400).json({ error: 'Login deve conter apenas letras, números, ponto, hífen ou underline.' });
+  }
 
-  const login = `candidato${proximoNumero}`;
+  let login = loginCustom;
+  let proximoNumero;
+  if (!login) {
+    const { rows: existentes } = await pool.query(
+      "SELECT login FROM usuarios WHERE perfil = 'candidato' AND login ~ '^candidato[0-9]+$'"
+    );
+    proximoNumero =
+      existentes
+        .map((r) => parseInt(r.login.replace('candidato', ''), 10))
+        .reduce((max, n) => Math.max(max, n), 0) + 1;
+    login = `candidato${proximoNumero}`;
+  }
+
   const senha = gerarSenhaTemporaria();
   const senhaHash = await hash(senha);
-  const nome = req.body?.nome || `Candidato ${proximoNumero}`;
+  const nome = req.body?.nome || (proximoNumero ? `Candidato ${proximoNumero}` : login);
   const email = req.body?.email?.trim().toLowerCase() || null;
 
-  const { rows } = await pool.query(
-    `INSERT INTO usuarios (nome, login, senha_hash, perfil, email) VALUES ($1,$2,$3,'candidato',$4)
-     RETURNING id, nome, login, email`,
-    [nome, login, senhaHash, email]
-  );
-  res.status(201).json({ ...rows[0], senha });
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO usuarios (nome, login, senha_hash, perfil, email) VALUES ($1,$2,$3,'candidato',$4)
+       RETURNING id, nome, login, email`,
+      [nome, login, senhaHash, email]
+    );
+    res.status(201).json({ ...rows[0], senha });
+  } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: 'Este login já existe.' });
+    throw err;
+  }
 }));
 
 router.put('/candidatos/:id/senha', asyncHandler(async (req, res) => {
