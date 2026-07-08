@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../db');
 const asyncHandler = require('../utils/asyncHandler');
+const { validarTituloEleitoral } = require('../utils/tituloEleitoral');
 
 const router = express.Router();
 
@@ -24,6 +25,9 @@ router.post('/autocadastro', asyncHandler(async (req, res) => {
   }
   if (!titulo || !zona || !secao) {
     return res.status(400).json({ error: 'Título, zona e seção eleitoral são obrigatórios.' });
+  }
+  if (!validarTituloEleitoral(titulo)) {
+    return res.status(400).json({ error: 'Título de eleitor inválido. Confira os 12 números do seu título.' });
   }
   if (!lideranca_id) return res.status(400).json({ error: 'Link de cadastro inválido.' });
 
