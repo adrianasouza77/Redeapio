@@ -127,8 +127,11 @@ router.post('/redefinir-senha', asyncHandler(async (req, res) => {
   if (!rows[0]) return res.status(400).json({ error: 'Link inválido ou expirado. Solicite uma nova recuperação.' });
 
   const senhaHash = await hash(novaSenha);
+  // Escolher a própria senha por um link de e-mail verificado já conta como
+  // "primeiro acesso resolvido" — sem isso, a pessoa cairia de novo na tela
+  // obrigatória de trocar senha logo depois de acabar de trocá-la.
   await pool.query(
-    'UPDATE usuarios SET senha_hash = $1, reset_password_token = NULL, reset_password_expires = NULL WHERE id = $2',
+    'UPDATE usuarios SET senha_hash = $1, reset_password_token = NULL, reset_password_expires = NULL, senha_temporaria = false WHERE id = $2',
     [senhaHash, rows[0].id]
   );
   res.json({ ok: true });

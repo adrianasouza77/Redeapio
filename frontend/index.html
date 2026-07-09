@@ -265,7 +265,9 @@
       <div class="field"><label>Senha temporária atual *</label><input type="password" id="pa-senha-atual" placeholder="A senha que você acabou de usar para entrar" oninput="atualizarBotaoPrimeiroAcesso()"></div>
       <div class="field"><label>Nova senha *</label><input type="password" id="pa-senha" placeholder="Mínimo 4 caracteres" oninput="atualizarBotaoPrimeiroAcesso()"></div>
       <div class="field"><label>Confirmar nova senha *</label><input type="password" id="pa-senha2" placeholder="Repita a senha" oninput="atualizarBotaoPrimeiroAcesso()"></div>
-      <div class="field"><label>Novo login (opcional)</label><input type="text" id="pa-login" placeholder="Deixe em branco para manter o login atual"></div>
+      <div class="field"><label>Novo login (opcional)</label><input type="text" id="pa-login" placeholder="Deixe em branco para manter o login atual" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9._-]/g,'')">
+        <div style="font-size:11px;color:var(--slate-light);margin-top:4px">É o usuário para entrar no sistema, não o nome — sem espaços nem acentos (ex: sergionogueira).</div>
+      </div>
     </div>
     <div id="pa-result" style="display:none;margin-bottom:16px;padding:14px;border-radius:8px;font-size:13px"></div>
     <button id="pa-continuar" onclick="confirmarPrimeiroAcesso()" disabled style="width:100%;padding:12px;background:var(--navy);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;opacity:0.5">Continuar</button>
@@ -1161,7 +1163,7 @@ function renderUsuarios(){
     <div class="card-header"><div class="card-title">Novo Usuário</div></div>
     <div class="form-grid">
       <div class="field"><label>Nome Completo *</label><input type="text" id="nu-nome" placeholder="Nome"></div>
-      <div class="field"><label>Login *</label><input type="text" id="nu-login" placeholder="Ex: lideranca3" oninput="verificarLoginInput('nu-login','nu-login-msg')"><div id="nu-login-msg" style="font-size:11px;margin-top:4px"></div></div>
+      <div class="field"><label>Login *</label><input type="text" id="nu-login" placeholder="Ex: lideranca3" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9._-]/g,''); verificarLoginInput('nu-login','nu-login-msg')"><div id="nu-login-msg" style="font-size:11px;margin-top:4px"></div></div>
       <div class="field"><label>Senha *</label><input type="password" id="nu-senha" placeholder="Mínimo 4 caracteres"></div>
       <div class="field"><label>Confirmar Senha *</label><input type="password" id="nu-senha2" placeholder="Repita a senha"></div>
       <div class="field"><label>Perfil *</label>
@@ -1228,7 +1230,7 @@ function editarUsuario(u){
         <div class="config-section-title" style="margin-top:0">👤 Acesso</div>
         <div class="form-grid">
           <div class="field full"><label>Nome Completo *</label><input type="text" id="eu-nome" value="${escapeAttr(u.nome||'')}"></div>
-          <div class="field"><label>Login *</label><input type="text" id="eu-login" value="${escapeAttr(u.login||'')}" oninput="verificarLoginInputEdicao('eu-login','eu-login-msg','${escapeAttr(u.login||'')}')"><div id="eu-login-msg" style="font-size:11px;margin-top:4px"></div></div>
+          <div class="field"><label>Login *</label><input type="text" id="eu-login" value="${escapeAttr(u.login||'')}" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9._-]/g,''); verificarLoginInputEdicao('eu-login','eu-login-msg','${escapeAttr(u.login||'')}')"><div id="eu-login-msg" style="font-size:11px;margin-top:4px"></div></div>
           <div class="field"><label>E-mail</label><input type="email" id="eu-email" value="${escapeAttr(u.email||'')}" placeholder="para recuperação de senha"></div>
         </div>
         <div class="config-section-title">📍 Contato e endereço</div>
@@ -1346,7 +1348,10 @@ function renderMinhaConta(){
   <div class="card">
     <div class="card-header"><div class="card-title">👤 Trocar login</div></div>
     <div class="form-grid">
-      <div class="field"><label>Novo login *</label><input type="text" id="mc-login-novo" placeholder="Novo usuário de acesso" oninput="verificarLoginInput('mc-login-novo','mc-login-msg')"><div id="mc-login-msg" style="font-size:11px;margin-top:4px"></div></div>
+      <div class="field"><label>Novo login *</label><input type="text" id="mc-login-novo" placeholder="Novo usuário de acesso" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9._-]/g,''); verificarLoginInput('mc-login-novo','mc-login-msg')">
+        <div style="font-size:11px;color:var(--slate-light);margin-top:4px">Sem espaços nem acentos (ex: sergionogueira).</div>
+        <div id="mc-login-msg" style="font-size:11px;margin-top:4px"></div>
+      </div>
       <div class="field"><label>Senha atual *</label><input type="password" id="mc-login-senha" placeholder="Confirme com sua senha atual"></div>
     </div>
     <button class="btn-sm btn-navy" onclick="salvarMeuLogin()">💾 Salvar novo login</button>
@@ -1526,6 +1531,7 @@ async function carregarVagas(){
         <div style="font-size:11px;color:var(--slate-light);margin-top:2px">${c.email || 'sem e-mail cadastrado'}${c.data_desativacao ? ` · acesso até ${formatDate(c.data_desativacao)}` : ''}</div>
       </div>
       <button class="btn-sm btn-outline" style="font-size:11px;padding:6px 10px;white-space:nowrap" onclick='editarPlanoCandidato(${JSON.stringify(c).replace(/'/g, "&#39;")})'>🏷️ Plano</button>
+      <button class="btn-sm btn-outline" style="font-size:11px;padding:6px 10px;white-space:nowrap" onclick="editarLoginCandidato('${c.id}','${escapeAttr(c.login)}')">🆔 Login</button>
       <button class="btn-sm btn-outline" style="font-size:11px;padding:6px 10px;white-space:nowrap" onclick="editarEmailCandidato('${c.id}','${escapeAttr(c.login)}','${escapeAttr(c.email||'')}')">✉️ E-mail</button>
       <button class="btn-sm btn-outline" style="font-size:11px;padding:6px 10px;white-space:nowrap" onclick="trocarSenhaCandidato('${c.id}','${escapeAttr(c.login)}')">🔑 Senha</button>
       <button class="btn-sm btn-navy" style="white-space:nowrap" onclick="abrirWorkspace('${c.id}','${escapeAttr(c.nome)}')">Abrir workspace →</button>
@@ -1600,6 +1606,18 @@ async function criarCandidato(){
     if(loginMsg) loginMsg.textContent = '';
     await carregarVagas();
   } catch(e){ hideLoading(); showToast(e.message,'error'); }
+}
+
+async function editarLoginCandidato(id, loginAtual){
+  const novo = prompt('Novo login (só letras, números, ponto, hífen ou underline — sem espaços):', loginAtual || '');
+  if(novo === null) return;
+  showLoading('Salvando login...');
+  try {
+    const data = await api(`/admin/candidatos/${id}/login`, { method:'PUT', body: JSON.stringify({ login: novo.trim() }) });
+    hideLoading();
+    showToast(`Login atualizado para "${data.login}"!`,'success');
+    await carregarVagas();
+  } catch(e){ hideLoading(); showToast(e.message||'Erro ao salvar login.','error'); }
 }
 
 async function editarEmailCandidato(id, login, emailAtual){

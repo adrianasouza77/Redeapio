@@ -26,9 +26,11 @@ router.get('/', requireRole('candidato', 'admin'), asyncHandler(async (req, res)
   res.json(rows);
 }));
 
-// Checagem em tempo real usada pelo formulário de cadastro (feedback verde/vermelho
-// no campo de login). Login é único em toda a tabela usuarios, independente de perfil.
-router.get('/verificar-login', requireRole('candidato', 'admin'), asyncHandler(async (req, res) => {
+// Checagem em tempo real usada pelo formulário de cadastro e por "Minha Conta"
+// (feedback verde/vermelho no campo de login). Qualquer perfil logado pode
+// checar — é só leitura (disponível ou não), sem expor dado sensível. Login é
+// único em toda a tabela usuarios, independente de perfil.
+router.get('/verificar-login', asyncHandler(async (req, res) => {
   const login = req.query.login?.trim().toLowerCase();
   if (!login) return res.status(400).json({ error: 'Informe um login.' });
   const { rows } = await pool.query('SELECT 1 FROM usuarios WHERE login = $1', [login]);
@@ -42,6 +44,9 @@ router.post('/', requireRole('candidato', 'admin'), asyncHandler(async (req, res
   }
   if (!PERFIS_CRIAVEIS.includes(perfil)) {
     return res.status(400).json({ error: 'Perfil inválido.' });
+  }
+  if (!/^[a-z0-9._-]+$/.test(login.trim().toLowerCase())) {
+    return res.status(400).json({ error: 'Login deve conter apenas letras, números, ponto, hífen ou underline — sem espaços.' });
   }
   if (senha.length < 4) return res.status(400).json({ error: 'Senha muito curta.' });
 

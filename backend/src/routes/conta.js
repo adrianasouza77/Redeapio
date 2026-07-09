@@ -41,6 +41,9 @@ router.put('/login', asyncHandler(async (req, res) => {
   if (!login || !senhaAtual) {
     return res.status(400).json({ error: 'Informe o novo login e a senha atual.' });
   }
+  if (!/^[a-z0-9._-]+$/.test(login)) {
+    return res.status(400).json({ error: 'Login deve conter apenas letras, números, ponto, hífen ou underline — sem espaços.' });
+  }
   const { rows } = await pool.query('SELECT senha_hash FROM usuarios WHERE id = $1', [req.user.id]);
   if (!rows[0] || !(await compare(senhaAtual, rows[0].senha_hash))) {
     return res.status(401).json({ error: 'Senha atual incorreta.' });

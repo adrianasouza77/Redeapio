@@ -103,6 +103,29 @@ router.put('/candidatos/:id/plano', asyncHandler(async (req, res) => {
   res.json(rows[0]);
 }));
 
+// Corrige o login do candidato quando ele mesmo troca para algo inválido/
+// difícil de repetir no login (ex: com espaços) — só o admin faz isso, já que
+// o autoatendimento (PUT /conta/login) exige a senha atual pra confirmar.
+router.put('/candidatos/:id/login', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const login = req.body?.login?.trim().toLowerCase();
+  if (!login) return res.status(400).json({ error: 'Informe o novo login.' });
+  if (!/^[a-z0-9._-]+$/.test(login)) {
+    return res.status(400).json({ error: 'Login deve conter apenas letras, números, ponto, hífen ou underline — sem espaços.' });
+  }
+  try {
+    const { rowCount } = await pool.query(
+      "UPDATE usuarios SET login = $1 WHERE id = $2 AND perfil = 'candidato'",
+      [login, id]
+    );
+    if (!rowCount) return res.status(404).json({ error: 'Candidato não encontrado.' });
+    res.json({ login });
+  } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: 'Este login já existe.' });
+    throw err;
+  }
+}));
+
 router.put('/candidatos/:id/email', asyncHandler(async (req, res) => {
   const { id } = req.params;
   const email = req.body?.email?.trim().toLowerCase() || null;
