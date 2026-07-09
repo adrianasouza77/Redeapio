@@ -70,29 +70,101 @@ router.post('/', requireRole('lideranca', 'apoiador'), asyncHandler(async (req, 
   res.status(201).json(rows[0]);
 }));
 
+// Sub-árvore (nível/parent_id) a partir de um nó qualquer de "apoiadores" — usada
+// tanto para permissão (lideranca/apoiador podem gerenciar qualquer descendente,
+// não só quem indicaram direto) quanto para validar a reorganização de hierarquia.
+const SQL_SUBARVORE = `
+  WITH RECURSIVE arvore AS (
+    SELECT id, nivel, parent_id FROM apoiadores WHERE id = $1
+    UNION ALL
+    SELECT ap.id, ap.nivel, ap.parent_id FROM apoiadores ap JOIN arvore a ON ap.parent_id = a.id
+  )
+  SELECT id, nivel, parent_id FROM arvore
+`;
+
 async function podeGerenciar(req, id) {
   if (req.effectivePerfil === 'candidato' || req.user.perfil === 'admin') {
     const { rows } = await pool.query(SQL_ARVORE_CANDIDATO, [req.effectiveId]);
     return rows.some((a) => a.id === id);
   }
-  const { rows } = await pool.query(
-    'SELECT id FROM apoiadores WHERE id = $1 AND (parent_id = $2 OR cadastrado_por = $2)',
-    [id, req.user.id]
-  );
-  return !!rows[0];
+  const { rows } = await pool.query(SQL_SUBARVORE, [req.user.id]);
+  return rows.some((a) => a.id === id);
+}
+
+// IDs de todos os descendentes de um nó (usado pra impedir mover alguém
+// "para baixo de si mesmo" ao reorganizar a hierarquia).
+function descendentesDe(arvore, id) {
+  const filhosPorPai = new Map();
+  for (const a of arvore) {
+    if (!filhosPorPai.has(a.parent_id)) filhosPorPai.set(a.parent_id, []);
+    filhosPorPai.get(a.parent_id).push(a.id);
+  }
+  const resultado = new Set();
+  const pilha = [id];
+  while (pilha.length) {
+    const atual = pilha.pop();
+    for (const filho of filhosPorPai.get(atual) || []) {
+      if (!resultado.has(filho)) { resultado.add(filho); pilha.push(filho); }
+    }
+  }
+  return resultado;
 }
 
 router.put('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
   if (!(await podeGerenciar(req, id))) return res.status(403).json({ error: 'Sem permissão para editar este registro.' });
 
-  const { nome, telefone, nascimento, endereco, regiao, cidade, estado, titulo, zona, secao } = req.body || {};
+  const { nome, telefone, nascimento, endereco, regiao, cidade, estado, titulo, zona, secao, nivel, parent_id } = req.body || {};
   if (!nome) return res.status(400).json({ error: 'Nome é obrigatório.' });
 
+  // Reorganização de hierarquia (nível + responsável): exclusiva da liderança,
+  // e só dentro da própria árvore dela — candidato/admin não mexem aqui.
+  let novoNivel, novoParentId;
+  if (nivel !== undefined || parent_id !== undefined) {
+    if (req.user.perfil !== 'lideranca') {
+      return res.status(403).json({ error: 'Só a liderança pode reorganizar a hierarquia da rede.' });
+    }
+    novoNivel = Number(nivel);
+    novoParentId = parent_id;
+    if (![2, 3, 4].includes(novoNivel)) {
+      return res.status(400).json({ error: 'Nível inválido.' });
+    }
+    if (!novoParentId) return res.status(400).json({ error: 'Informe quem é o responsável por esse apoiador.' });
+
+    const { rows: arvore } = await pool.query(SQL_SUBARVORE, [req.user.id]);
+    const porId = new Map(arvore.map((a) => [a.id, a]));
+
+    if (!porId.has(id)) return res.status(403).json({ error: 'Esse registro não está na sua rede.' });
+    const pai = porId.get(novoParentId);
+    if (!pai) return res.status(400).json({ error: 'Responsável inválido — precisa estar na sua própria rede.' });
+    if (pai.nivel !== novoNivel - 1) {
+      return res.status(400).json({ error: 'O responsável escolhido precisa estar exatamente um nível acima.' });
+    }
+    if (descendentesDe(arvore, id).has(novoParentId)) {
+      return res.status(400).json({ error: 'Não é possível mover um apoiador para debaixo de alguém que ele mesmo indicou.' });
+    }
+
+    const { rows: countRows } = await pool.query(
+      'SELECT count(*)::int AS c FROM apoiadores WHERE parent_id = $1 AND id <> $2',
+      [novoParentId, id]
+    );
+    const limite = limites[novoNivel - 1];
+    if (countRows[0].c >= limite) {
+      return res.status(400).json({ error: `Limite de ${limite} indicações atingido para esse responsável.` });
+    }
+  }
+
+  const campos = ['nome=$1', 'telefone=$2', 'nascimento=$3', 'endereco=$4', 'regiao=$5', 'cidade=$6', 'estado=$7', 'titulo=$8', 'zona=$9', 'secao=$10'];
+  const vals = [nome, telefone || null, nascimento || null, endereco || null, regiao || null, cidade || null, estado || null, titulo || null, zona || null, secao || null];
+  if (novoNivel !== undefined) {
+    campos.push(`nivel=$${vals.length + 1}`, `parent_id=$${vals.length + 2}`);
+    vals.push(novoNivel, novoParentId);
+  }
+  vals.push(id);
+
   const { rows } = await pool.query(
-    `UPDATE apoiadores SET nome=$1, telefone=$2, nascimento=$3, endereco=$4, regiao=$5, cidade=$6, estado=$7, titulo=$8, zona=$9, secao=$10
-     WHERE id = $11 RETURNING *`,
-    [nome, telefone || null, nascimento || null, endereco || null, regiao || null, cidade || null, estado || null, titulo || null, zona || null, secao || null, id]
+    `UPDATE apoiadores SET ${campos.join(', ')} WHERE id = $${vals.length} RETURNING *`,
+    vals
   );
   res.json(rows[0]);
 }));

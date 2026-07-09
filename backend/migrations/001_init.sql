@@ -101,3 +101,66 @@ WHERE a.id = u.id
   AND u.perfil IN ('lideranca','apoiador')
   AND a.titulo IS NULL AND a.zona IS NULL AND a.secao IS NULL
   AND (u.titulo IS NOT NULL OR u.zona IS NOT NULL OR u.secao IS NOT NULL);
+
+-- 4º nível da pirâmide: a liderança passa a poder reorganizar manualmente
+-- quem responde a quem (nível 2/3/4), então o teto sai de 3 para 4. Busca
+-- dinamicamente o nome da constraint (em vez de supor "apoiadores_nivel_check")
+-- pra não depender do nome que o Postgres deu automaticamente na criação.
+DO $$
+DECLARE c RECORD;
+BEGIN
+  FOR c IN
+    SELECT con.conname FROM pg_constraint con
+    JOIN pg_class rel ON rel.oid = con.conrelid
+    JOIN pg_attribute att ON att.attrelid = rel.oid AND att.attnum = ANY(con.conkey)
+    WHERE rel.relname = 'apoiadores' AND con.contype = 'c' AND att.attname = 'nivel'
+  LOOP
+    EXECUTE format('ALTER TABLE apoiadores DROP CONSTRAINT %I', c.conname);
+  END LOOP;
+END $$;
+ALTER TABLE apoiadores ADD CONSTRAINT apoiadores_nivel_check CHECK (nivel BETWEEN 1 AND 4);
+
+-- Consentimento LGPD versionado (autocadastro público de apoiadores).
+ALTER TABLE apoiadores ADD COLUMN IF NOT EXISTS lgpd_versao TEXT;
+
+-- Primeiro acesso obrigatório (senha temporária) e aceite do termo de uso
+-- para quem loga no sistema (candidato/liderança/apoiador). "false" por
+-- padrão pra não afetar quem já usa o sistema hoje — só passa a "true" nos
+-- pontos que entregam senha que a pessoa não escolheu (criação de conta ou
+-- reset feito por outra pessoa).
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS senha_temporaria BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS termo_versao_aceita TEXT;
+
+-- Trilha de auditoria do consentimento LGPD (art. 8º, §2º — o ônus da prova
+-- do consentimento é do controlador). Nunca é sobrescrita: cada aceite vira
+-- uma linha nova, com versão do termo, IP e dispositivo.
+CREATE TABLE IF NOT EXISTS termos_aceite (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  usuario_id   UUID REFERENCES usuarios(id) ON DELETE CASCADE,
+  apoiador_id  UUID REFERENCES apoiadores(id) ON DELETE CASCADE,
+  versao_termo TEXT NOT NULL,
+  aceite_em    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  ip           TEXT,
+  user_agent   TEXT,
+  CHECK ((usuario_id IS NOT NULL) <> (apoiador_id IS NOT NULL))
+);
+CREATE INDEX IF NOT EXISTS idx_termos_aceite_usuario ON termos_aceite(usuario_id);
+CREATE INDEX IF NOT EXISTS idx_termos_aceite_apoiador ON termos_aceite(apoiador_id);
+
+-- Plano contratado do candidato, período do contrato e data de desativação —
+-- só o admin edita. "teste" + sem data_desativacao é o padrão, então todo
+-- candidato que já existia antes desta coluna existir continua sem nenhuma
+-- limitação (DEFAULT se aplica também às linhas já existentes).
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS plano TEXT NOT NULL DEFAULT 'teste';
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS periodo_contrato TEXT;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS data_desativacao TIMESTAMPTZ;
+DO $$ BEGIN
+  ALTER TABLE usuarios ADD CONSTRAINT usuarios_plano_check
+    CHECK (plano IN ('teste','vereador','prefeito_dep_estadual','deputado_federal_senador'));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE usuarios ADD CONSTRAINT usuarios_periodo_contrato_check
+    CHECK (periodo_contrato IS NULL OR periodo_contrato IN ('mensal','trimestral','semestral'));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;

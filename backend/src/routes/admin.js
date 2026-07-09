@@ -10,6 +10,7 @@ router.use(authRequired, requireRole('admin'));
 router.get('/candidatos', asyncHandler(async (req, res) => {
   const { rows } = await pool.query(`
     SELECT c.id, c.nome, c.login, c.email, c.ativo, c.created_at,
+           c.plano, c.periodo_contrato, c.data_desativacao,
            EXISTS (SELECT 1 FROM usuarios u WHERE u.criado_por = c.id) AS em_uso
     FROM usuarios c
     WHERE c.perfil = 'candidato'
@@ -44,7 +45,7 @@ router.post('/candidatos', asyncHandler(async (req, res) => {
 
   try {
     const { rows } = await pool.query(
-      `INSERT INTO usuarios (nome, login, senha_hash, perfil, email) VALUES ($1,$2,$3,'candidato',$4)
+      `INSERT INTO usuarios (nome, login, senha_hash, perfil, email, senha_temporaria) VALUES ($1,$2,$3,'candidato',$4,true)
        RETURNING id, nome, login, email`,
       [nome, login, senhaHash, email]
     );
@@ -60,11 +61,46 @@ router.put('/candidatos/:id/senha', asyncHandler(async (req, res) => {
   const novaSenha = req.body?.senha && req.body.senha.length >= 4 ? req.body.senha : gerarSenhaTemporaria();
   const senhaHash = await hash(novaSenha);
   const { rowCount } = await pool.query(
-    "UPDATE usuarios SET senha_hash = $1 WHERE id = $2 AND perfil = 'candidato'",
+    "UPDATE usuarios SET senha_hash = $1, senha_temporaria = true WHERE id = $2 AND perfil = 'candidato'",
     [senhaHash, id]
   );
   if (!rowCount) return res.status(404).json({ error: 'Candidato não encontrado.' });
   res.json({ senha: novaSenha });
+}));
+
+const PLANOS_VALIDOS = ['teste', 'vereador', 'prefeito_dep_estadual', 'deputado_federal_senador'];
+const PERIODOS_VALIDOS = ['mensal', 'trimestral', 'semestral'];
+
+// Plano contratado, período e data de desativação — só o admin mexe aqui.
+// Ao passar da data_desativacao, toda a rede daquele candidato (ele mesmo,
+// lideranças e apoiadores criados sob ele) fica impedida de logar (ver auth.js).
+router.put('/candidatos/:id/plano', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { plano, periodoContrato, dataDesativacao } = req.body || {};
+
+  if (plano !== undefined && !PLANOS_VALIDOS.includes(plano)) {
+    return res.status(400).json({ error: 'Plano inválido.' });
+  }
+  if (periodoContrato !== undefined && periodoContrato !== null && !PERIODOS_VALIDOS.includes(periodoContrato)) {
+    return res.status(400).json({ error: 'Período de contrato inválido.' });
+  }
+
+  const { rows: atuais } = await pool.query(
+    "SELECT plano, periodo_contrato, data_desativacao FROM usuarios WHERE id = $1 AND perfil = 'candidato'",
+    [id]
+  );
+  if (!atuais[0]) return res.status(404).json({ error: 'Candidato não encontrado.' });
+
+  const novoPlano = plano !== undefined ? plano : atuais[0].plano;
+  const novoPeriodo = periodoContrato !== undefined ? periodoContrato : atuais[0].periodo_contrato;
+  const novaData = dataDesativacao !== undefined ? (dataDesativacao || null) : atuais[0].data_desativacao;
+
+  const { rows } = await pool.query(
+    `UPDATE usuarios SET plano = $1, periodo_contrato = $2, data_desativacao = $3
+     WHERE id = $4 AND perfil = 'candidato' RETURNING id, nome, plano, periodo_contrato, data_desativacao`,
+    [novoPlano, novoPeriodo, novaData, id]
+  );
+  res.json(rows[0]);
 }));
 
 router.put('/candidatos/:id/email', asyncHandler(async (req, res) => {

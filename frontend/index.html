@@ -143,6 +143,12 @@
   .copyright-footer strong{color:var(--gold);}
   .lgpd-box{display:flex;gap:10px;align-items:flex-start;background:var(--bg);padding:12px;border-radius:8px;margin-bottom:16px;}
   .lgpd-box label{font-size:11.5px;color:var(--slate);line-height:1.5;font-weight:400;text-transform:none;letter-spacing:normal;}
+  .pyr-node.level-4{border-left:4px solid #cbd5e0;}
+  .termo-box{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:16px;max-height:340px;overflow-y:auto;font-size:12.5px;color:var(--slate);line-height:1.6;margin-bottom:16px;}
+  .termo-box h4{font-size:13px;color:var(--navy);margin:14px 0 6px;}
+  .termo-box h4:first-child{margin-top:0;}
+  .termo-box p{margin-bottom:8px;}
+  .termo-link{font-size:11.5px;color:var(--gold);cursor:pointer;text-decoration:underline;}
   @media(max-width:900px){.stats-grid{grid-template-columns:1fr 1fr;}.form-grid{grid-template-columns:1fr;}.form-grid .full{grid-column:1;}}
 </style>
 </head>
@@ -225,13 +231,44 @@
     </div>
     <div class="lgpd-box">
       <input type="checkbox" id="auto-lgpd" style="margin-top:3px;flex-shrink:0">
-      <label for="auto-lgpd">Li e concordo que meus dados pessoais (nome, telefone, data de nascimento, endereço, título eleitoral e seção eleitoral) serão utilizados exclusivamente para fins de organização da rede de apoio desta campanha/iniciativa, em conformidade com a Lei Geral de Proteção de Dados (LGPD — Lei nº 13.709/2018). Posso solicitar a exclusão dos meus dados a qualquer momento. *</label>
+      <label for="auto-lgpd">Li e concordo com o <span class="termo-link" onclick="abrirTermoLeitura()">Termo de Consentimento para Tratamento de Dados Pessoais</span> e autorizo o uso dos meus dados (nome, telefone, data de nascimento, endereço, título eleitoral e seção eleitoral) exclusivamente para fins de organização da rede de apoio desta campanha/iniciativa, em conformidade com a Lei Geral de Proteção de Dados (LGPD — Lei nº 13.709/2018). Posso solicitar a exclusão dos meus dados a qualquer momento. *</label>
     </div>
     <div id="auto-result" style="display:none;margin-bottom:16px;padding:14px;border-radius:8px;font-size:13px"></div>
     <div style="display:flex;gap:10px">
       <button onclick="fecharAutoCadastro()" style="flex:1;padding:11px;background:var(--bg);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif;font-size:13px">Cancelar</button>
       <button onclick="salvarAutoCadastro()" style="flex:1.5;padding:11px;background:var(--navy);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif;font-size:13px;font-weight:600">✔ Enviar meu cadastro</button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL LEITURA DO TERMO (a qualquer momento — autocadastro, Minha Conta) -->
+<div id="modal-termo-leitura" style="display:none;position:fixed;inset:0;background:rgba(15,31,61,0.85);z-index:10000;align-items:flex-start;justify-content:center;overflow-y:auto;">
+  <div style="background:#fff;border-radius:16px;padding:28px;width:90%;max-width:560px;margin:20px auto;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
+    <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--navy);margin-bottom:16px">📄 Termo de Consentimento para Tratamento de Dados Pessoais</div>
+    <div class="termo-box" id="termo-leitura-texto"></div>
+    <button onclick="document.getElementById('modal-termo-leitura').style.display='none'" style="width:100%;padding:11px;background:var(--navy);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif;font-size:13px;font-weight:600">Fechar</button>
+  </div>
+</div>
+
+<!-- MODAL BLOQUEANTE DE PRIMEIRO ACESSO — sem botão de fechar; só libera o
+     painel depois de ler o termo, aceitar, e (quando exigido) trocar a senha. -->
+<div id="modal-primeiro-acesso" style="display:none;position:fixed;inset:0;background:rgba(15,31,61,0.92);z-index:10001;align-items:flex-start;justify-content:center;overflow-y:auto;">
+  <div style="background:#fff;border-radius:16px;padding:28px;width:90%;max-width:560px;margin:20px auto;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
+    <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--navy);margin-bottom:4px">Bem-vindo(a) — antes de continuar</div>
+    <div style="font-size:12px;color:var(--slate-light);margin-bottom:16px" id="pa-subtitulo">Leia o termo e confirme seu acesso.</div>
+    <div class="termo-box" id="pa-termo-texto"></div>
+    <div class="lgpd-box">
+      <input type="checkbox" id="pa-aceite" style="margin-top:3px;flex-shrink:0" onchange="atualizarBotaoPrimeiroAcesso()">
+      <label for="pa-aceite">Li e concordo com o Termo de Consentimento para Tratamento de Dados Pessoais acima. *</label>
+    </div>
+    <div id="pa-campos-senha" style="display:none">
+      <div class="field"><label>Senha temporária atual *</label><input type="password" id="pa-senha-atual" placeholder="A senha que você acabou de usar para entrar" oninput="atualizarBotaoPrimeiroAcesso()"></div>
+      <div class="field"><label>Nova senha *</label><input type="password" id="pa-senha" placeholder="Mínimo 4 caracteres" oninput="atualizarBotaoPrimeiroAcesso()"></div>
+      <div class="field"><label>Confirmar nova senha *</label><input type="password" id="pa-senha2" placeholder="Repita a senha" oninput="atualizarBotaoPrimeiroAcesso()"></div>
+      <div class="field"><label>Novo login (opcional)</label><input type="text" id="pa-login" placeholder="Deixe em branco para manter o login atual"></div>
+    </div>
+    <div id="pa-result" style="display:none;margin-bottom:16px;padding:14px;border-radius:8px;font-size:13px"></div>
+    <button id="pa-continuar" onclick="confirmarPrimeiroAcesso()" disabled style="width:100%;padding:12px;background:var(--navy);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;opacity:0.5">Continuar</button>
   </div>
 </div>
 
@@ -266,6 +303,7 @@
         <button class="nav-item" onclick="showPage('grafico')"><span>📈</span> Gráfico por Zona</button>
         <button class="nav-item" onclick="showPage('usuarios')"><span>🔑</span> Usuários</button>
         <button class="nav-item" onclick="showPage('configuracoes')"><span>⚙️</span> Configurações</button>
+        <button class="nav-item" onclick="showPage('minha-conta')"><span>👤</span> Minha Conta</button>
       </div>
       <div class="sidebar-section" id="nav-lideranca" style="display:none">
         <div class="sidebar-label">Liderança</div>
@@ -273,16 +311,19 @@
         <button class="nav-item" onclick="showPage('minha-rede')"><span>🌐</span> Minha Rede</button>
         <button class="nav-item" onclick="showPage('cadastrar')"><span>➕</span> Cadastrar Apoiador</button>
         <button class="nav-item" onclick="gerarLinkAutoCadastro()" style="background:linear-gradient(135deg,#276749,#1a4a32);color:#fff;border-radius:8px;margin-top:4px"><span>🔗</span> Gerar link de cadastro</button>
+        <button class="nav-item" onclick="showPage('minha-conta')"><span>👤</span> Minha Conta</button>
       </div>
       <div class="sidebar-section" id="nav-apoiador" style="display:none">
         <div class="sidebar-label">Apoiador</div>
         <button class="nav-item active" onclick="showPage('dashboard')"><span>📊</span> Meu Painel</button>
         <button class="nav-item" onclick="showPage('minha-rede')"><span>🌐</span> Minha Rede</button>
         <button class="nav-item" onclick="showPage('cadastrar')"><span>➕</span> Indicar Pessoa</button>
+        <button class="nav-item" onclick="showPage('minha-conta')"><span>👤</span> Minha Conta</button>
       </div>
       <div class="sidebar-section" id="nav-admin" style="display:none">
         <div class="sidebar-label">Administrador</div>
         <button class="nav-item active" onclick="showPage('vagas')"><span>🗝️</span> Central de Vagas</button>
+        <button class="nav-item" onclick="showPage('minha-conta')"><span>👤</span> Minha Conta</button>
       </div>
     </div>
     <div class="content" id="main-content"></div>
@@ -333,12 +374,14 @@ let CONFIG = {
   limiteNivel1: 50,
   limiteNivel2: 30,
   limiteNivel3: 15,
+  limiteNivel4: 10,
 };
 
 function getLimite(nivel) {
   if(nivel===1) return CONFIG.limiteNivel1;
   if(nivel===2) return CONFIG.limiteNivel2;
   if(nivel===3) return CONFIG.limiteNivel3;
+  if(nivel===4) return CONFIG.limiteNivel4;
   return 0;
 }
 
@@ -350,6 +393,10 @@ let currentRole = null;
 let APOIADORES = [];
 let paginaAtual = 'dashboard';
 let workspaceAdmin = null; // {id, nome} — preenchido quando o admin abre o workspace de um candidato
+// Guardada só em memória, só durante a sessão de login, pra confirmar identidade
+// na tela obrigatória de primeiro acesso (trocar a senha temporária exige provar
+// a senha atual) — nunca é persistida.
+let _senhaLoginUsada = null;
 
 const ROLE_LABELS = {candidato:'Candidato', lideranca:'Liderança', apoiador:'Apoiador', admin:'Administrador'};
 
@@ -474,9 +521,41 @@ function validarTituloEleitoral(valor) {
 }
 
 // ══════════════════════════════════════════
+//  TERMO DE CONSENTIMENTO LGPD — texto completo, reaproveitado no
+//  autocadastro público, na tela de primeiro acesso e em "Minha Conta".
+// ══════════════════════════════════════════
+function textoTermoCompleto(){
+  return `
+    <p><strong>Base legal:</strong> Lei nº 13.709/2018 (LGPD), art. 5º, II e art. 11, I (dado pessoal sensível — opinião política, mediante consentimento específico e destacado).</p>
+    <h4>1. Identificação do Controlador</h4>
+    <p>O tratamento dos seus dados pessoais é de responsabilidade de <strong>${CONFIG.candidatoNome}</strong> ("Controlador"), que utiliza a plataforma ${CONFIG.appNome}, operada por <strong>${CONFIG.idealizadora}</strong> ("Operadora"), nos termos do art. 39 da LGPD. <em>(CNPJ/CPF e endereço do Controlador a preencher pelo cliente antes da campanha.)</em></p>
+    <h4>2. Dados coletados</h4>
+    <p>Nome completo, telefone/WhatsApp, e-mail (quando informado), endereço/bairro/zona eleitoral, título de eleitor, e manifestação de apoio político (dado pessoal sensível, art. 5º, II, LGPD).</p>
+    <h4>3. Finalidade do tratamento</h4>
+    <p>Os dados são usados exclusivamente para organização e gestão da rede de apoiadores, envio de comunicações sobre agenda/eventos, e convites para atividades políticas voluntárias. Não são vendidos nem compartilhados com terceiros alheios à campanha.</p>
+    <h4>4. Consentimento específico para dado sensível</h4>
+    <p>Ao marcar a caixa de consentimento, você autoriza, de forma livre, informada, inequívoca e destacada, o tratamento do dado relativo à sua opinião/apoio político, nos termos do art. 11, I, da LGPD.</p>
+    <h4>5. Compartilhamento e acesso</h4>
+    <p>Os dados só são acessados por membros autorizados da equipe do Controlador, mediante credenciais individuais, com registro de acesso.</p>
+    <h4>6. Armazenamento e segurança</h4>
+    <p>Os dados são armazenados em ambiente com controle de acesso por perfil. O prazo de conservação é de até 90 dias após o encerramento da campanha/mandato, salvo obrigação legal de guarda, quando então são eliminados ou anonimizados.</p>
+    <h4>7. Seus direitos (art. 18, LGPD)</h4>
+    <p>A qualquer momento você pode solicitar confirmação do tratamento, acesso, correção, eliminação dos dados, ou revogar este consentimento — de forma gratuita e facilitada. A revogação não afeta a licitude do tratamento já realizado.</p>
+    <h4>8. Canal de contato</h4>
+    <p>Solicitações devem ser dirigidas ao e-mail do encarregado/responsável da campanha. <em>(a preencher pelo cliente.)</em></p>
+  `;
+}
+
+function abrirTermoLeitura(){
+  document.getElementById('termo-leitura-texto').innerHTML = textoTermoCompleto();
+  document.getElementById('modal-termo-leitura').style.display = 'flex';
+}
+
+// ══════════════════════════════════════════
 //  AUTOCADASTRO DE APOIADOR POR LINK
 // ══════════════════════════════════════════
 let _autoLiderancaId = null;
+let _versaoTermoAutocadastro = null;
 
 function gerarLinkAutoCadastro() {
   if(!currentUser) return;
@@ -496,6 +575,7 @@ function verificarAutoCadastro() {
     if(_autoLiderancaId) {
       api(`/public/lideranca/${_autoLiderancaId}`).then(data => {
         document.getElementById('auto-descricao').textContent = `Rede de apoio — ${data.nome}`;
+        _versaoTermoAutocadastro = data.versaoTermo || null;
       }).catch(() => {});
     }
   }
@@ -550,7 +630,7 @@ async function salvarAutoCadastro() {
       lideranca_id: _autoLiderancaId, nome, telefone: tel, nascimento: nasc,
       endereco: end || null, regiao: bairro, cidade: cidade || null, estado: uf || null,
       titulo: titulo || null, zona: zona || null, secao: secao || null,
-      lgpd_aceite: true,
+      lgpd_aceite: true, lgpd_versao: _versaoTermoAutocadastro,
     })});
     res.style.display = 'block';
     res.style.background = '#e6f4ec'; res.style.border = '1px solid #276749'; res.style.color = '#276749';
@@ -577,11 +657,90 @@ async function entrarNaApp(user){
   document.getElementById('nav-apoiador').style.display=currentRole==='apoiador'?'block':'none';
   document.getElementById('nav-admin').style.display=currentRole==='admin'?'block':'none';
 
+  if(user.precisaAceitarTermo || user.precisaTrocarSenha) {
+    abrirPrimeiroAcesso(user);
+    return;
+  }
+
   if(currentRole === 'admin') {
     showPage('vagas');
   } else {
     await carregarApoiadores();
     showPage('dashboard');
+  }
+}
+
+// ══════════════════════════════════════════
+//  PRIMEIRO ACESSO OBRIGATÓRIO (termo LGPD + senha temporária)
+// ══════════════════════════════════════════
+function abrirPrimeiroAcesso(user){
+  document.getElementById('pa-termo-texto').innerHTML = textoTermoCompleto();
+  document.getElementById('pa-aceite').checked = false;
+  document.getElementById('pa-senha-atual').value = _senhaLoginUsada || '';
+  document.getElementById('pa-senha').value = '';
+  document.getElementById('pa-senha2').value = '';
+  document.getElementById('pa-login').value = '';
+  document.getElementById('pa-result').style.display = 'none';
+  document.getElementById('pa-campos-senha').style.display = user.precisaTrocarSenha ? 'block' : 'none';
+  document.getElementById('pa-subtitulo').textContent = user.precisaTrocarSenha
+    ? 'Leia o termo, aceite e defina sua senha definitiva para continuar.'
+    : 'O termo de consentimento foi atualizado — leia e aceite para continuar.';
+  atualizarBotaoPrimeiroAcesso();
+  document.getElementById('modal-primeiro-acesso').style.display = 'flex';
+}
+
+function atualizarBotaoPrimeiroAcesso(){
+  const aceite = document.getElementById('pa-aceite').checked;
+  const precisaSenha = document.getElementById('pa-campos-senha').style.display !== 'none';
+  let ok = aceite;
+  if(precisaSenha){
+    const atual = document.getElementById('pa-senha-atual').value;
+    const s1 = document.getElementById('pa-senha').value;
+    const s2 = document.getElementById('pa-senha2').value;
+    ok = ok && atual.length > 0 && s1.length >= 4 && s1 === s2;
+  }
+  const btn = document.getElementById('pa-continuar');
+  btn.disabled = !ok;
+  btn.style.opacity = ok ? '1' : '0.5';
+}
+
+async function confirmarPrimeiroAcesso(){
+  const res = document.getElementById('pa-result');
+  const precisaSenha = document.getElementById('pa-campos-senha').style.display !== 'none';
+  const mostrarErro = (msg) => {
+    res.style.display = 'block';
+    res.style.background = '#fff5f5'; res.style.border = '1px solid #c53030'; res.style.color = '#c53030';
+    res.innerHTML = '⚠️ ' + msg;
+  };
+
+  showLoading('Confirmando...');
+  try {
+    await api('/conta/aceitar-termo', { method:'POST' });
+
+    if(precisaSenha) {
+      const senhaAtual = document.getElementById('pa-senha-atual').value;
+      const novaSenha = document.getElementById('pa-senha').value;
+      const novoLogin = document.getElementById('pa-login').value.trim();
+      await api('/conta/senha', { method:'PUT', body: JSON.stringify({ senhaAtual, novaSenha }) });
+      if(novoLogin) {
+        await api('/conta/login', { method:'PUT', body: JSON.stringify({ novoLogin, senhaAtual: novaSenha }) });
+      }
+      _senhaLoginUsada = novaSenha;
+    }
+
+    hideLoading();
+    document.getElementById('modal-primeiro-acesso').style.display = 'none';
+    showToast('Tudo certo! Bem-vindo(a).', 'success');
+
+    if(currentRole === 'admin') {
+      showPage('vagas');
+    } else {
+      await carregarApoiadores();
+      showPage('dashboard');
+    }
+  } catch(e) {
+    hideLoading();
+    mostrarErro(e.message || 'Não foi possível confirmar. Tente novamente.');
   }
 }
 
@@ -604,6 +763,7 @@ async function doLogin() {
   showLoading('Verificando acesso...');
   try {
     const data = await api('/auth/login', { method:'POST', body: JSON.stringify({ login: usuario, senha, perfil: currentAuthTab }) });
+    _senhaLoginUsada = senha;
     await entrarNaApp(data.user);
     showToast('Bem-vindo(a), '+data.user.nome+'!','success');
   } catch(e){
@@ -615,7 +775,7 @@ async function doLogin() {
 
 function doLogout(){
   api('/auth/logout', { method:'POST' }).catch(()=>{});
-  currentUser=null; currentRole=null; APOIADORES=[]; workspaceAdmin=null;
+  currentUser=null; currentRole=null; APOIADORES=[]; workspaceAdmin=null; _senhaLoginUsada=null;
   document.getElementById('workspace-bar').style.display='none';
   document.getElementById('app').style.display='none';
   document.getElementById('auth-screen').style.display='flex';
@@ -652,6 +812,7 @@ function showPage(page) {
     case 'grafico':       c.innerHTML=renderGrafico(); setTimeout(desenharGrafico,50); break;
     case 'minha-rede':    c.innerHTML=renderMinhaRede(); break;
     case 'cadastrar':     c.innerHTML=renderCadastrar(); break;
+    case 'minha-conta':   c.innerHTML=renderMinhaConta(); break;
     case 'usuarios':      c.innerHTML=renderUsuarios(); setTimeout(carregarListaUsuarios,50); break;
     case 'configuracoes': c.innerHTML=renderConfiguracoes(); break;
     case 'vagas':         c.innerHTML=renderVagas(); setTimeout(carregarVagas,50); break;
@@ -667,6 +828,7 @@ function renderDashboard(){
     const n1=APOIADORES.filter(a=>a.nivel===1).length;
     const n2=APOIADORES.filter(a=>a.nivel===2).length;
     const n3=APOIADORES.filter(a=>a.nivel===3).length;
+    const n4=APOIADORES.filter(a=>a.nivel===4).length;
     const regioes={};
     APOIADORES.forEach(a=>{regioes[a.regiao]=(regioes[a.regiao]||0)+1;});
     return `
@@ -675,7 +837,8 @@ function renderDashboard(){
       <div class="stat-card"><div class="stat-label">Total na Rede</div><div class="stat-value">${total}</div><div class="stat-sub">apoiadores cadastrados</div></div>
       <div class="stat-card"><div class="stat-label">Lideranças — Nível 1</div><div class="stat-value">${n1}</div><div class="stat-sub">limite: ${CONFIG.limiteNivel1} cada</div></div>
       <div class="stat-card"><div class="stat-label">Nível 2</div><div class="stat-value">${n2}</div><div class="stat-sub">limite: ${CONFIG.limiteNivel2} cada</div></div>
-      <div class="stat-card"><div class="stat-label">Nível 3 — Base</div><div class="stat-value">${n3}</div><div class="stat-sub">limite: ${CONFIG.limiteNivel3} cada</div></div>
+      <div class="stat-card"><div class="stat-label">Nível 3</div><div class="stat-value">${n3}</div><div class="stat-sub">limite: ${CONFIG.limiteNivel3} cada</div></div>
+      <div class="stat-card"><div class="stat-label">Nível 4 — Base</div><div class="stat-value">${n4}</div><div class="stat-sub">limite: ${CONFIG.limiteNivel4} cada</div></div>
     </div>
     <div class="card">
       <div class="card-header"><div class="card-title">Por Região</div><button class="btn-sm btn-navy" onclick="carregarApoiadores().then(()=>showPage('dashboard'))">🔄 Atualizar</button></div>
@@ -734,18 +897,24 @@ function renderDashboard(){
 
 let redeFiltroL1 = null;
 let redeFiltroL2 = null;
+let redeFiltroL3 = null;
 
 function filtrarRedeL1(id){
   redeFiltroL1 = (String(redeFiltroL1) === String(id)) ? null : id;
-  redeFiltroL2 = null;
+  redeFiltroL2 = null; redeFiltroL3 = null;
   showPage('rede');
 }
 function filtrarRedeL2(id){
   redeFiltroL2 = (String(redeFiltroL2) === String(id)) ? null : id;
+  redeFiltroL3 = null;
+  showPage('rede');
+}
+function filtrarRedeL3(id){
+  redeFiltroL3 = (String(redeFiltroL3) === String(id)) ? null : id;
   showPage('rede');
 }
 function limparFiltroRede(){
-  redeFiltroL1 = null; redeFiltroL2 = null;
+  redeFiltroL1 = null; redeFiltroL2 = null; redeFiltroL3 = null;
   showPage('rede');
 }
 
@@ -753,6 +922,7 @@ function renderRede(){
   const n1=APOIADORES.filter(a=>a.nivel===1);
   let n2=APOIADORES.filter(a=>a.nivel===2);
   let n3=APOIADORES.filter(a=>a.nivel===3);
+  let n4=APOIADORES.filter(a=>a.nivel===4);
 
   if(redeFiltroL1){
     n2 = n2.filter(a=>String(a.parent_id)===String(redeFiltroL1));
@@ -762,15 +932,18 @@ function renderRede(){
   if(redeFiltroL2){
     n3 = n3.filter(a=>String(a.parent_id)===String(redeFiltroL2));
   }
+  const idsL3 = new Set(n3.map(a=>String(a.id)));
+  n4 = redeFiltroL3 ? n4.filter(a=>String(a.parent_id)===String(redeFiltroL3)) : n4.filter(a=>idsL3.has(String(a.parent_id)));
 
   const nomeL1 = redeFiltroL1 ? APOIADORES.find(a=>String(a.id)===String(redeFiltroL1))?.nome : null;
   const nomeL2 = redeFiltroL2 ? APOIADORES.find(a=>String(a.id)===String(redeFiltroL2))?.nome : null;
+  const nomeL3 = redeFiltroL3 ? APOIADORES.find(a=>String(a.id)===String(redeFiltroL3))?.nome : null;
 
   return `
-  <div class="page-header"><h1>Rede de Apoio</h1><p>Pirâmide 3 níveis — ${CONFIG.limiteNivel1} / ${CONFIG.limiteNivel2} / ${CONFIG.limiteNivel3} · clique numa liderança ou apoiador para filtrar a rede dele</p></div>
-  ${(redeFiltroL1||redeFiltroL2) ? `
+  <div class="page-header"><h1>Rede de Apoio</h1><p>Pirâmide 4 níveis — ${CONFIG.limiteNivel1} / ${CONFIG.limiteNivel2} / ${CONFIG.limiteNivel3} / ${CONFIG.limiteNivel4} · clique numa liderança ou apoiador para filtrar a rede dele</p></div>
+  ${(redeFiltroL1||redeFiltroL2||redeFiltroL3) ? `
   <div class="card" style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:#fdf5e0;border-color:var(--gold)">
-    <span style="font-size:13px;color:#8a6a10;font-weight:600">🔍 Mostrando só a rede de ${nomeL1?`<strong>${nomeL1}</strong>`:''}${nomeL2?` → <strong>${nomeL2}</strong>`:''}</span>
+    <span style="font-size:13px;color:#8a6a10;font-weight:600">🔍 Mostrando só a rede de ${nomeL1?`<strong>${nomeL1}</strong>`:''}${nomeL2?` → <strong>${nomeL2}</strong>`:''}${nomeL3?` → <strong>${nomeL3}</strong>`:''}</span>
     <button class="btn-sm btn-outline" onclick="limparFiltroRede()">✕ Limpar filtro</button>
   </div>` : ''}
   <div class="card">
@@ -780,17 +953,20 @@ function renderRede(){
     <div class="pyr-level"><div class="pyr-level-label">🔵 Nível 2 — Apoiadores (${n2.length})</div>
       <div class="pyr-nodes">${n2.map(a=>`<div class="pyr-node level-2${String(redeFiltroL2)===String(a.id)?' pyr-node-active':''}" onclick="filtrarRedeL2('${a.id}')"><div class="pn-name">${a.nome}</div><div class="pn-region">${a.regiao||'—'}</div><div class="pn-count">↳ ${APOIADORES.filter(x=>String(x.parent_id)===String(a.id)).length} indicados</div></div>`).join('')||`<p style="color:var(--slate-light);font-size:13px">${redeFiltroL1?'Essa liderança ainda não tem indicados de nível 2.':'Nenhum apoiador nível 2.'}</p>`}</div>
     </div>
-    <div class="pyr-level"><div class="pyr-level-label">⚪ Nível 3 — Base (${n3.length})</div>
-      <div class="pyr-nodes">${n3.map(a=>`<div class="pyr-node level-3" onclick="showDetail('${a.id}')"><div class="pn-name">${a.nome}</div><div class="pn-region">${a.regiao||'—'}</div></div>`).join('')||`<p style="color:var(--slate-light);font-size:13px">${redeFiltroL2?'Esse apoiador ainda não tem indicados de nível 3.':'Nenhum apoiador nível 3.'}</p>`}</div>
+    <div class="pyr-level"><div class="pyr-level-label">⚪ Nível 3 (${n3.length})</div>
+      <div class="pyr-nodes">${n3.map(a=>`<div class="pyr-node level-3${String(redeFiltroL3)===String(a.id)?' pyr-node-active':''}" onclick="filtrarRedeL3('${a.id}')"><div class="pn-name">${a.nome}</div><div class="pn-region">${a.regiao||'—'}</div><div class="pn-count">↳ ${APOIADORES.filter(x=>String(x.parent_id)===String(a.id)).length} indicados</div></div>`).join('')||`<p style="color:var(--slate-light);font-size:13px">${redeFiltroL2?'Esse apoiador ainda não tem indicados de nível 3.':'Nenhum apoiador nível 3.'}</p>`}</div>
+    </div>
+    <div class="pyr-level"><div class="pyr-level-label">◽ Nível 4 — Base (${n4.length})</div>
+      <div class="pyr-nodes">${n4.map(a=>`<div class="pyr-node level-4" onclick="showDetail('${a.id}')"><div class="pn-name">${a.nome}</div><div class="pn-region">${a.regiao||'—'}</div></div>`).join('')||`<p style="color:var(--slate-light);font-size:13px">${redeFiltroL3?'Esse apoiador ainda não tem indicados de nível 4.':'Nenhum apoiador nível 4.'}</p>`}</div>
     </div>
   </div>`;
 }
 
 function renderApoiadores(){
-  const podeExcluir = papelEfetivo()==='candidato';
+  const podeExcluir = papelEfetivo()==='candidato' || currentRole==='lideranca';
   return `
   <div class="page-header"><h1>Todos os Apoiadores</h1><p>Total: ${APOIADORES.length} — clique para ver detalhes</p></div>
-  ${podeExcluir?`
+  ${papelEfetivo()==='candidato'?`
   <div class="card" style="display:flex;justify-content:space-between;align-items:center">
     <div class="card-title">Cadastros duplicados</div>
     <button class="btn-sm btn-outline" onclick="buscarDuplicados()">🔎 Buscar duplicados</button>
@@ -801,11 +977,11 @@ function renderApoiadores(){
       <input class="search-input" id="search-inp" placeholder="🔍 Buscar nome ou região..." oninput="filterTable()">
       <select id="filter-nivel" class="search-input" style="max-width:160px;flex:none" onchange="filterTable()">
         <option value="">Todos os níveis</option>
-        <option value="1">Nível 1</option><option value="2">Nível 2</option><option value="3">Nível 3</option>
+        <option value="1">Nível 1</option><option value="2">Nível 2</option><option value="3">Nível 3</option><option value="4">Nível 4</option>
       </select>
     </div>
     <div class="table-wrap">
-      <table><thead><tr><th>Nome</th><th>Região</th><th>Nível</th><th>Telefone</th><th>Nascimento</th><th>Título</th><th>Zona</th><th>Seção</th>${podeExcluir?'<th>Ações</th>':''}</tr></thead>
+      <table><thead><tr><th>Nome</th><th>Região</th><th>Nível</th><th>Telefone</th><th>Nascimento</th><th>Título</th><th>Zona</th><th>Seção</th><th>Ações</th></tr></thead>
       <tbody id="apoiadores-tbody">
         ${APOIADORES.map(a=>`
           <tr data-nome="${a.nome.toLowerCase()}" data-regiao="${(a.regiao||'').toLowerCase()}" data-nivel="${a.nivel}">
@@ -815,7 +991,10 @@ function renderApoiadores(){
             <td onclick="showDetail('${a.id}')" style="cursor:pointer">${a.telefone}</td>
             <td onclick="showDetail('${a.id}')" style="cursor:pointer">${formatDate(a.nascimento)}</td>
             <td style="font-family:monospace;font-size:12px">${a.titulo||'—'}</td><td>${a.zona||'—'}</td><td>${a.secao||'—'}</td>
-            ${podeExcluir?`<td><button class="btn-del" onclick="excluirApoiador('${a.id}','${escapeAttr(a.nome)}')">🗑</button></td>`:''}
+            <td style="white-space:nowrap">
+              <button class="btn-sm btn-outline" style="font-size:11px;padding:4px 8px" onclick="editarApoiador('${a.id}')">✏️</button>
+              ${podeExcluir?`<button class="btn-del" onclick="excluirApoiador('${a.id}','${escapeAttr(a.nome)}')">🗑</button>`:''}
+            </td>
           </tr>`).join('')}
       </tbody></table>
     </div>
@@ -870,7 +1049,7 @@ function renderExportar(){
   <div class="card">
     <div class="card-header"><div class="card-title">Por Nível</div></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
-      ${[1,2,3].map(n=>`<button class="btn-sm btn-outline" onclick="exportCSV(APOIADORES.filter(a=>a.nivel===${n}),'nivel-${n}.csv')">Nível ${n} (${APOIADORES.filter(a=>a.nivel===n).length})</button>`).join('')}
+      ${[1,2,3,4].map(n=>`<button class="btn-sm btn-outline" onclick="exportCSV(APOIADORES.filter(a=>a.nivel===${n}),'nivel-${n}.csv')">Nível ${n} (${APOIADORES.filter(a=>a.nivel===n).length})</button>`).join('')}
     </div>
   </div>
   <div class="card">
@@ -1033,6 +1212,7 @@ async function carregarListaUsuarios(){
     <td>${u.zona||'—'}</td>
     <td>${u.secao||'—'}</td>
     <td><div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn-sm btn-outline" style="padding:5px 10px;font-size:11px" onclick='editarUsuario(${JSON.stringify(u).replace(/'/g, "&#39;")})'>✏️ Editar</button>
       <button class="btn-sm btn-outline" style="padding:5px 10px;font-size:11px" onclick="editarEmailUsuario('${u.id}','${escapeAttr(u.nome)}','${escapeAttr(u.email||'')}')">✉️ E-mail</button>
       <button class="btn-sm btn-outline" style="padding:5px 10px;font-size:11px" onclick="editarDadosEleitoraisUsuario('${u.id}','${escapeAttr(u.nome)}','${escapeAttr(u.titulo||'')}','${escapeAttr(u.zona||'')}','${escapeAttr(u.secao||'')}')">🗳️ Título/Zona/Seção</button>
       <button class="btn-sm btn-outline" style="padding:5px 10px;font-size:11px" onclick="trocarSenha('${u.id}','${escapeAttr(u.nome)}','${escapeAttr(u.login)}')">🔑 Senha</button>
@@ -1040,6 +1220,47 @@ async function carregarListaUsuarios(){
     </div></td></tr>`).join('')}
   </tbody></table>
   </div>`;
+}
+
+function editarUsuario(u){
+  document.getElementById('main-content').insertAdjacentHTML('afterbegin', `
+    <div id="modal-editar-usuario" style="position:fixed;inset:0;background:rgba(15,31,61,0.85);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;">
+      <div style="background:#fff;border-radius:16px;padding:28px;width:90%;max-width:480px;margin:20px auto;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
+        <div style="font-family:'DM Serif Display',serif;font-size:20px;color:#0F1F3D;margin-bottom:16px">✏️ Editar ${escapeAttr(u.nome)}</div>
+        <div class="form-grid">
+          <div class="field full"><label>Nome Completo *</label><input type="text" id="eu-nome" value="${escapeAttr(u.nome||'')}"></div>
+          <div class="field"><label>Telefone</label><input type="tel" id="eu-tel" value="${escapeAttr(u.telefone||'')}"></div>
+          <div class="field full"><label>Endereço</label><input type="text" id="eu-end" value="${escapeAttr(u.endereco||'')}"></div>
+          <div class="field"><label>Bairro / Região</label><input type="text" id="eu-reg" value="${escapeAttr(u.regiao||'')}"></div>
+          <div class="field"><label>Cidade</label><input type="text" id="eu-cidade" value="${escapeAttr(u.cidade||'')}"></div>
+          <div class="field"><label>Estado</label><input type="text" id="eu-uf" value="${escapeAttr(u.estado||'')}" maxlength="2" style="text-transform:uppercase"></div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:16px">
+          <button onclick="document.getElementById('modal-editar-usuario').remove()" style="flex:1;padding:12px;background:#f0f0f0;border:none;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif">Cancelar</button>
+          <button onclick="salvarEdicaoUsuario('${u.id}')" style="flex:1.5;padding:12px;background:#0F1F3D;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif;font-weight:600">✔ Salvar alterações</button>
+        </div>
+      </div>
+    </div>`);
+}
+
+async function salvarEdicaoUsuario(id){
+  const nome = document.getElementById('eu-nome').value.trim();
+  if(!nome){ showToast('Nome é obrigatório.','error'); return; }
+  showLoading('Salvando...');
+  try {
+    await api(`/usuarios/${id}${wsQuery()}`, { method:'PUT', body: JSON.stringify({
+      nome,
+      telefone: document.getElementById('eu-tel').value.trim() || null,
+      endereco: document.getElementById('eu-end').value.trim() || null,
+      regiao: document.getElementById('eu-reg').value.trim() || null,
+      cidade: document.getElementById('eu-cidade').value.trim() || null,
+      estado: document.getElementById('eu-uf').value.trim() || null,
+    })});
+    document.getElementById('modal-editar-usuario')?.remove();
+    showToast('Dados atualizados!','success');
+    carregarListaUsuarios();
+  } catch(e){ hideLoading(); showToast(e.message || 'Erro ao salvar.', 'error'); return; }
+  hideLoading();
 }
 
 async function editarDadosEleitoraisUsuario(id, nome, tituloAtual, zonaAtual, secaoAtual){
@@ -1102,11 +1323,12 @@ function renderConfiguracoes(){
     <div class="config-section-title" style="margin-top:24px">📊 Limites da Pirâmide</div>
     <div class="config-row"><span class="config-label">Nível 1 — Lideranças</span><input class="config-input config-input-num" id="cfg-lim1" type="number" value="${CONFIG.limiteNivel1}"></div>
     <div class="config-row"><span class="config-label">Nível 2 — Apoiadores</span><input class="config-input config-input-num" id="cfg-lim2" type="number" value="${CONFIG.limiteNivel2}"></div>
-    <div class="config-row"><span class="config-label">Nível 3 — Base</span><input class="config-input config-input-num" id="cfg-lim3" type="number" value="${CONFIG.limiteNivel3}"></div>
+    <div class="config-row"><span class="config-label">Nível 3</span><input class="config-input config-input-num" id="cfg-lim3" type="number" value="${CONFIG.limiteNivel3}"></div>
+    <div class="config-row"><span class="config-label">Nível 4 — Base</span><input class="config-input config-input-num" id="cfg-lim4" type="number" value="${CONFIG.limiteNivel4}"></div>
     <div style="display:flex;gap:10px;margin-top:24px">
       <button class="btn-sm btn-navy" onclick="salvarConfig()">💾 Salvar</button>
     </div>
-    <p style="font-size:11px;color:var(--slate-light);margin-top:12px">Os limites aqui são apenas de exibição nesta sessão. Para valer para todos os usuários, ajuste as variáveis LIMITE_NIVEL1/2/3 no servidor.</p>
+    <p style="font-size:11px;color:var(--slate-light);margin-top:12px">Os limites aqui são apenas de exibição nesta sessão. Para valer para todos os usuários, ajuste as variáveis LIMITE_NIVEL1/2/3/4 no servidor.</p>
   </div>`;
 }
 
@@ -1116,7 +1338,68 @@ function salvarConfig(){
   CONFIG.limiteNivel1=parseInt(document.getElementById('cfg-lim1').value)||CONFIG.limiteNivel1;
   CONFIG.limiteNivel2=parseInt(document.getElementById('cfg-lim2').value)||CONFIG.limiteNivel2;
   CONFIG.limiteNivel3=parseInt(document.getElementById('cfg-lim3').value)||CONFIG.limiteNivel3;
+  CONFIG.limiteNivel4=parseInt(document.getElementById('cfg-lim4').value)||CONFIG.limiteNivel4;
   showToast('Configurações salvas!','success');
+}
+
+// ══════════════════════════════════════════
+//  MINHA CONTA — trocar senha/login quando quiser, reler o termo
+// ══════════════════════════════════════════
+function renderMinhaConta(){
+  return `
+  <div class="page-header"><h1>Minha Conta</h1><p>Login atual: <strong>${currentUser.login || '—'}</strong></p></div>
+  <div class="card">
+    <div class="card-header"><div class="card-title">🔑 Trocar senha</div></div>
+    <div class="form-grid">
+      <div class="field full"><label>Senha atual *</label><input type="password" id="mc-senha-atual" placeholder="Sua senha atual"></div>
+      <div class="field"><label>Nova senha *</label><input type="password" id="mc-senha-nova" placeholder="Mínimo 4 caracteres"></div>
+      <div class="field"><label>Confirmar nova senha *</label><input type="password" id="mc-senha-nova2" placeholder="Repita a senha"></div>
+    </div>
+    <button class="btn-sm btn-navy" onclick="salvarMinhaSenha()">💾 Salvar nova senha</button>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="card-title">👤 Trocar login</div></div>
+    <div class="form-grid">
+      <div class="field"><label>Novo login *</label><input type="text" id="mc-login-novo" placeholder="Novo usuário de acesso" oninput="verificarLoginInput('mc-login-novo','mc-login-msg')"><div id="mc-login-msg" style="font-size:11px;margin-top:4px"></div></div>
+      <div class="field"><label>Senha atual *</label><input type="password" id="mc-login-senha" placeholder="Confirme com sua senha atual"></div>
+    </div>
+    <button class="btn-sm btn-navy" onclick="salvarMeuLogin()">💾 Salvar novo login</button>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="card-title">📄 Termo de Consentimento (LGPD)</div></div>
+    <p style="font-size:13px;color:var(--slate-light);margin-bottom:12px">Releia a qualquer momento o termo que você aceitou ao acessar o sistema.</p>
+    <button class="btn-sm btn-outline" onclick="abrirTermoLeitura()">📄 Ler termo completo</button>
+  </div>`;
+}
+
+async function salvarMinhaSenha(){
+  const senhaAtual = document.getElementById('mc-senha-atual').value;
+  const novaSenha = document.getElementById('mc-senha-nova').value;
+  const novaSenha2 = document.getElementById('mc-senha-nova2').value;
+  if(!senhaAtual || !novaSenha){ showToast('Preencha a senha atual e a nova senha.','error'); return; }
+  if(novaSenha.length < 4){ showToast('A nova senha precisa ter pelo menos 4 caracteres.','error'); return; }
+  if(novaSenha !== novaSenha2){ showToast('As senhas não coincidem.','error'); return; }
+  showLoading('Salvando...');
+  try {
+    await api('/conta/senha', { method:'PUT', body: JSON.stringify({ senhaAtual, novaSenha }) });
+    hideLoading();
+    showToast('Senha atualizada!','success');
+    showPage('minha-conta');
+  } catch(e){ hideLoading(); showToast(e.message || 'Erro ao trocar senha.', 'error'); }
+}
+
+async function salvarMeuLogin(){
+  const novoLogin = document.getElementById('mc-login-novo').value.trim();
+  const senhaAtual = document.getElementById('mc-login-senha').value;
+  if(!novoLogin || !senhaAtual){ showToast('Preencha o novo login e a senha atual.','error'); return; }
+  showLoading('Salvando...');
+  try {
+    const data = await api('/conta/login', { method:'PUT', body: JSON.stringify({ novoLogin, senhaAtual }) });
+    currentUser.login = data.login;
+    hideLoading();
+    showToast('Login atualizado!','success');
+    showPage('minha-conta');
+  } catch(e){ hideLoading(); showToast(e.message || 'Erro ao trocar login.', 'error'); }
 }
 
 function renderGrafico(){
@@ -1239,7 +1522,11 @@ async function carregarVagas(){
     return;
   }
 
-  el.innerHTML = candidatos.map(c => `
+  const planoLabel = { teste:'Plano Teste', vereador:'Vereador', prefeito_dep_estadual:'Prefeito / Dep. Estadual', deputado_federal_senador:'Dep. Federal / Senador' };
+  const hoje = new Date();
+  el.innerHTML = candidatos.map(c => {
+    const desativado = c.data_desativacao && new Date(c.data_desativacao) <= hoje;
+    return `
     <div class="card" style="display:flex;align-items:center;gap:16px">
       <div style="width:44px;height:44px;border-radius:12px;background:${c.em_uso?'#e8edf7':'#f0f2f8'};display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:var(--navy);flex-shrink:0">${c.nome[0].toUpperCase()}</div>
       <div style="flex:1;min-width:0">
@@ -1247,14 +1534,64 @@ async function carregarVagas(){
         <div style="font-size:12px;color:var(--slate-light);margin-top:2px">
           <code style="background:#f0f2f8;padding:2px 6px;border-radius:4px">${c.login}</code>
           ${c.em_uso? '<span class="badge badge-navy" style="margin-left:6px">Em uso</span>' : '<span class="badge badge-green" style="margin-left:6px">Disponível</span>'}
+          <span class="badge badge-gold" style="margin-left:6px">${planoLabel[c.plano] || c.plano}</span>
+          ${desativado? '<span class="badge" style="margin-left:6px;background:#fde8e8;color:var(--red)">Acesso encerrado</span>' : ''}
         </div>
-        <div style="font-size:11px;color:var(--slate-light);margin-top:2px">${c.email || 'sem e-mail cadastrado'}</div>
+        <div style="font-size:11px;color:var(--slate-light);margin-top:2px">${c.email || 'sem e-mail cadastrado'}${c.data_desativacao ? ` · acesso até ${formatDate(c.data_desativacao)}` : ''}</div>
       </div>
+      <button class="btn-sm btn-outline" style="font-size:11px;padding:6px 10px;white-space:nowrap" onclick='editarPlanoCandidato(${JSON.stringify(c).replace(/'/g, "&#39;")})'>🏷️ Plano</button>
       <button class="btn-sm btn-outline" style="font-size:11px;padding:6px 10px;white-space:nowrap" onclick="editarEmailCandidato('${c.id}','${escapeAttr(c.login)}','${escapeAttr(c.email||'')}')">✉️ E-mail</button>
       <button class="btn-sm btn-outline" style="font-size:11px;padding:6px 10px;white-space:nowrap" onclick="trocarSenhaCandidato('${c.id}','${escapeAttr(c.login)}')">🔑 Senha</button>
       <button class="btn-sm btn-navy" style="white-space:nowrap" onclick="abrirWorkspace('${c.id}','${escapeAttr(c.nome)}')">Abrir workspace →</button>
     </div>
-  `).join('');
+  `;}).join('');
+}
+
+function editarPlanoCandidato(c){
+  document.getElementById('main-content').insertAdjacentHTML('afterbegin', `
+    <div id="modal-plano-candidato" style="position:fixed;inset:0;background:rgba(15,31,61,0.85);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;">
+      <div style="background:#fff;border-radius:16px;padding:28px;width:90%;max-width:420px;margin:20px auto;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
+        <div style="font-family:'DM Serif Display',serif;font-size:20px;color:#0F1F3D;margin-bottom:16px">🏷️ Plano — ${escapeAttr(c.nome)}</div>
+        <div class="field full"><label>Plano contratado</label>
+          <select id="pc-plano">
+            <option value="teste" ${c.plano==='teste'?'selected':''}>Plano Teste</option>
+            <option value="vereador" ${c.plano==='vereador'?'selected':''}>Vereador</option>
+            <option value="prefeito_dep_estadual" ${c.plano==='prefeito_dep_estadual'?'selected':''}>Prefeito / Deputado Estadual</option>
+            <option value="deputado_federal_senador" ${c.plano==='deputado_federal_senador'?'selected':''}>Deputado Federal / Senador</option>
+          </select>
+        </div>
+        <div class="field full"><label>Período do contrato</label>
+          <select id="pc-periodo">
+            <option value="" ${!c.periodo_contrato?'selected':''}>— não definido —</option>
+            <option value="mensal" ${c.periodo_contrato==='mensal'?'selected':''}>Mensal</option>
+            <option value="trimestral" ${c.periodo_contrato==='trimestral'?'selected':''}>Trimestral</option>
+            <option value="semestral" ${c.periodo_contrato==='semestral'?'selected':''}>Semestral</option>
+          </select>
+        </div>
+        <div class="field full"><label>Data de desativação (bloqueia login de toda a rede a partir dela)</label>
+          <input type="date" id="pc-data" value="${c.data_desativacao ? String(c.data_desativacao).slice(0,10) : ''}">
+        </div>
+        <p style="font-size:11px;color:var(--slate-light);margin:-8px 0 16px">Deixe em branco para não limitar o acesso (padrão do Plano Teste).</p>
+        <div style="display:flex;gap:10px">
+          <button onclick="document.getElementById('modal-plano-candidato').remove()" style="flex:1;padding:12px;background:#f0f0f0;border:none;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif">Cancelar</button>
+          <button onclick="salvarPlanoCandidato('${c.id}')" style="flex:1.5;padding:12px;background:#0F1F3D;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif;font-weight:600">✔ Salvar</button>
+        </div>
+      </div>
+    </div>`);
+}
+
+async function salvarPlanoCandidato(id){
+  const plano = document.getElementById('pc-plano').value;
+  const periodoContrato = document.getElementById('pc-periodo').value || null;
+  const dataDesativacao = document.getElementById('pc-data').value || null;
+  showLoading('Salvando...');
+  try {
+    await api(`/admin/candidatos/${id}/plano`, { method:'PUT', body: JSON.stringify({ plano, periodoContrato, dataDesativacao }) });
+    document.getElementById('modal-plano-candidato')?.remove();
+    showToast('Plano atualizado!','success');
+    await carregarVagas();
+  } catch(e){ showToast(e.message || 'Erro ao salvar plano.', 'error'); }
+  hideLoading();
 }
 
 async function criarCandidato(){
@@ -1370,6 +1707,20 @@ function editarApoiador(id) {
           <div class="field"><label>Zona Eleitoral</label><input type="text" id="ed-zona" value="${a.zona||''}" placeholder="000"></div>
           <div class="field"><label>Seção Eleitoral</label><input type="text" id="ed-secao" value="${a.secao||''}" placeholder="0000"></div>
         </div>
+        ${currentRole==='lideranca' ? `
+        <div class="config-section-title" style="margin-top:16px">🗂️ Hierarquia (só a liderança pode mexer aqui)</div>
+        <div class="form-grid">
+          <div class="field"><label>Nível</label>
+            <select id="ed-nivel" onchange="atualizarResponsavelSelect('${id}')">
+              <option value="2" ${a.nivel===2?'selected':''}>Nível 2</option>
+              <option value="3" ${a.nivel===3?'selected':''}>Nível 3</option>
+              <option value="4" ${a.nivel===4?'selected':''}>Nível 4</option>
+            </select>
+          </div>
+          <div class="field"><label>Responsável por</label><select id="ed-parent"></select></div>
+        </div>
+        <p style="font-size:11px;color:var(--slate-light);margin-top:-8px;margin-bottom:8px">Diz quem esse apoiador passa a responder — ex: apoiador do nível 3 responde a um apoiador do nível 2.</p>
+        ` : ''}
         <div style="display:flex;gap:10px;margin-top:16px">
           <button onclick="document.getElementById('modal-editar').remove()" style="flex:1;padding:12px;background:#f0f0f0;border:none;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif">Cancelar</button>
           <button onclick="salvarEdicao('${id}')" style="flex:1.5;padding:12px;background:#0F1F3D;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif;font-weight:600">✔ Salvar alterações</button>
@@ -1377,25 +1728,53 @@ function editarApoiador(id) {
       </div>
     </div>
   `);
+  if(currentRole==='lideranca') atualizarResponsavelSelect(id);
+}
+
+// Popula o select "Responsável por" com quem está um nível acima, dentro da
+// própria rede da liderança — atualiza toda vez que o nível escolhido muda.
+function atualizarResponsavelSelect(id){
+  const nivelSel = document.getElementById('ed-nivel');
+  const parentSel = document.getElementById('ed-parent');
+  if(!nivelSel || !parentSel) return;
+  const novoNivel = parseInt(nivelSel.value, 10);
+  const a = APOIADORES.find(x => x.id === id);
+  const atual = a ? String(a.parent_id) : null;
+  let opcoes;
+  if(novoNivel === 2){
+    opcoes = [{ id: currentUser.id, nome: 'Você (liderança)' }];
+  } else {
+    opcoes = APOIADORES.filter(x => x.nivel === novoNivel - 1 && x.id !== id);
+  }
+  parentSel.innerHTML = opcoes.length
+    ? opcoes.map(o => `<option value="${o.id}" ${atual===String(o.id)?'selected':''}>${escapeAttr(o.nome)}</option>`).join('')
+    : '<option value="">Nenhum disponível nesse nível ainda</option>';
 }
 
 async function salvarEdicao(id) {
   const nome = document.getElementById('ed-nome').value.trim();
   if(!nome) { alert('Nome é obrigatório.'); return; }
+  const body = {
+    nome,
+    telefone: document.getElementById('ed-tel').value.trim() || null,
+    nascimento: document.getElementById('ed-nasc').value || null,
+    endereco: document.getElementById('ed-end').value.trim() || null,
+    regiao: document.getElementById('ed-reg').value.trim() || null,
+    cidade: document.getElementById('ed-cidade').value.trim() || null,
+    estado: document.getElementById('ed-uf').value.trim() || null,
+    titulo: document.getElementById('ed-titulo').value.trim() || null,
+    zona: document.getElementById('ed-zona').value.trim() || null,
+    secao: document.getElementById('ed-secao').value.trim() || null,
+  };
+  const nivelSel = document.getElementById('ed-nivel');
+  const parentSel = document.getElementById('ed-parent');
+  if(currentRole==='lideranca' && nivelSel && parentSel && parentSel.value){
+    body.nivel = parseInt(nivelSel.value, 10);
+    body.parent_id = parentSel.value;
+  }
   showLoading('Salvando...');
   try {
-    await api(`/apoiadores/${id}${wsQuery()}`, { method:'PUT', body: JSON.stringify({
-      nome,
-      telefone: document.getElementById('ed-tel').value.trim() || null,
-      nascimento: document.getElementById('ed-nasc').value || null,
-      endereco: document.getElementById('ed-end').value.trim() || null,
-      regiao: document.getElementById('ed-reg').value.trim() || null,
-      cidade: document.getElementById('ed-cidade').value.trim() || null,
-      estado: document.getElementById('ed-uf').value.trim() || null,
-      titulo: document.getElementById('ed-titulo').value.trim() || null,
-      zona: document.getElementById('ed-zona').value.trim() || null,
-      secao: document.getElementById('ed-secao').value.trim() || null,
-    })});
+    await api(`/apoiadores/${id}${wsQuery()}`, { method:'PUT', body: JSON.stringify(body) });
     document.getElementById('modal-editar').remove();
     showToast('Cadastro atualizado com sucesso!', 'success');
     await carregarApoiadores();
@@ -1566,7 +1945,7 @@ function exportJSON(){
   showToast('JSON exportado!','success');
 }
 
-function nivelBadge(n){const m={1:['badge-gold','Nível 1'],2:['badge-navy','Nível 2'],3:['badge','Nível 3']};const[cls,lbl]=m[n]||['badge','—'];return `<span class="badge ${cls}">${lbl}</span>`;}
+function nivelBadge(n){const m={1:['badge-gold','Nível 1'],2:['badge-navy','Nível 2'],3:['badge','Nível 3'],4:['badge','Nível 4']};const[cls,lbl]=m[n]||['badge','—'];return `<span class="badge ${cls}">${lbl}</span>`;}
 function formatDate(d){
   if(!d) return '—';
   try {

@@ -19,7 +19,7 @@ function linkAutocadastro(liderancaId, candidatoId) {
 // Admin com ?as=<candidatoId>: lista as do workspace daquele candidato.
 router.get('/', requireRole('candidato', 'admin'), asyncHandler(async (req, res) => {
   const { rows } = await pool.query(
-    'SELECT id, nome, login, email, perfil, telefone, regiao, cidade, titulo, zona, secao, created_at FROM usuarios WHERE criado_por = $1 ORDER BY created_at',
+    'SELECT id, nome, login, email, perfil, telefone, endereco, regiao, cidade, estado, titulo, zona, secao, created_at FROM usuarios WHERE criado_por = $1 ORDER BY created_at',
     [req.effectiveId]
   );
   res.json(rows);
@@ -49,8 +49,8 @@ router.post('/', requireRole('candidato', 'admin'), asyncHandler(async (req, res
     await client.query('BEGIN');
     const senhaHash = await hash(senha);
     const { rows } = await client.query(
-      `INSERT INTO usuarios (nome, login, senha_hash, perfil, criado_por, telefone, email, regiao, endereco, cidade, titulo, zona, secao)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id, nome, login, perfil, email`,
+      `INSERT INTO usuarios (nome, login, senha_hash, perfil, criado_por, telefone, email, regiao, endereco, cidade, titulo, zona, secao, senha_temporaria)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,true) RETURNING id, nome, login, perfil, email`,
       [nome, login.trim().toLowerCase(), senhaHash, perfil, req.effectiveId, telefone || null, email?.trim().toLowerCase() || null, regiao || null, endereco || null, cidade || null, titulo || null, zona || null, secao || null]
     );
     const novoUsuario = rows[0];
@@ -94,8 +94,33 @@ router.put('/:id/senha', requireRole('candidato', 'admin'), asyncHandler(async (
 
   const novaSenha = senha && senha.length >= 4 ? senha : gerarSenhaTemporaria();
   const senhaHash = await hash(novaSenha);
-  await pool.query('UPDATE usuarios SET senha_hash = $1 WHERE id = $2', [senhaHash, id]);
+  // Marca como temporária de novo: quem recebe uma senha escolhida por outra
+  // pessoa precisa passar pela tela obrigatória de primeiro acesso e trocá-la.
+  await pool.query('UPDATE usuarios SET senha_hash = $1, senha_temporaria = true WHERE id = $2', [senhaHash, id]);
   res.json({ senha: novaSenha });
+}));
+
+router.put('/:id', requireRole('candidato', 'admin'), asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const owned = await pool.query('SELECT id FROM usuarios WHERE id = $1 AND (criado_por = $2 OR $3 = true)', [
+    id, req.effectiveId, req.user.perfil === 'admin',
+  ]);
+  if (!owned.rows[0]) return res.status(404).json({ error: 'Usuário não encontrado.' });
+
+  const { nome, telefone, endereco, regiao, cidade, estado } = req.body || {};
+  if (!nome) return res.status(400).json({ error: 'Nome é obrigatório.' });
+
+  const vals = [nome.trim(), telefone || null, endereco || null, regiao || null, cidade || null, estado || null, id];
+  const { rows } = await pool.query(
+    'UPDATE usuarios SET nome = $1, telefone = $2, endereco = $3, regiao = $4, cidade = $5, estado = $6 WHERE id = $7 RETURNING id, nome, login, email, perfil, telefone, regiao, endereco, cidade, estado',
+    vals
+  );
+  // Mantém a ficha-espelho em apoiadores (pirâmide/Todos os Apoiadores) sincronizada.
+  await pool.query(
+    'UPDATE apoiadores SET nome = $1, telefone = $2, endereco = $3, regiao = $4, cidade = $5, estado = $6 WHERE id = $7',
+    vals
+  );
+  res.json(rows[0]);
 }));
 
 router.put('/:id/email', requireRole('candidato', 'admin'), asyncHandler(async (req, res) => {

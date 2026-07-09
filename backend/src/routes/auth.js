@@ -5,6 +5,7 @@ const pool = require('../db');
 const { jwtSecret, tokenExpiresIn, cookieMaxAgeMs, publicUrl } = require('../config');
 const { authRequired } = require('../middleware/auth');
 const { hash, compare } = require('../utils/password');
+const { avaliarStatusTermo } = require('../utils/termoStatus');
 const mail = require('../services/mail');
 const asyncHandler = require('../utils/asyncHandler');
 
@@ -36,6 +37,20 @@ router.post('/login', asyncHandler(async (req, res) => {
   const ok = await compare(senha, user.senha_hash);
   if (!ok) return res.status(401).json({ error: 'Usuário ou senha incorretos.' });
 
+  // Contrato encerrado: bloqueia o candidato E toda a rede criada por ele
+  // (lideranças/apoiadores) a partir da data de desativação configurada pelo admin.
+  const candidatoId = user.perfil === 'candidato' ? user.id : user.criado_por;
+  if (candidatoId) {
+    const { rows: cRows } = await pool.query(
+      "SELECT data_desativacao FROM usuarios WHERE id = $1 AND perfil = 'candidato'",
+      [candidatoId]
+    );
+    const dataDesativacao = cRows[0]?.data_desativacao;
+    if (dataDesativacao && new Date(dataDesativacao) <= new Date()) {
+      return res.status(403).json({ error: 'Acesso encerrado. Entre em contato com o suporte.' });
+    }
+  }
+
   const token = jwt.sign(
     { id: user.id, nome: user.nome, perfil: user.perfil, criado_por: user.criado_por },
     jwtSecret,
@@ -46,14 +61,15 @@ router.post('/login', asyncHandler(async (req, res) => {
   // impacto de um eventual XSS (só cookies acessíveis por JS podem ser roubados).
   res.cookie('token', token, COOKIE_OPTS);
   res.json({
-    user: { id: user.id, nome: user.nome, perfil: user.perfil, criado_por: user.criado_por },
+    user: { id: user.id, nome: user.nome, login: user.login, perfil: user.perfil, criado_por: user.criado_por, ...avaliarStatusTermo(user) },
   });
 }));
 
 router.get('/me', authRequired, asyncHandler(async (req, res) => {
-  const { rows } = await pool.query('SELECT id, nome, perfil, criado_por FROM usuarios WHERE id = $1 AND ativo = true', [req.user.id]);
+  const { rows } = await pool.query('SELECT id, nome, login, perfil, criado_por, senha_temporaria, termo_versao_aceita FROM usuarios WHERE id = $1 AND ativo = true', [req.user.id]);
   if (!rows[0]) return res.status(401).json({ error: 'Sessão inválida.' });
-  res.json({ user: rows[0] });
+  const { senha_temporaria, termo_versao_aceita, ...user } = rows[0];
+  res.json({ user: { ...user, ...avaliarStatusTermo(rows[0]) } });
 }));
 
 router.post('/logout', (req, res) => {
