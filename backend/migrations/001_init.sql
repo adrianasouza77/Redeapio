@@ -50,6 +50,10 @@ CREATE INDEX IF NOT EXISTS idx_apoiadores_nome_lower ON apoiadores (lower(nome))
 -- apagam dados — só acrescentam colunas novas com valor NULL/padrão):
 ALTER TABLE apoiadores ADD COLUMN IF NOT EXISTS estado TEXT;
 ALTER TABLE apoiadores ADD COLUMN IF NOT EXISTS zona TEXT;
+-- Faltava esta coluna: a tela "Usuários" (candidato editando lideranças/
+-- apoiadores) e o PUT /usuarios/:id referenciam usuarios.estado, mas ela só
+-- existia em "apoiadores" — causava "column estado does not exist" (500).
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS estado TEXT;
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS titulo TEXT;
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS zona TEXT;
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS secao TEXT;

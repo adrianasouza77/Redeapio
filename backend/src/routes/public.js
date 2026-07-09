@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../db');
 const asyncHandler = require('../utils/asyncHandler');
 const { validarTituloEleitoral } = require('../utils/tituloEleitoral');
+const { buscarDuplicidade } = require('../utils/duplicidade');
 const { termoVersaoAtual } = require('../config');
 
 const router = express.Router();
@@ -33,13 +34,20 @@ router.post('/autocadastro', asyncHandler(async (req, res) => {
   if (!lideranca_id) return res.status(400).json({ error: 'Link de cadastro inválido.' });
 
   const { rows: parentRows } = await pool.query(
-    "SELECT id, perfil FROM usuarios WHERE id = $1 AND perfil IN ('lideranca','apoiador')",
+    "SELECT id, perfil, criado_por FROM usuarios WHERE id = $1 AND perfil IN ('lideranca','apoiador')",
     [lideranca_id]
   );
   const parent = parentRows[0];
   if (!parent) return res.status(400).json({ error: 'Link de cadastro inválido.' });
 
   const nivel = parent.perfil === 'lideranca' ? 2 : 3;
+
+  // Impede a mesma pessoa se autocadastrar duas vezes na rede desse candidato
+  // (por engano ou por má-fé) — checa telefone e título de eleitor.
+  const dup = await buscarDuplicidade({ candidatoId: parent.criado_por, telefone, titulo });
+  if (dup) {
+    return res.status(409).json({ error: `Já existe um cadastro com esse ${dup.campo} nesta rede (${dup.nome}). Se você acha que isso é um engano, fale com quem enviou o link.` });
+  }
 
   const client = await pool.connect();
   try {

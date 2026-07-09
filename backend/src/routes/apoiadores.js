@@ -3,6 +3,7 @@ const pool = require('../db');
 const { authRequired, requireRole } = require('../middleware/auth');
 const resolveWorkspace = require('../middleware/workspace');
 const { limites } = require('../config');
+const { buscarDuplicidade, resolverCandidatoId } = require('../utils/duplicidade');
 const asyncHandler = require('../utils/asyncHandler');
 
 const router = express.Router();
@@ -24,11 +25,27 @@ const SQL_ARVORE_CANDIDATO = `
   ORDER BY ap.created_at
 `;
 
-// A mesma CTE recursiva serve para todos os perfis: para um candidato ela resolve
-// a árvore inteira; para lideranca/apoiador, a árvore não desce (eles não criam
-// usuarios), então o resultado já vem naturalmente restrito à própria sub-rede.
+// Para lideranca/apoiador, SQL_ARVORE_CANDIDATO só pega os indicados DIRETOS
+// (cadastrado_por/parent_id = o próprio id) — não desce para nível 3/4 depois
+// que a liderança reorganiza a hierarquia (parent_id passa a apontar para
+// outro apoiador, não mais para um usuário). Esta resolve a subárvore inteira
+// a partir de qualquer nó de "apoiadores", seguindo parent_id em cascata.
+const SQL_ARVORE_LIDERANCA = `
+  WITH RECURSIVE arvore AS (
+    SELECT id FROM apoiadores WHERE id = $1
+    UNION ALL
+    SELECT ap.id FROM apoiadores ap JOIN arvore a ON ap.parent_id = a.id
+  )
+  SELECT ap.* FROM apoiadores ap WHERE ap.id IN (SELECT id FROM arvore) AND ap.id <> $1
+  ORDER BY ap.created_at
+`;
+
 router.get('/', asyncHandler(async (req, res) => {
-  const { rows } = await pool.query(SQL_ARVORE_CANDIDATO, [req.effectiveId]);
+  const ehArvoreCandidato = req.effectivePerfil === 'candidato' || req.user.perfil === 'admin';
+  const { rows } = await pool.query(
+    ehArvoreCandidato ? SQL_ARVORE_CANDIDATO : SQL_ARVORE_LIDERANCA,
+    [ehArvoreCandidato ? req.effectiveId : req.user.id]
+  );
   res.json(rows);
 }));
 
@@ -60,6 +77,11 @@ router.post('/', requireRole('lideranca', 'apoiador'), asyncHandler(async (req, 
   const limite = limites[myNivel];
   if (countRows[0].c >= limite) {
     return res.status(400).json({ error: `Limite de ${limite} indicações atingido.` });
+  }
+
+  const dup = await buscarDuplicidade({ candidatoId: resolverCandidatoId(req.user), telefone, titulo });
+  if (dup) {
+    return res.status(409).json({ error: `Já existe um cadastro com esse ${dup.campo} nesta rede (${dup.nome}).` });
   }
 
   const { rows } = await pool.query(

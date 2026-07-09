@@ -4,6 +4,7 @@ const { authRequired, requireRole } = require('../middleware/auth');
 const resolveWorkspace = require('../middleware/workspace');
 const { hash, gerarSenhaTemporaria } = require('../utils/password');
 const { publicUrl } = require('../config');
+const { buscarDuplicidade } = require('../utils/duplicidade');
 const asyncHandler = require('../utils/asyncHandler');
 
 const router = express.Router();
@@ -43,6 +44,11 @@ router.post('/', requireRole('candidato', 'admin'), asyncHandler(async (req, res
     return res.status(400).json({ error: 'Perfil inválido.' });
   }
   if (senha.length < 4) return res.status(400).json({ error: 'Senha muito curta.' });
+
+  const dup = await buscarDuplicidade({ candidatoId: req.effectiveId, email, telefone, titulo });
+  if (dup) {
+    return res.status(409).json({ error: `Já existe um cadastro com esse ${dup.campo} nesta rede (${dup.nome}).` });
+  }
 
   const client = await pool.connect();
   try {
