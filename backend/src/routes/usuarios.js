@@ -106,6 +106,8 @@ router.put('/:id/senha', requireRole('candidato', 'admin'), asyncHandler(async (
   res.json({ senha: novaSenha });
 }));
 
+// Edição completa (candidato editando liderança/apoiador): nome, login, e-mail,
+// telefone, endereço e dados eleitorais, tudo num único salvamento.
 router.put('/:id', requireRole('candidato', 'admin'), asyncHandler(async (req, res) => {
   const { id } = req.params;
   const owned = await pool.query('SELECT id FROM usuarios WHERE id = $1 AND (criado_por = $2 OR $3 = true)', [
@@ -113,47 +115,51 @@ router.put('/:id', requireRole('candidato', 'admin'), asyncHandler(async (req, r
   ]);
   if (!owned.rows[0]) return res.status(404).json({ error: 'Usuário não encontrado.' });
 
-  const { nome, telefone, endereco, regiao, cidade, estado } = req.body || {};
+  const { nome, login, email, telefone, endereco, regiao, cidade, estado, titulo, zona, secao } = req.body || {};
   if (!nome) return res.status(400).json({ error: 'Nome é obrigatório.' });
 
-  const vals = [nome.trim(), telefone || null, endereco || null, regiao || null, cidade || null, estado || null, id];
-  const { rows } = await pool.query(
-    'UPDATE usuarios SET nome = $1, telefone = $2, endereco = $3, regiao = $4, cidade = $5, estado = $6 WHERE id = $7 RETURNING id, nome, login, email, perfil, telefone, regiao, endereco, cidade, estado',
-    vals
-  );
-  // Mantém a ficha-espelho em apoiadores (pirâmide/Todos os Apoiadores) sincronizada.
-  await pool.query(
-    'UPDATE apoiadores SET nome = $1, telefone = $2, endereco = $3, regiao = $4, cidade = $5, estado = $6 WHERE id = $7',
-    vals
-  );
-  res.json(rows[0]);
-}));
+  const loginNovo = login?.trim().toLowerCase();
+  if (loginNovo && !/^[a-z0-9._-]+$/.test(loginNovo)) {
+    return res.status(400).json({ error: 'Login deve conter apenas letras, números, ponto, hífen ou underline.' });
+  }
 
-router.put('/:id/email', requireRole('candidato', 'admin'), asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const { email } = req.body || {};
-  const owned = await pool.query('SELECT id FROM usuarios WHERE id = $1 AND (criado_por = $2 OR $3 = true)', [
-    id, req.effectiveId, req.user.perfil === 'admin',
-  ]);
-  if (!owned.rows[0]) return res.status(404).json({ error: 'Usuário não encontrado.' });
+  const dup = await buscarDuplicidade({ candidatoId: req.effectiveId, email, telefone, titulo, excluirUsuarioId: id, excluirApoiadorId: id });
+  if (dup) {
+    return res.status(409).json({ error: `Já existe um cadastro com esse ${dup.campo} nesta rede (${dup.nome}).` });
+  }
 
-  await pool.query('UPDATE usuarios SET email = $1 WHERE id = $2', [email?.trim().toLowerCase() || null, id]);
-  res.json({ email: email?.trim().toLowerCase() || null });
-}));
+  const vals = [
+    nome.trim(), telefone || null, endereco || null, regiao || null, cidade || null, estado || null,
+    titulo?.trim() || null, zona?.trim() || null, secao?.trim() || null,
+  ];
 
-router.put('/:id/eleitorais', requireRole('candidato', 'admin'), asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const { titulo, zona, secao } = req.body || {};
-  const owned = await pool.query('SELECT id FROM usuarios WHERE id = $1 AND (criado_por = $2 OR $3 = true)', [
-    id, req.effectiveId, req.user.perfil === 'admin',
-  ]);
-  if (!owned.rows[0]) return res.status(404).json({ error: 'Usuário não encontrado.' });
-
-  const vals = [titulo?.trim() || null, zona?.trim() || null, secao?.trim() || null, id];
-  await pool.query('UPDATE usuarios SET titulo = $1, zona = $2, secao = $3 WHERE id = $4', vals);
-  // Mantém a ficha-espelho em apoiadores (pirâmide/Todos os Apoiadores) sincronizada.
-  await pool.query('UPDATE apoiadores SET titulo = $1, zona = $2, secao = $3 WHERE id = $4', vals);
-  res.json({ titulo: vals[0], zona: vals[1], secao: vals[2] });
+  try {
+    let rows;
+    if (loginNovo) {
+      vals.push(loginNovo, email?.trim().toLowerCase() || null, id);
+      ({ rows } = await pool.query(
+        `UPDATE usuarios SET nome=$1, telefone=$2, endereco=$3, regiao=$4, cidade=$5, estado=$6, titulo=$7, zona=$8, secao=$9, login=$10, email=$11
+         WHERE id = $12 RETURNING id, nome, login, email, perfil, telefone, regiao, endereco, cidade, estado, titulo, zona, secao`,
+        vals
+      ));
+    } else {
+      vals.push(email?.trim().toLowerCase() || null, id);
+      ({ rows } = await pool.query(
+        `UPDATE usuarios SET nome=$1, telefone=$2, endereco=$3, regiao=$4, cidade=$5, estado=$6, titulo=$7, zona=$8, secao=$9, email=$10
+         WHERE id = $11 RETURNING id, nome, login, email, perfil, telefone, regiao, endereco, cidade, estado, titulo, zona, secao`,
+        vals
+      ));
+    }
+    // Mantém a ficha-espelho em apoiadores (pirâmide/Todos os Apoiadores) sincronizada.
+    await pool.query(
+      'UPDATE apoiadores SET nome=$1, telefone=$2, endereco=$3, regiao=$4, cidade=$5, estado=$6, titulo=$7, zona=$8, secao=$9 WHERE id = $10',
+      [nome.trim(), telefone || null, endereco || null, regiao || null, cidade || null, estado || null, titulo?.trim() || null, zona?.trim() || null, secao?.trim() || null, id]
+    );
+    res.json(rows[0]);
+  } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: 'Este login já existe.' });
+    throw err;
+  }
 }));
 
 router.delete('/:id', requireRole('candidato', 'admin'), asyncHandler(async (req, res) => {
