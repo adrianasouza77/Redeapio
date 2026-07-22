@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>RedeApoio — Gestão Política</title>
 <!--
   © 2025 Adriana Pereira de Souza | @adrianasouzaas
@@ -150,6 +150,65 @@
   .termo-box p{margin-bottom:8px;}
   .termo-link{font-size:11.5px;color:var(--gold);cursor:pointer;text-decoration:underline;}
   @media(max-width:900px){.stats-grid{grid-template-columns:1fr 1fr;}.form-grid{grid-template-columns:1fr;}.form-grid .full{grid-column:1;}}
+
+  /* ══════════ MOBILE (celular) ══════════
+     A sidebar vira um menu deslizante (drawer) aberto pelo ☰, e os atalhos
+     principais do perfil ficam numa barra fixa no rodapé, estilo aplicativo —
+     cadastrar apoiador fica a um toque. Inputs sobem para 16px porque fonte
+     menor que isso faz o iOS dar zoom automático ao focar o campo. */
+  .menu-btn{display:none;background:none;border:none;color:var(--white);font-size:22px;cursor:pointer;padding:6px 10px;font-family:'Inter',sans-serif;}
+  .topbar-left{display:flex;align-items:center;gap:6px;}
+  .sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(15,31,61,0.5);z-index:190;}
+  .bottom-nav{display:none;}
+  @media(max-width:768px){
+    .topbar{padding:0 10px;}
+    .menu-btn{display:block;}
+    .topbar-right{gap:8px;}
+    .user-badge{padding:4px;background:none;}
+    .user-badge .name,.user-badge .role{display:none;}
+    .btn-logout{padding:7px 10px;}
+    .layout{display:block;min-height:calc(100vh - 60px);}
+    .sidebar{position:fixed;top:0;left:0;bottom:0;width:270px;max-width:82vw;z-index:200;transform:translateX(-105%);transition:transform .25s ease;padding-top:18px;overflow-y:auto;box-shadow:0 0 40px rgba(0,0,0,0.3);border-right:none;}
+    .sidebar.open{transform:translateX(0);}
+    .sidebar-backdrop.show{display:block;}
+    .nav-item{padding:13px 14px;font-size:14px;}
+    .content{padding:18px 14px calc(88px + env(safe-area-inset-bottom));overflow-y:visible;}
+    .page-header{margin-bottom:18px;}
+    .page-header h1{font-size:22px;}
+    .stats-grid{grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;}
+    .stat-card{padding:14px;}
+    .stat-value{font-size:24px;}
+    .card{padding:16px;}
+    .field input,.field select,.search-input,.config-input{font-size:16px;}
+    .field input,.field select{padding:12px 14px;}
+    .btn-sm{padding:12px 16px;font-size:14px;}
+    .btn-del{padding:8px 10px;font-size:12px;}
+    .card>.btn-sm{width:100%;padding:14px;font-size:15px;}
+    .form-actions{display:flex;flex-direction:column-reverse;gap:10px;margin-top:14px;}
+    .form-actions .btn-sm{width:100%;padding:14px;font-size:15px;}
+    .search-bar{flex-wrap:wrap;}
+    .search-input{flex:1 1 100%;}
+    .config-row{flex-wrap:wrap;}
+    .config-input{width:100%;}
+    .config-input-num{width:100px;}
+    .pyr-node{min-width:0;flex:1 1 46%;}
+    .table-wrap{-webkit-overflow-scrolling:touch;margin:0 -16px;padding:0 16px;}
+    .modal-overlay{padding:12px;}
+    .modal{padding:20px;max-height:88dvh;}
+    .toast{left:12px;right:12px;bottom:calc(80px + env(safe-area-inset-bottom));max-width:none;}
+    .watermark{font-size:8px;bottom:calc(66px + env(safe-area-inset-bottom));}
+    .copyright-footer{padding-bottom:calc(70px + env(safe-area-inset-bottom));}
+    #modal-autocadastro>div,#modal-primeiro-acesso>div,#modal-termo-leitura>div,#modal-esqueci>div,#modal-nova-senha>div,.modal-inline>div{padding:20px;width:94%;margin:12px auto;}
+    #auth-screen{padding:20px 16px 6vh;align-items:flex-start;padding-top:7vh;}
+    .auth-card{padding:32px 22px;}
+    .auth-tab{font-size:11.5px;padding:10px 2px;}
+    #workspace-bar{padding:10px 14px !important;flex-wrap:wrap;gap:8px;}
+    .bottom-nav{display:flex;position:fixed;left:0;right:0;bottom:0;background:var(--white);border-top:1px solid var(--border);z-index:150;padding-bottom:env(safe-area-inset-bottom);box-shadow:0 -4px 16px rgba(15,31,61,0.08);}
+    .bottom-nav button{flex:1;min-width:0;background:none;border:none;font-family:'Inter',sans-serif;padding:8px 2px 7px;font-size:10.5px;font-weight:600;color:var(--slate-light);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;}
+    .bottom-nav button span.bn-label{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .bottom-nav button .bn-icon{font-size:20px;line-height:1;}
+    .bottom-nav button.active{color:var(--navy);}
+  }
 </style>
 </head>
 <body>
@@ -215,7 +274,7 @@
     <div class="field"><label>Data de Nascimento *</label><input type="date" id="auto-nasc"></div>
     <div class="field"><label>CEP</label>
       <div style="display:flex;gap:8px">
-        <input type="text" id="auto-cep" placeholder="00000-000" maxlength="9" oninput="mascaraCep(this)" onblur="buscarCep('auto-cep','auto-end','auto-bairro','auto-cidade','auto-uf','auto-cep-msg')">
+        <input type="text" id="auto-cep" placeholder="00000-000" maxlength="9" inputmode="numeric" oninput="mascaraCep(this)" onblur="buscarCep('auto-cep','auto-end','auto-bairro','auto-cidade','auto-uf','auto-cep-msg')">
         <button type="button" class="btn-sm btn-outline" style="white-space:nowrap" onclick="buscarCep('auto-cep','auto-end','auto-bairro','auto-cidade','auto-uf','auto-cep-msg')">🔍 Buscar</button>
       </div>
       <div id="auto-cep-msg" style="font-size:11px;margin-top:4px;color:var(--slate-light)"></div>
@@ -228,17 +287,17 @@
     </div>
     <div class="field"><label>Nº Título Eleitoral *</label><input type="text" id="auto-titulo" placeholder="000000000000" inputmode="numeric" maxlength="12"></div>
     <div class="form-grid">
-      <div class="field"><label>Zona Eleitoral *</label><input type="text" id="auto-zona" placeholder="000"></div>
-      <div class="field"><label>Seção Eleitoral *</label><input type="text" id="auto-secao" placeholder="0000"></div>
+      <div class="field"><label>Zona Eleitoral *</label><input type="text" id="auto-zona" placeholder="000" inputmode="numeric"></div>
+      <div class="field"><label>Seção Eleitoral *</label><input type="text" id="auto-secao" placeholder="0000" inputmode="numeric"></div>
     </div>
     <div class="lgpd-box">
       <input type="checkbox" id="auto-lgpd" style="margin-top:3px;flex-shrink:0">
       <label for="auto-lgpd">Li e concordo com o <span class="termo-link" onclick="abrirTermoLeitura()">Termo de Consentimento para Tratamento de Dados Pessoais</span> e autorizo o uso dos meus dados (nome, telefone, data de nascimento, endereço, título eleitoral e seção eleitoral) exclusivamente para fins de organização da rede de apoio desta campanha/iniciativa, em conformidade com a Lei Geral de Proteção de Dados (LGPD — Lei nº 13.709/2018). Posso solicitar a exclusão dos meus dados a qualquer momento. *</label>
     </div>
     <div id="auto-result" style="display:none;margin-bottom:16px;padding:14px;border-radius:8px;font-size:13px"></div>
-    <div style="display:flex;gap:10px">
-      <button onclick="fecharAutoCadastro()" style="flex:1;padding:11px;background:var(--bg);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif;font-size:13px">Cancelar</button>
-      <button onclick="salvarAutoCadastro()" style="flex:1.5;padding:11px;background:var(--navy);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif;font-size:13px;font-weight:600">✔ Enviar meu cadastro</button>
+    <div class="form-actions" style="display:flex;gap:10px">
+      <button class="btn-sm" onclick="fecharAutoCadastro()" style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--slate)">Cancelar</button>
+      <button class="btn-sm" onclick="salvarAutoCadastro()" style="flex:1.5;background:var(--navy);color:#fff">✔ Enviar meu cadastro</button>
     </div>
   </div>
 </div>
@@ -285,7 +344,10 @@
 
 <div id="app">
   <div class="topbar">
-    <div class="topbar-brand">Rede<span>Apoio</span></div>
+    <div class="topbar-left">
+      <button class="menu-btn" onclick="toggleSidebar()" aria-label="Abrir menu">☰</button>
+      <div class="topbar-brand">Rede<span>Apoio</span></div>
+    </div>
     <div class="topbar-right">
       <div class="user-badge">
         <div class="avatar" id="user-avatar">?</div>
@@ -298,13 +360,14 @@
     <span style="font-size:13px;color:#8a6a10;font-weight:600">🗝️ Visualizando workspace de <span id="workspace-bar-nome"></span></span>
     <button class="btn-sm btn-outline" onclick="fecharWorkspace()">← Voltar à Central de Vagas</button>
   </div>
+  <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="toggleSidebar(false)"></div>
   <div class="layout">
-    <div class="sidebar">
+    <div class="sidebar" id="sidebar">
       <div class="sidebar-section" id="nav-candidato" style="display:none">
         <div class="sidebar-label">Candidato</div>
-        <button class="nav-item active" onclick="showPage('dashboard')"><span>📊</span> Dashboard</button>
-        <button class="nav-item" onclick="showPage('rede')"><span>🌐</span> Rede de Apoio</button>
-        <button class="nav-item" onclick="showPage('apoiadores')"><span>👥</span> Todos os Apoiadores</button>
+        <button class="nav-item active" onclick="showPage('dashboard')" data-short="Início"><span>📊</span> Dashboard</button>
+        <button class="nav-item" onclick="showPage('rede')" data-short="Rede"><span>🌐</span> Rede de Apoio</button>
+        <button class="nav-item" onclick="showPage('apoiadores')" data-short="Apoiadores"><span>👥</span> Todos os Apoiadores</button>
         <button class="nav-item" onclick="showPage('exportar')"><span>📥</span> Exportar Dados</button>
         <button class="nav-item" onclick="showPage('grafico')"><span>📈</span> Gráfico por Zona</button>
         <button class="nav-item" onclick="showPage('usuarios')"><span>🔑</span> Usuários</button>
@@ -313,27 +376,28 @@
       </div>
       <div class="sidebar-section" id="nav-lideranca" style="display:none">
         <div class="sidebar-label">Liderança</div>
-        <button class="nav-item active" onclick="showPage('dashboard')"><span>📊</span> Meu Painel</button>
-        <button class="nav-item" onclick="showPage('minha-rede')"><span>🌐</span> Minha Rede</button>
-        <button class="nav-item" onclick="showPage('cadastrar')"><span>➕</span> Cadastrar Apoiador</button>
+        <button class="nav-item active" onclick="showPage('dashboard')" data-short="Painel"><span>📊</span> Meu Painel</button>
+        <button class="nav-item" onclick="showPage('minha-rede')" data-short="Rede"><span>🌐</span> Minha Rede</button>
+        <button class="nav-item" onclick="showPage('cadastrar')" data-short="Cadastrar"><span>➕</span> Cadastrar Apoiador</button>
         <button class="nav-item" onclick="gerarLinkAutoCadastro()" style="background:linear-gradient(135deg,#276749,#1a4a32);color:#fff;border-radius:8px;margin-top:4px"><span>🔗</span> Gerar link de cadastro</button>
         <button class="nav-item" onclick="showPage('minha-conta')"><span>👤</span> Minha Conta</button>
       </div>
       <div class="sidebar-section" id="nav-apoiador" style="display:none">
         <div class="sidebar-label">Apoiador</div>
-        <button class="nav-item active" onclick="showPage('dashboard')"><span>📊</span> Meu Painel</button>
-        <button class="nav-item" onclick="showPage('minha-rede')"><span>🌐</span> Minha Rede</button>
-        <button class="nav-item" onclick="showPage('cadastrar')"><span>➕</span> Indicar Pessoa</button>
+        <button class="nav-item active" onclick="showPage('dashboard')" data-short="Painel"><span>📊</span> Meu Painel</button>
+        <button class="nav-item" onclick="showPage('minha-rede')" data-short="Rede"><span>🌐</span> Minha Rede</button>
+        <button class="nav-item" onclick="showPage('cadastrar')" data-short="Indicar"><span>➕</span> Indicar Pessoa</button>
         <button class="nav-item" onclick="showPage('minha-conta')"><span>👤</span> Minha Conta</button>
       </div>
       <div class="sidebar-section" id="nav-admin" style="display:none">
         <div class="sidebar-label">Administrador</div>
-        <button class="nav-item active" onclick="showPage('vagas')"><span>🗝️</span> Central de Vagas</button>
-        <button class="nav-item" onclick="showPage('minha-conta')"><span>👤</span> Minha Conta</button>
+        <button class="nav-item active" onclick="showPage('vagas')" data-short="Vagas"><span>🗝️</span> Central de Vagas</button>
+        <button class="nav-item" onclick="showPage('minha-conta')" data-short="Conta"><span>👤</span> Minha Conta</button>
       </div>
     </div>
     <div class="content" id="main-content"></div>
   </div>
+  <div class="bottom-nav" id="bottom-nav"></div>
   <div class="copyright-footer">© 2025 <strong>Adriana Pereira de Souza</strong> — RedeApoio — Todos os direitos reservados — @adrianasouzaas</div>
 </div>
 
@@ -662,6 +726,7 @@ async function entrarNaApp(user){
   document.getElementById('nav-lideranca').style.display=currentRole==='lideranca'?'block':'none';
   document.getElementById('nav-apoiador').style.display=currentRole==='apoiador'?'block':'none';
   document.getElementById('nav-admin').style.display=currentRole==='admin'?'block':'none';
+  montarBottomNav();
 
   if(user.precisaAceitarTermo || user.precisaTrocarSenha) {
     abrirPrimeiroAcesso(user);
@@ -817,8 +882,51 @@ async function carregarConfig() {
 // ══════════════════════════════════════════
 //  NAVEGAÇÃO
 // ══════════════════════════════════════════
+
+// Menu deslizante do celular (a sidebar vira drawer em telas ≤768px).
+function toggleSidebar(force){
+  const aberto = force !== undefined ? force : !document.getElementById('sidebar').classList.contains('open');
+  document.getElementById('sidebar').classList.toggle('open', aberto);
+  document.getElementById('sidebar-backdrop').classList.toggle('show', aberto);
+}
+
+// Barra inferior estilo app (só aparece no celular, via CSS): os 3 primeiros
+// atalhos de página do perfil ativo + botão Menu que abre o drawer completo.
+// Montada a partir da própria sidebar pra nunca sair de sincronia com ela.
+function montarBottomNav(){
+  const nav = document.getElementById('bottom-nav');
+  nav.innerHTML = '';
+  const secao = [...document.querySelectorAll('.sidebar-section')].find(s=>s.style.display!=='none');
+  if(!secao) return;
+  const itens = [...secao.querySelectorAll('.nav-item')]
+    .filter(b=>/showPage\('/.test(b.getAttribute('onclick')||'')).slice(0,3);
+  for(const item of itens){
+    const page = item.getAttribute('onclick').match(/showPage\('([^']+)'\)/)[1];
+    const icon = item.querySelector('span')?.textContent || '•';
+    const label = item.dataset.short || item.textContent.replace(icon,'').trim();
+    const btn = document.createElement('button');
+    btn.dataset.page = page;
+    btn.innerHTML = `<span class="bn-icon">${icon}</span><span class="bn-label">${label}</span>`;
+    btn.onclick = ()=>showPage(page);
+    nav.appendChild(btn);
+  }
+  const menu = document.createElement('button');
+  menu.innerHTML = `<span class="bn-icon">☰</span><span class="bn-label">Menu</span>`;
+  menu.onclick = ()=>toggleSidebar(true);
+  nav.appendChild(menu);
+  atualizarBottomNav();
+}
+
+function atualizarBottomNav(){
+  document.querySelectorAll('#bottom-nav button').forEach(b=>{
+    b.classList.toggle('active', b.dataset.page === paginaAtual);
+  });
+}
+
 function showPage(page) {
   paginaAtual = page;
+  toggleSidebar(false); // fecha o drawer do celular ao navegar
+  atualizarBottomNav();
   document.querySelectorAll('.nav-item').forEach(el=>{
     el.classList.remove('active');
     if(el.getAttribute('onclick')?.includes(`'${page}'`)) el.classList.add('active');
@@ -1122,7 +1230,7 @@ function renderCadastrar(){
       <div class="field"><label>Data de Nascimento *</label><input type="date" id="c-nasc"></div>
       <div class="field"><label>CEP</label>
         <div style="display:flex;gap:8px">
-          <input type="text" id="c-cep" placeholder="00000-000" maxlength="9" oninput="mascaraCep(this)" onblur="buscarCep('c-cep','c-endereco','c-reg','c-cidade','c-uf','c-cep-msg')">
+          <input type="text" id="c-cep" placeholder="00000-000" maxlength="9" inputmode="numeric" oninput="mascaraCep(this)" onblur="buscarCep('c-cep','c-endereco','c-reg','c-cidade','c-uf','c-cep-msg')">
           <button type="button" class="btn-sm btn-outline" style="white-space:nowrap" onclick="buscarCep('c-cep','c-endereco','c-reg','c-cidade','c-uf','c-cep-msg')">🔍 Buscar</button>
         </div>
         <div id="c-cep-msg" style="font-size:11px;margin-top:4px;color:var(--slate-light)"></div>
@@ -1131,13 +1239,13 @@ function renderCadastrar(){
       <div class="field full"><label>Bairro / Região *</label><input type="text" id="c-reg" placeholder="Bairro"></div>
       <div class="field"><label>Cidade *</label><input type="text" id="c-cidade" placeholder="Cidade"></div>
       <div class="field"><label>Estado</label><input type="text" id="c-uf" placeholder="UF" maxlength="2" style="text-transform:uppercase"></div>
-      <div class="field"><label>Nº Título Eleitoral</label><input type="text" id="c-titulo" placeholder="0000000000000"></div>
-      <div class="field"><label>Zona Eleitoral</label><input type="text" id="c-zona" placeholder="000"></div>
-      <div class="field"><label>Seção Eleitoral</label><input type="text" id="c-secao" placeholder="0000"></div>
+      <div class="field"><label>Nº Título Eleitoral</label><input type="text" id="c-titulo" placeholder="0000000000000" inputmode="numeric" maxlength="12"></div>
+      <div class="field"><label>Zona Eleitoral</label><input type="text" id="c-zona" placeholder="000" inputmode="numeric"></div>
+      <div class="field"><label>Seção Eleitoral</label><input type="text" id="c-secao" placeholder="0000" inputmode="numeric"></div>
     </div>
-    <div style="display:flex;gap:10px;margin-top:8px">
-      <button class="btn-sm btn-navy" onclick="salvarApoiador()">✔ Salvar Cadastro</button>
+    <div class="form-actions" style="display:flex;gap:10px;margin-top:8px">
       <button class="btn-sm btn-outline" onclick="showPage('dashboard')">Cancelar</button>
+      <button class="btn-sm btn-navy" onclick="salvarApoiador()">✔ Salvar Cadastro</button>
     </div>
   </div>`;
 }
@@ -1196,7 +1304,7 @@ function renderUsuarios(){
       <div class="field"><label>E-mail</label><input type="email" id="nu-email" placeholder="para recuperação de senha"></div>
       <div class="field"><label>CEP</label>
         <div style="display:flex;gap:8px">
-          <input type="text" id="nu-cep" placeholder="00000-000" maxlength="9" oninput="mascaraCep(this)" onblur="buscarCep('nu-cep','nu-endereco','nu-regiao','nu-cidade','nu-uf','nu-cep-msg')">
+          <input type="text" id="nu-cep" placeholder="00000-000" maxlength="9" inputmode="numeric" oninput="mascaraCep(this)" onblur="buscarCep('nu-cep','nu-endereco','nu-regiao','nu-cidade','nu-uf','nu-cep-msg')">
           <button type="button" class="btn-sm btn-outline" style="white-space:nowrap" onclick="buscarCep('nu-cep','nu-endereco','nu-regiao','nu-cidade','nu-uf','nu-cep-msg')">🔍 Buscar</button>
         </div>
         <div id="nu-cep-msg" style="font-size:11px;margin-top:4px;color:var(--slate-light)"></div>
@@ -1205,9 +1313,9 @@ function renderUsuarios(){
       <div class="field"><label>Bairro / Região</label><input type="text" id="nu-regiao" placeholder="Bairro"></div>
       <div class="field"><label>Cidade</label><input type="text" id="nu-cidade" placeholder="Cidade"></div>
       <div class="field"><label>Estado</label><input type="text" id="nu-uf" placeholder="UF" maxlength="2" style="text-transform:uppercase"></div>
-      <div class="field"><label>Nº Título Eleitoral</label><input type="text" id="nu-titulo" placeholder="0000000000000"></div>
-      <div class="field"><label>Zona Eleitoral</label><input type="text" id="nu-zona" placeholder="000"></div>
-      <div class="field"><label>Seção Eleitoral</label><input type="text" id="nu-secao" placeholder="0000"></div>
+      <div class="field"><label>Nº Título Eleitoral</label><input type="text" id="nu-titulo" placeholder="0000000000000" inputmode="numeric" maxlength="12"></div>
+      <div class="field"><label>Zona Eleitoral</label><input type="text" id="nu-zona" placeholder="000" inputmode="numeric"></div>
+      <div class="field"><label>Seção Eleitoral</label><input type="text" id="nu-secao" placeholder="0000" inputmode="numeric"></div>
     </div>
     <button class="btn-sm btn-navy" onclick="criarUsuario()" style="margin-top:8px">➕ Criar Usuário</button>
   </div>
@@ -1247,7 +1355,7 @@ async function carregarListaUsuarios(){
 
 function editarUsuario(u){
   document.getElementById('main-content').insertAdjacentHTML('afterbegin', `
-    <div id="modal-editar-usuario" style="position:fixed;inset:0;background:rgba(15,31,61,0.85);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;">
+    <div id="modal-editar-usuario" class="modal-inline" style="position:fixed;inset:0;background:rgba(15,31,61,0.85);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;">
       <div style="background:#fff;border-radius:16px;padding:28px;width:90%;max-width:560px;margin:20px auto;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
         <div style="font-family:'DM Serif Display',serif;font-size:20px;color:#0F1F3D;margin-bottom:16px">✏️ Editar ${escapeAttr(u.nome)}</div>
         <div class="config-section-title" style="margin-top:0">👤 Acesso</div>
@@ -1264,7 +1372,7 @@ function editarUsuario(u){
           <div class="field"><label>Telefone</label><input type="tel" id="eu-tel" value="${escapeAttr(u.telefone||'')}"></div>
           <div class="field"><label>CEP</label>
             <div style="display:flex;gap:8px">
-              <input type="text" id="eu-cep" placeholder="00000-000" maxlength="9" oninput="mascaraCep(this)" onblur="buscarCep('eu-cep','eu-end','eu-reg','eu-cidade','eu-uf','eu-cep-msg')">
+              <input type="text" id="eu-cep" placeholder="00000-000" maxlength="9" inputmode="numeric" oninput="mascaraCep(this)" onblur="buscarCep('eu-cep','eu-end','eu-reg','eu-cidade','eu-uf','eu-cep-msg')">
               <button type="button" class="btn-sm btn-outline" style="white-space:nowrap" onclick="buscarCep('eu-cep','eu-end','eu-reg','eu-cidade','eu-uf','eu-cep-msg')">🔍 Buscar</button>
             </div>
             <div id="eu-cep-msg" style="font-size:11px;margin-top:4px;color:var(--slate-light)"></div>
@@ -1276,11 +1384,11 @@ function editarUsuario(u){
         </div>
         <div class="config-section-title">🗳️ Dados eleitorais</div>
         <div class="form-grid">
-          <div class="field full"><label>Nº Título Eleitoral</label><input type="text" id="eu-titulo" value="${escapeAttr(u.titulo||'')}" placeholder="0000000000000"></div>
-          <div class="field"><label>Zona Eleitoral</label><input type="text" id="eu-zona" value="${escapeAttr(u.zona||'')}" placeholder="000"></div>
-          <div class="field"><label>Seção Eleitoral</label><input type="text" id="eu-secao" value="${escapeAttr(u.secao||'')}" placeholder="0000"></div>
+          <div class="field full"><label>Nº Título Eleitoral</label><input type="text" id="eu-titulo" value="${escapeAttr(u.titulo||'')}" placeholder="0000000000000" inputmode="numeric" maxlength="12"></div>
+          <div class="field"><label>Zona Eleitoral</label><input type="text" id="eu-zona" value="${escapeAttr(u.zona||'')}" placeholder="000" inputmode="numeric"></div>
+          <div class="field"><label>Seção Eleitoral</label><input type="text" id="eu-secao" value="${escapeAttr(u.secao||'')}" placeholder="0000" inputmode="numeric"></div>
         </div>
-        <div style="display:flex;gap:10px;margin-top:16px">
+        <div class="form-actions" style="display:flex;gap:10px;margin-top:16px">
           <button onclick="document.getElementById('modal-editar-usuario').remove()" style="flex:1;padding:12px;background:#f0f0f0;border:none;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif">Cancelar</button>
           <button onclick="salvarEdicaoUsuario('${u.id}')" style="flex:1.5;padding:12px;background:#0F1F3D;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif;font-weight:600">✔ Salvar alterações</button>
         </div>
@@ -1708,6 +1816,7 @@ async function abrirWorkspace(id, nome){
   document.getElementById('nav-candidato').style.display = 'block';
   document.getElementById('workspace-bar').style.display = 'flex';
   document.getElementById('workspace-bar-nome').textContent = nome;
+  montarBottomNav();
   await carregarConfig();
   await carregarApoiadores();
   showPage('dashboard');
@@ -1719,6 +1828,7 @@ function fecharWorkspace(){
   document.getElementById('nav-candidato').style.display = 'none';
   document.getElementById('nav-admin').style.display = 'block';
   document.getElementById('workspace-bar').style.display = 'none';
+  montarBottomNav();
   showPage('vagas');
   setTimeout(carregarVagas, 50);
 }
@@ -1757,7 +1867,7 @@ function editarApoiador(id) {
   const a = APOIADORES.find(x => x.id === id);
   if(!a) return;
   document.getElementById('main-content').insertAdjacentHTML('afterbegin', `
-    <div id="modal-editar" style="position:fixed;inset:0;background:rgba(15,31,61,0.85);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;">
+    <div id="modal-editar" class="modal-inline" style="position:fixed;inset:0;background:rgba(15,31,61,0.85);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;">
       <div style="background:#fff;border-radius:16px;padding:28px;width:90%;max-width:480px;margin:20px auto;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
         <div style="font-family:'DM Serif Display',serif;font-size:20px;color:#0F1F3D;margin-bottom:16px">✏️ Editar Cadastro</div>
         <div class="form-grid">
@@ -1766,7 +1876,7 @@ function editarApoiador(id) {
           <div class="field"><label>Data de Nascimento</label><input type="date" id="ed-nasc" value="${a.nascimento?String(a.nascimento).slice(0,10):''}"></div>
           <div class="field"><label>CEP</label>
             <div style="display:flex;gap:8px">
-              <input type="text" id="ed-cep" placeholder="00000-000" maxlength="9" oninput="mascaraCep(this)" onblur="buscarCep('ed-cep','ed-end','ed-reg','ed-cidade','ed-uf','ed-cep-msg')">
+              <input type="text" id="ed-cep" placeholder="00000-000" maxlength="9" inputmode="numeric" oninput="mascaraCep(this)" onblur="buscarCep('ed-cep','ed-end','ed-reg','ed-cidade','ed-uf','ed-cep-msg')">
               <button type="button" class="btn-sm btn-outline" style="white-space:nowrap" onclick="buscarCep('ed-cep','ed-end','ed-reg','ed-cidade','ed-uf','ed-cep-msg')">🔍 Buscar</button>
             </div>
             <div id="ed-cep-msg" style="font-size:11px;margin-top:4px;color:var(--slate-light)"></div>
@@ -1775,9 +1885,9 @@ function editarApoiador(id) {
           <div class="field"><label>Bairro / Região</label><input type="text" id="ed-reg" value="${a.regiao||''}" placeholder="Bairro"></div>
           <div class="field"><label>Cidade</label><input type="text" id="ed-cidade" value="${a.cidade||''}"></div>
           <div class="field"><label>Estado</label><input type="text" id="ed-uf" value="${a.estado||''}" maxlength="2" style="text-transform:uppercase"></div>
-          <div class="field"><label>Nº Título Eleitoral</label><input type="text" id="ed-titulo" value="${a.titulo||''}" placeholder="0000000000000"></div>
-          <div class="field"><label>Zona Eleitoral</label><input type="text" id="ed-zona" value="${a.zona||''}" placeholder="000"></div>
-          <div class="field"><label>Seção Eleitoral</label><input type="text" id="ed-secao" value="${a.secao||''}" placeholder="0000"></div>
+          <div class="field"><label>Nº Título Eleitoral</label><input type="text" id="ed-titulo" value="${a.titulo||''}" placeholder="0000000000000" inputmode="numeric" maxlength="12"></div>
+          <div class="field"><label>Zona Eleitoral</label><input type="text" id="ed-zona" value="${a.zona||''}" placeholder="000" inputmode="numeric"></div>
+          <div class="field"><label>Seção Eleitoral</label><input type="text" id="ed-secao" value="${a.secao||''}" placeholder="0000" inputmode="numeric"></div>
         </div>
         ${currentRole==='lideranca' ? `
         <div class="config-section-title" style="margin-top:16px">🗂️ Hierarquia (só a liderança pode mexer aqui)</div>
@@ -1793,7 +1903,7 @@ function editarApoiador(id) {
         </div>
         <p style="font-size:11px;color:var(--slate-light);margin-top:-8px;margin-bottom:8px">Diz quem esse apoiador passa a responder — ex: apoiador do nível 3 responde a um apoiador do nível 2.</p>
         ` : ''}
-        <div style="display:flex;gap:10px;margin-top:16px">
+        <div class="form-actions" style="display:flex;gap:10px;margin-top:16px">
           <button onclick="document.getElementById('modal-editar').remove()" style="flex:1;padding:12px;background:#f0f0f0;border:none;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif">Cancelar</button>
           <button onclick="salvarEdicao('${id}')" style="flex:1.5;padding:12px;background:#0F1F3D;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif;font-weight:600">✔ Salvar alterações</button>
         </div>
