@@ -671,6 +671,7 @@ async function entrarNaApp(user){
   if(currentRole === 'admin') {
     showPage('vagas');
   } else {
+    await carregarConfig();
     await carregarApoiadores();
     showPage('dashboard');
   }
@@ -741,6 +742,7 @@ async function confirmarPrimeiroAcesso(){
     if(currentRole === 'admin') {
       showPage('vagas');
     } else {
+      await carregarConfig();
       await carregarApoiadores();
       showPage('dashboard');
     }
@@ -798,6 +800,18 @@ async function carregarApoiadores() {
   catch(e) { showToast(e.message, 'error'); }
   redeFiltroL1 = null; redeFiltroL2 = null;
   hideLoading();
+}
+
+// Limites da pirâmide salvos no servidor (por candidato) — sem isso o CONFIG
+// voltava aos padrões 50/30/15/10 a cada reload da página.
+async function carregarConfig() {
+  try {
+    const cfg = await api('/config' + wsQuery());
+    CONFIG.limiteNivel1 = cfg.limiteNivel1;
+    CONFIG.limiteNivel2 = cfg.limiteNivel2;
+    CONFIG.limiteNivel3 = cfg.limiteNivel3;
+    CONFIG.limiteNivel4 = cfg.limiteNivel4;
+  } catch {} // sem drama: fica nos padrões e a tela segue funcionando
 }
 
 // ══════════════════════════════════════════
@@ -1328,18 +1342,34 @@ function renderConfiguracoes(){
     <div style="display:flex;gap:10px;margin-top:24px">
       <button class="btn-sm btn-navy" onclick="salvarConfig()">💾 Salvar</button>
     </div>
-    <p style="font-size:11px;color:var(--slate-light);margin-top:12px">Os limites aqui são apenas de exibição nesta sessão. Para valer para todos os usuários, ajuste as variáveis LIMITE_NIVEL1/2/3/4 no servidor.</p>
+    <p style="font-size:11px;color:var(--slate-light);margin-top:12px">Os limites são salvos no servidor e valem para toda a rede deste candidato — inclusive para as lideranças e apoiadores ao indicar pessoas.</p>
   </div>`;
 }
 
-function salvarConfig(){
+async function salvarConfig(){
   CONFIG.candidatoNome=document.getElementById('cfg-candidatoNome').value.trim()||CONFIG.candidatoNome;
   CONFIG.idealizadora=document.getElementById('cfg-idealizadora').value.trim()||CONFIG.idealizadora;
-  CONFIG.limiteNivel1=parseInt(document.getElementById('cfg-lim1').value)||CONFIG.limiteNivel1;
-  CONFIG.limiteNivel2=parseInt(document.getElementById('cfg-lim2').value)||CONFIG.limiteNivel2;
-  CONFIG.limiteNivel3=parseInt(document.getElementById('cfg-lim3').value)||CONFIG.limiteNivel3;
-  CONFIG.limiteNivel4=parseInt(document.getElementById('cfg-lim4').value)||CONFIG.limiteNivel4;
-  showToast('Configurações salvas!','success');
+  showLoading('Salvando...');
+  try {
+    // Persiste no servidor (por candidato) — antes só mudava a memória do
+    // navegador e o valor voltava a 50/30/15/10 em qualquer reload.
+    const cfg = await api('/config'+wsQuery(), { method:'PUT', body: JSON.stringify({
+      limiteNivel1: parseInt(document.getElementById('cfg-lim1').value),
+      limiteNivel2: parseInt(document.getElementById('cfg-lim2').value),
+      limiteNivel3: parseInt(document.getElementById('cfg-lim3').value),
+      limiteNivel4: parseInt(document.getElementById('cfg-lim4').value),
+    })});
+    CONFIG.limiteNivel1=cfg.limiteNivel1;
+    CONFIG.limiteNivel2=cfg.limiteNivel2;
+    CONFIG.limiteNivel3=cfg.limiteNivel3;
+    CONFIG.limiteNivel4=cfg.limiteNivel4;
+    hideLoading();
+    showToast('Configurações salvas!','success');
+    showPage('configuracoes');
+  } catch(e){
+    hideLoading();
+    showToast(e.message || 'Erro ao salvar as configurações.', 'error');
+  }
 }
 
 // ══════════════════════════════════════════
@@ -1678,6 +1708,7 @@ async function abrirWorkspace(id, nome){
   document.getElementById('nav-candidato').style.display = 'block';
   document.getElementById('workspace-bar').style.display = 'flex';
   document.getElementById('workspace-bar-nome').textContent = nome;
+  await carregarConfig();
   await carregarApoiadores();
   showPage('dashboard');
 }

@@ -168,3 +168,12 @@ DO $$ BEGIN
     CHECK (periodo_contrato IS NULL OR periodo_contrato IN ('mensal','trimestral','semestral'));
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
+
+-- Limites da pirâmide POR CANDIDATO. A tela de Configurações salvava só na
+-- memória do navegador (voltava a 50/30/15/10 em todo reload) — agora persiste
+-- aqui. NULL = usa o padrão global das variáveis LIMITE_NIVEL1..4 do servidor,
+-- então quem nunca personalizou continua exatamente como antes.
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS limite_nivel1 INT CHECK (limite_nivel1 IS NULL OR limite_nivel1 BETWEEN 1 AND 100000);
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS limite_nivel2 INT CHECK (limite_nivel2 IS NULL OR limite_nivel2 BETWEEN 1 AND 100000);
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS limite_nivel3 INT CHECK (limite_nivel3 IS NULL OR limite_nivel3 BETWEEN 1 AND 100000);
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS limite_nivel4 INT CHECK (limite_nivel4 IS NULL OR limite_nivel4 BETWEEN 1 AND 100000);

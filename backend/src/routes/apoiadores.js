@@ -2,7 +2,7 @@ const express = require('express');
 const pool = require('../db');
 const { authRequired, requireRole } = require('../middleware/auth');
 const resolveWorkspace = require('../middleware/workspace');
-const { limites } = require('../config');
+const { limitesDoCandidato } = require('../utils/limites');
 const { buscarDuplicidade, resolverCandidatoId } = require('../utils/duplicidade');
 const asyncHandler = require('../utils/asyncHandler');
 
@@ -74,6 +74,7 @@ router.post('/', requireRole('lideranca', 'apoiador'), asyncHandler(async (req, 
     'SELECT count(*)::int AS c FROM apoiadores WHERE parent_id = $1',
     [req.user.id]
   );
+  const limites = await limitesDoCandidato(resolverCandidatoId(req.user));
   const limite = limites[myNivel];
   if (countRows[0].c >= limite) {
     return res.status(400).json({ error: `Limite de ${limite} indicações atingido.` });
@@ -170,6 +171,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
       'SELECT count(*)::int AS c FROM apoiadores WHERE parent_id = $1 AND id <> $2',
       [novoParentId, id]
     );
+    const limites = await limitesDoCandidato(resolverCandidatoId(req.user));
     const limite = limites[novoNivel - 1];
     if (countRows[0].c >= limite) {
       return res.status(400).json({ error: `Limite de ${limite} indicações atingido para esse responsável.` });
