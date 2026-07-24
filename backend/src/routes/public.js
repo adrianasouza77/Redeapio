@@ -9,30 +9,89 @@ const { termoVersaoAtual } = require('../config');
 
 const router = express.Router();
 
-// Nível de quem enviou o link (liderança = 1; apoiador = nível da ficha-espelho,
-// que pode ser 2 ou 3). O novo cadastrado entra um nível abaixo. Enquanto houver
-// nível abaixo dele para recrutar (novo nível 2 ou 3), ele vira usuário com
-// login; no nível 4 (base) é só um contato, sem login.
-async function contextoConvite(liderancaId) {
+// O contexto do convite é normalizado nestes campos para os dois modos de link:
+//   nomeRede      nome exibido no formulário público (nome de quem convida / da rede)
+//   candidatoId   dono da rede (duplicidade, limites, criado_por)
+//   parentId      onde o novo cadastro fica pendurado na pirâmide (null = topo)
+//   emissorId     id contra o qual se conta o limite de indicados diretos (null = sem limite)
+//   nivelConvite  nível de quem convida (usado só para achar o limite do emissor)
+//   novoNivel     nível do novo cadastro (1..4)
+//   perfilNovo    'lideranca' (nível 1) ou 'apoiador' (níveis 2..4)
+//   cadastradoPor cadastrado_por da ficha em "apoiadores"
+//   criaLogin     nível ≤ 3 vira usuário-com-login; nível 4 é só contato
+
+// Modo PESSOAL: link que uma liderança/apoiador compartilha. O novo cadastrado
+// entra um nível ABAIXO de quem enviou e fica pendurado nele, respeitando o
+// limite de indicados diretos do emissor.
+async function contextoConvitePessoal(emissorId) {
   const { rows } = await pool.query(
     "SELECT u.id, u.nome, u.perfil, u.criado_por, a.nivel FROM usuarios u LEFT JOIN apoiadores a ON a.id = u.id WHERE u.id = $1 AND u.perfil IN ('lideranca','apoiador')",
-    [liderancaId]
+    [emissorId]
   );
   const conv = rows[0];
   if (!conv) return null;
   const nivelConvite = conv.perfil === 'lideranca' ? 1 : (conv.nivel ?? 2);
   const novoNivel = nivelConvite + 1;
-  return { conv, nivelConvite, novoNivel, criaLogin: novoNivel <= 3 };
+  return {
+    nomeRede: conv.nome,
+    candidatoId: conv.criado_por,
+    parentId: conv.id,
+    emissorId: conv.id,
+    nivelConvite,
+    novoNivel,
+    perfilNovo: 'apoiador',
+    cadastradoPor: conv.id,
+    criaLogin: novoNivel <= 3,
+  };
+}
+
+// Modo CANDIDATO: link que o PRÓPRIO candidato gera para um nível específico
+// (1 = liderança … 4 = base). O cadastrado entra SEM responsável (topo) e o
+// candidato reorganiza a pirâmide depois. Só o candidato cria nível 1.
+async function contextoConviteCandidato(candidatoId, nivel) {
+  const novoNivel = Number(nivel);
+  if (![1, 2, 3, 4].includes(novoNivel)) return null;
+  const { rows } = await pool.query(
+    "SELECT id, nome FROM usuarios WHERE id = $1 AND perfil = 'candidato'",
+    [candidatoId]
+  );
+  const cand = rows[0];
+  if (!cand) return null;
+  return {
+    nomeRede: cand.nome,
+    candidatoId: cand.id,
+    parentId: null,
+    emissorId: null,
+    nivelConvite: novoNivel - 1,
+    novoNivel,
+    perfilNovo: novoNivel === 1 ? 'lideranca' : 'apoiador',
+    cadastradoPor: cand.id,
+    criaLogin: novoNivel <= 3,
+  };
+}
+
+// Resolve o contexto a partir do corpo/params: candidato_id + nivel (modo
+// candidato) tem prioridade; senão cai no id de quem enviou (modo pessoal).
+async function resolverContexto({ candidatoId, nivel, emissorId }) {
+  if (candidatoId) return contextoConviteCandidato(candidatoId, nivel);
+  if (emissorId) return contextoConvitePessoal(emissorId);
+  return null;
 }
 
 router.get('/lideranca/:id', asyncHandler(async (req, res) => {
-  const ctx = await contextoConvite(req.params.id);
+  const ctx = await contextoConvitePessoal(req.params.id);
   if (!ctx) return res.status(404).json({ error: 'Link inválido.' });
-  res.json({ nome: ctx.conv.nome, versaoTermo: termoVersaoAtual, criaLogin: ctx.criaLogin, novoNivel: ctx.novoNivel });
+  res.json({ nome: ctx.nomeRede, versaoTermo: termoVersaoAtual, criaLogin: ctx.criaLogin, novoNivel: ctx.novoNivel });
+}));
+
+router.get('/convite', asyncHandler(async (req, res) => {
+  const ctx = await contextoConviteCandidato(req.query.candidato, req.query.nivel);
+  if (!ctx) return res.status(404).json({ error: 'Link inválido.' });
+  res.json({ nome: ctx.nomeRede, versaoTermo: termoVersaoAtual, criaLogin: ctx.criaLogin, novoNivel: ctx.novoNivel });
 }));
 
 router.post('/autocadastro', asyncHandler(async (req, res) => {
-  const { lideranca_id, nome, telefone, nascimento, endereco, regiao, cidade, estado, titulo, zona, secao, lgpd_aceite, login, senha } = req.body || {};
+  const { lideranca_id, candidato_id, nivel, nome, telefone, nascimento, endereco, regiao, cidade, estado, titulo, zona, secao, lgpd_aceite, login, senha } = req.body || {};
 
   if (!lgpd_aceite) {
     return res.status(400).json({ error: 'É necessário aceitar o termo de consentimento LGPD.' });
@@ -46,16 +105,11 @@ router.post('/autocadastro', asyncHandler(async (req, res) => {
   if (!validarTituloEleitoral(titulo)) {
     return res.status(400).json({ error: 'Título de eleitor inválido. Confira os 12 números do seu título.' });
   }
-  if (!lideranca_id) return res.status(400).json({ error: 'Link de cadastro inválido.' });
+  if (!lideranca_id && !candidato_id) return res.status(400).json({ error: 'Link de cadastro inválido.' });
 
-  const ctx = await contextoConvite(lideranca_id);
+  const ctx = await resolverContexto({ candidatoId: candidato_id, nivel, emissorId: lideranca_id });
   if (!ctx) return res.status(400).json({ error: 'Link de cadastro inválido.' });
-  const { conv, nivelConvite, novoNivel, criaLogin } = ctx;
-
-  // criado_por de qualquer usuário-com-login é sempre o candidato dono da rede —
-  // tanto lideranças quanto apoiadores (inclusive os autocadastrados) guardam
-  // o id do candidato aqui, o que resolverCandidatoId/duplicidade/limites já usam.
-  const candidatoId = conv.criado_por;
+  const { candidatoId, parentId, emissorId, nivelConvite, novoNivel, perfilNovo, cadastradoPor, criaLogin } = ctx;
 
   // Impede a mesma pessoa se autocadastrar duas vezes na rede desse candidato
   // (por engano ou por má-fé) — checa telefone e título de eleitor.
@@ -64,13 +118,17 @@ router.post('/autocadastro', asyncHandler(async (req, res) => {
     return res.status(409).json({ error: `Já existe um cadastro com esse ${dup.campo} nesta rede (${dup.nome}). Se você acha que isso é um engano, fale com quem enviou o link.` });
   }
 
-  // Respeita o limite de indicados que o candidato configurou para o nível de
-  // quem enviou o link (mesma regra do cadastro autenticado).
-  const limites = await limitesDoCandidato(candidatoId);
-  const limite = limites[nivelConvite];
-  const { rows: countRows } = await pool.query('SELECT count(*)::int AS c FROM apoiadores WHERE parent_id = $1', [conv.id]);
-  if (limite && countRows[0].c >= limite) {
-    return res.status(400).json({ error: `Quem enviou este link já atingiu o limite de ${limite} indicações. Fale com a equipe da campanha.` });
+  // No modo pessoal, respeita o limite de indicados que o candidato configurou
+  // para o nível de quem enviou o link (mesma regra do cadastro autenticado).
+  // No modo candidato não há um pai único para contar — o limite é aplicado
+  // depois, quando o candidato pendura cada cadastro sob um responsável.
+  if (emissorId) {
+    const limites = await limitesDoCandidato(candidatoId);
+    const limite = limites[nivelConvite];
+    const { rows: countRows } = await pool.query('SELECT count(*)::int AS c FROM apoiadores WHERE parent_id = $1', [emissorId]);
+    if (limite && countRows[0].c >= limite) {
+      return res.status(400).json({ error: `Quem enviou este link já atingiu o limite de ${limite} indicações. Fale com a equipe da campanha.` });
+    }
   }
 
   const loginLimpo = (login || '').trim().toLowerCase();
@@ -97,14 +155,14 @@ router.post('/autocadastro', asyncHandler(async (req, res) => {
       const senhaHash = await hash(senha);
       const { rows: uRows } = await client.query(
         `INSERT INTO usuarios (nome, login, senha_hash, perfil, criado_por, telefone, regiao, endereco, cidade, estado, titulo, zona, secao, senha_temporaria, termo_versao_aceita)
-         VALUES ($1,$2,$3,'apoiador',$4,$5,$6,$7,$8,$9,$10,$11,$12,false,$13) RETURNING id`,
-        [nome, loginLimpo, senhaHash, candidatoId, telefone, regiao, endereco || null, cidade || null, estado || null, titulo || null, zona || null, secao || null, termoVersaoAtual]
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,false,$14) RETURNING id`,
+        [nome, loginLimpo, senhaHash, perfilNovo, candidatoId, telefone, regiao, endereco || null, cidade || null, estado || null, titulo || null, zona || null, secao || null, termoVersaoAtual]
       );
       novoId = uRows[0].id;
       await client.query(
         `INSERT INTO apoiadores (id, nome, telefone, nascimento, regiao, endereco, cidade, estado, titulo, zona, secao, nivel, parent_id, cadastrado_por, lgpd_aceite, lgpd_aceite_em, lgpd_versao)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,true,now(),$15)`,
-        [novoId, nome, telefone, nascimento, regiao, endereco || null, cidade || null, estado || null, titulo || null, zona || null, secao || null, novoNivel, conv.id, candidatoId, termoVersaoAtual]
+        [novoId, nome, telefone, nascimento, regiao, endereco || null, cidade || null, estado || null, titulo || null, zona || null, secao || null, novoNivel, parentId, candidatoId, termoVersaoAtual]
       );
       await client.query(
         `INSERT INTO termos_aceite (usuario_id, versao_termo, ip, user_agent) VALUES ($1,$2,$3,$4)`,
@@ -114,8 +172,8 @@ router.post('/autocadastro', asyncHandler(async (req, res) => {
       // Nível 4 (base): só um contato na pirâmide, sem login.
       const { rows: aRows } = await client.query(
         `INSERT INTO apoiadores (nome, telefone, nascimento, regiao, endereco, cidade, estado, titulo, zona, secao, nivel, parent_id, cadastrado_por, lgpd_aceite, lgpd_aceite_em, lgpd_versao)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$12,true,now(),$13) RETURNING id`,
-        [nome, telefone, nascimento, regiao, endereco || null, cidade || null, estado || null, titulo || null, zona || null, secao || null, novoNivel, conv.id, termoVersaoAtual]
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,true,now(),$14) RETURNING id`,
+        [nome, telefone, nascimento, regiao, endereco || null, cidade || null, estado || null, titulo || null, zona || null, secao || null, novoNivel, parentId, cadastradoPor, termoVersaoAtual]
       );
       novoId = aRows[0].id;
       await client.query(

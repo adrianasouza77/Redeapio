@@ -141,12 +141,15 @@ router.put('/:id', asyncHandler(async (req, res) => {
   const { nome, telefone, nascimento, endereco, regiao, cidade, estado, titulo, zona, secao, nivel, parent_id } = req.body || {};
   if (!nome) return res.status(400).json({ error: 'Nome é obrigatório.' });
 
-  // Reorganização de hierarquia (nível + responsável): exclusiva da liderança,
-  // e só dentro da própria árvore dela — candidato/admin não mexem aqui.
+  // Reorganização de hierarquia (nível + responsável). A liderança mexe só dentro
+  // da própria subárvore; o candidato (e o admin dentro do workspace dele) mexe na
+  // rede inteira — é assim que ele pendura sob um responsável os cadastros que
+  // entraram "sem responsável" pelos links por nível que ele mesmo gerou.
   let novoNivel, novoParentId;
   if (nivel !== undefined || parent_id !== undefined) {
-    if (req.user.perfil !== 'lideranca') {
-      return res.status(403).json({ error: 'Só a liderança pode reorganizar a hierarquia da rede.' });
+    const ehCandidato = req.effectivePerfil === 'candidato' || req.user.perfil === 'admin';
+    if (req.user.perfil !== 'lideranca' && !ehCandidato) {
+      return res.status(403).json({ error: 'Só a liderança ou o candidato podem reorganizar a hierarquia da rede.' });
     }
     novoNivel = Number(nivel);
     novoParentId = parent_id;
@@ -155,7 +158,10 @@ router.put('/:id', asyncHandler(async (req, res) => {
     }
     if (!novoParentId) return res.status(400).json({ error: 'Informe quem é o responsável por esse apoiador.' });
 
-    const { rows: arvore } = await pool.query(SQL_SUBARVORE, [req.user.id]);
+    const { rows: arvore } = await pool.query(
+      ehCandidato ? SQL_ARVORE_CANDIDATO : SQL_SUBARVORE,
+      [ehCandidato ? req.effectiveId : req.user.id]
+    );
     const porId = new Map(arvore.map((a) => [a.id, a]));
 
     if (!porId.has(id)) return res.status(403).json({ error: 'Esse registro não está na sua rede.' });
@@ -172,7 +178,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
       'SELECT count(*)::int AS c FROM apoiadores WHERE parent_id = $1 AND id <> $2',
       [novoParentId, id]
     );
-    const limites = await limitesDoCandidato(resolverCandidatoId(req.user));
+    const limites = await limitesDoCandidato(ehCandidato ? req.effectiveId : resolverCandidatoId(req.user));
     const limite = limites[novoNivel - 1];
     if (countRows[0].c >= limite) {
       return res.status(400).json({ error: `Limite de ${limite} indicações atingido para esse responsável.` });

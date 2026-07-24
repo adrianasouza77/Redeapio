@@ -265,6 +265,18 @@
 </div>
 
 <!-- MODAL AUTOCADASTRO APOIADOR -->
+<div id="modal-links" style="display:none;position:fixed;inset:0;background:rgba(15,31,61,0.8);z-index:9999;align-items:flex-start;justify-content:center;overflow-y:auto;">
+  <div style="background:#fff;border-radius:16px;padding:32px;width:90%;max-width:460px;margin:40px auto;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
+    <div style="font-family:'DM Serif Display',serif;font-size:22px;color:var(--navy);margin-bottom:4px">🔗 Links de cadastro</div>
+    <div style="font-size:12px;color:var(--slate-light);margin-bottom:20px">Escolha o nível, copie o link e envie pelo WhatsApp. Quem se cadastrar entra <strong>sem responsável</strong> — depois é só abrir <strong>Todos os Apoiadores</strong>, editar o cadastro e escolher embaixo de quem ele fica.</div>
+    <button class="nav-item" onclick="copiarLinkNivel(1,'Liderança')" style="width:100%;justify-content:flex-start;background:linear-gradient(135deg,#0F1F3D,#1a3562);color:#fff;border-radius:10px;margin-bottom:10px;padding:14px"><span>👑</span> Copiar link de <strong style="margin-left:4px">Liderança</strong> <span style="margin-left:auto;font-size:11px;opacity:.8">Nível 1 · com login</span></button>
+    <button class="nav-item" onclick="copiarLinkNivel(2,'Nível 2')" style="width:100%;justify-content:flex-start;background:linear-gradient(135deg,#276749,#1a4a32);color:#fff;border-radius:10px;margin-bottom:10px;padding:14px"><span>🔗</span> Copiar link de <strong style="margin-left:4px">Nível 2</strong> <span style="margin-left:auto;font-size:11px;opacity:.8">com login</span></button>
+    <button class="nav-item" onclick="copiarLinkNivel(3,'Nível 3')" style="width:100%;justify-content:flex-start;background:linear-gradient(135deg,#276749,#1a4a32);color:#fff;border-radius:10px;margin-bottom:10px;padding:14px"><span>🔗</span> Copiar link de <strong style="margin-left:4px">Nível 3</strong> <span style="margin-left:auto;font-size:11px;opacity:.8">com login</span></button>
+    <button class="nav-item" onclick="copiarLinkNivel(4,'Nível 4')" style="width:100%;justify-content:flex-start;background:linear-gradient(135deg,#8a6d1f,#6b5417);color:#fff;border-radius:10px;margin-bottom:16px;padding:14px"><span>🔗</span> Copiar link de <strong style="margin-left:4px">Nível 4</strong> <span style="margin-left:auto;font-size:11px;opacity:.8">só contato, sem login</span></button>
+    <button onclick="fecharLinksCadastro()" style="width:100%;padding:12px;background:#f0f0f0;border:none;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif">Fechar</button>
+  </div>
+</div>
+
 <div id="modal-autocadastro" style="display:none;position:fixed;inset:0;background:rgba(15,31,61,0.8);z-index:9999;align-items:flex-start;justify-content:center;overflow-y:auto;">
   <div style="background:#fff;border-radius:16px;padding:32px;width:90%;max-width:480px;margin:20px auto;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
     <div style="font-family:'DM Serif Display',serif;font-size:22px;color:var(--navy);margin-bottom:4px">Meu Cadastro</div>
@@ -381,6 +393,7 @@
         <button class="nav-item active" onclick="showPage('dashboard')" data-short="Início"><span>📊</span> Dashboard</button>
         <button class="nav-item" onclick="showPage('rede')" data-short="Rede"><span>🌐</span> Rede de Apoio</button>
         <button class="nav-item" onclick="showPage('apoiadores')" data-short="Apoiadores"><span>👥</span> Todos os Apoiadores</button>
+        <button class="nav-item" onclick="abrirLinksCadastro()" data-short="Links" style="background:linear-gradient(135deg,#276749,#1a4a32);color:#fff;border-radius:8px;margin-top:4px"><span>🔗</span> Links de cadastro</button>
         <button class="nav-item" onclick="showPage('exportar')"><span>📥</span> Exportar Dados</button>
         <button class="nav-item" onclick="showPage('grafico')"><span>📈</span> Gráfico por Zona</button>
         <button class="nav-item" onclick="showPage('usuarios')"><span>🔑</span> Usuários</button>
@@ -644,8 +657,10 @@ function abrirTermoLeitura(){
 //  AUTOCADASTRO DE APOIADOR POR LINK
 // ══════════════════════════════════════════
 let _autoLiderancaId = null;
+let _autoCandidatoId = null; // preenchido quando o link é um dos gerados pelo candidato (por nível)
+let _autoNivel = null;       // nível alvo do link do candidato (1..4)
 let _versaoTermoAutocadastro = null;
-let _autoCriaLogin = false; // se quem se autocadastra vira usuário com login (nível 2 ou 3)
+let _autoCriaLogin = false; // se quem se autocadastra vira usuário com login (nível 1, 2 ou 3)
 
 function gerarLinkAutoCadastro() {
   if(!currentUser) return;
@@ -657,18 +672,46 @@ function gerarLinkAutoCadastro() {
   });
 }
 
+// Links por nível gerados pelo próprio candidato. Quem se cadastra por eles entra
+// "sem responsável" (topo) e o candidato pendura sob quem quiser depois, editando
+// o cadastro em "Todos os Apoiadores". Só o candidato cria liderança (nível 1).
+function linkCadastroNivel(n){
+  // idEfetivo() = id do candidato dono da rede (o próprio, ou o do workspace que o admin abriu)
+  return `${window.location.origin}/?autocadastro=1&candidato=${idEfetivo()}&nivel=${n}`;
+}
+function copiarLinkNivel(n, rotulo){
+  const link = linkCadastroNivel(n);
+  navigator.clipboard.writeText(link).then(() => {
+    showToast(`✅ Link de ${rotulo} copiado! Envie pelo WhatsApp.`, 'success');
+  }).catch(() => {
+    prompt(`Copie o link de ${rotulo} e envie pelo WhatsApp:`, link);
+  });
+}
+function abrirLinksCadastro(){
+  if(!currentUser) return;
+  document.getElementById('modal-links').style.display = 'flex';
+}
+function fecharLinksCadastro(){
+  document.getElementById('modal-links').style.display = 'none';
+}
+
 function verificarAutoCadastro() {
   const params = new URLSearchParams(window.location.search);
   if(params.get('autocadastro') === '1') {
     _autoLiderancaId = params.get('lideranca');
+    _autoCandidatoId = params.get('candidato');
+    _autoNivel = params.get('nivel');
     document.getElementById('modal-autocadastro').style.display = 'flex';
-    if(_autoLiderancaId) {
-      api(`/public/lideranca/${_autoLiderancaId}`).then(data => {
-        document.getElementById('auto-descricao').textContent = `Rede de apoio — ${data.nome}`;
-        _versaoTermoAutocadastro = data.versaoTermo || null;
-        _autoCriaLogin = !!data.criaLogin;
-        document.getElementById('auto-login-box').style.display = _autoCriaLogin ? 'block' : 'none';
-      }).catch(() => {});
+    const aplicarContexto = (data) => {
+      document.getElementById('auto-descricao').textContent = `Rede de apoio — ${data.nome}`;
+      _versaoTermoAutocadastro = data.versaoTermo || null;
+      _autoCriaLogin = !!data.criaLogin;
+      document.getElementById('auto-login-box').style.display = _autoCriaLogin ? 'block' : 'none';
+    };
+    if(_autoCandidatoId && _autoNivel) {
+      api(`/public/convite?candidato=${encodeURIComponent(_autoCandidatoId)}&nivel=${encodeURIComponent(_autoNivel)}`).then(aplicarContexto).catch(() => {});
+    } else if(_autoLiderancaId) {
+      api(`/public/lideranca/${_autoLiderancaId}`).then(aplicarContexto).catch(() => {});
     }
   }
 }
@@ -737,7 +780,7 @@ async function salvarAutoCadastro() {
 
   try {
     const resp = await api('/public/autocadastro', { method:'POST', body: JSON.stringify({
-      lideranca_id: _autoLiderancaId, nome, telefone: tel, nascimento: nasc,
+      lideranca_id: _autoLiderancaId, candidato_id: _autoCandidatoId, nivel: _autoNivel, nome, telefone: tel, nascimento: nasc,
       endereco: end || null, regiao: bairro, cidade: cidade || null, estado: uf || null,
       titulo: titulo || null, zona: zona || null, secao: secao || null,
       lgpd_aceite: true, lgpd_versao: _versaoTermoAutocadastro,
@@ -1153,13 +1196,14 @@ function renderApoiadores(){
         <option value="">Todos os níveis</option>
         <option value="1">Nível 1</option><option value="2">Nível 2</option><option value="3">Nível 3</option><option value="4">Nível 4</option>
       </select>
+      ${papelEfetivo()==='candidato'?`<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--slate);white-space:nowrap;cursor:pointer"><input type="checkbox" id="filter-semresp" onchange="filterTable()"> ⚠️ Sem responsável</label>`:''}
     </div>
     <div class="table-wrap">
       <table><thead><tr><th>Nome</th><th>Região</th><th>Nível</th><th>Telefone</th><th>Nascimento</th><th>Título</th><th>Zona</th><th>Seção</th><th>Ações</th></tr></thead>
       <tbody id="apoiadores-tbody">
         ${APOIADORES.map(a=>`
-          <tr data-nome="${a.nome.toLowerCase()}" data-regiao="${(a.regiao||'').toLowerCase()}" data-nivel="${a.nivel}">
-            <td onclick="showDetail('${a.id}')" style="cursor:pointer"><strong>${a.nome}</strong></td>
+          <tr data-nome="${a.nome.toLowerCase()}" data-regiao="${(a.regiao||'').toLowerCase()}" data-nivel="${a.nivel}" data-semresp="${(!a.parent_id && a.nivel !== 1)?'1':'0'}">
+            <td onclick="showDetail('${a.id}')" style="cursor:pointer"><strong>${a.nome}</strong>${(papelEfetivo()==='candidato' && !a.parent_id && a.nivel !== 1)?' <span class="badge" style="background:#fff5f5;color:#c53030;border:1px solid #c53030;font-size:10px">sem responsável</span>':''}</td>
             <td onclick="showDetail('${a.id}')" style="cursor:pointer"><span class="region-tag">${a.regiao}</span></td>
             <td onclick="showDetail('${a.id}')" style="cursor:pointer">${nivelBadge(a.nivel)}</td>
             <td onclick="showDetail('${a.id}')" style="cursor:pointer">${a.telefone}</td>
@@ -1202,10 +1246,13 @@ async function buscarDuplicados(){
 function filterTable(){
   const q=document.getElementById('search-inp').value.toLowerCase();
   const n=document.getElementById('filter-nivel').value;
+  const semRespEl=document.getElementById('filter-semresp');
+  const soSemResp=semRespEl&&semRespEl.checked;
   document.querySelectorAll('#apoiadores-tbody tr').forEach(tr=>{
     const mQ=!q||tr.dataset.nome.includes(q)||tr.dataset.regiao.includes(q);
     const mN=!n||tr.dataset.nivel===n;
-    tr.style.display=(mQ&&mN)?'':'none';
+    const mS=!soSemResp||tr.dataset.semresp==='1';
+    tr.style.display=(mQ&&mN&&mS)?'':'none';
   });
 }
 
@@ -1935,8 +1982,8 @@ function editarApoiador(id) {
           <div class="field"><label>Zona Eleitoral</label><input type="text" id="ed-zona" value="${a.zona||''}" placeholder="000" inputmode="numeric"></div>
           <div class="field"><label>Seção Eleitoral</label><input type="text" id="ed-secao" value="${a.secao||''}" placeholder="0000" inputmode="numeric"></div>
         </div>
-        ${currentRole==='lideranca' ? `
-        <div class="config-section-title" style="margin-top:16px">🗂️ Hierarquia (só a liderança pode mexer aqui)</div>
+        ${((papelEfetivo()==='candidato'||currentRole==='lideranca') && a.nivel !== 1) ? `
+        <div class="config-section-title" style="margin-top:16px">🗂️ Responsável na pirâmide${a.parent_id?'':' <span style="color:#c53030;font-weight:600">· sem responsável</span>'}</div>
         <div class="form-grid">
           <div class="field"><label>Nível</label>
             <select id="ed-nivel" onchange="atualizarResponsavelSelect('${id}')">
@@ -1947,7 +1994,7 @@ function editarApoiador(id) {
           </div>
           <div class="field"><label>Responsável por</label><select id="ed-parent"></select></div>
         </div>
-        <p style="font-size:11px;color:var(--slate-light);margin-top:-8px;margin-bottom:8px">Diz quem esse apoiador passa a responder — ex: apoiador do nível 3 responde a um apoiador do nível 2.</p>
+        <p style="font-size:11px;color:var(--slate-light);margin-top:-8px;margin-bottom:8px">Diz embaixo de quem esse cadastro fica — ex: apoiador do nível 3 responde a um apoiador do nível 2.</p>
         ` : ''}
         <div class="form-actions" style="display:flex;gap:10px;margin-top:16px">
           <button onclick="document.getElementById('modal-editar').remove()" style="flex:1;padding:12px;background:#f0f0f0;border:none;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif">Cancelar</button>
@@ -1956,7 +2003,7 @@ function editarApoiador(id) {
       </div>
     </div>
   `);
-  if(currentRole==='lideranca') atualizarResponsavelSelect(id);
+  if(papelEfetivo()==='candidato'||currentRole==='lideranca') atualizarResponsavelSelect(id);
 }
 
 // Popula o select "Responsável por" com quem está um nível acima, dentro da
@@ -1969,7 +2016,10 @@ function atualizarResponsavelSelect(id){
   const a = APOIADORES.find(x => x.id === id);
   const atual = a ? String(a.parent_id) : null;
   let opcoes;
-  if(novoNivel === 2){
+  if(papelEfetivo()==='candidato'){
+    // candidato escolhe o responsável entre quem está um nível acima na rede toda
+    opcoes = APOIADORES.filter(x => x.nivel === novoNivel - 1 && x.id !== id);
+  } else if(novoNivel === 2){
     opcoes = [{ id: currentUser.id, nome: 'Você (liderança)' }];
   } else {
     opcoes = APOIADORES.filter(x => x.nivel === novoNivel - 1 && x.id !== id);
@@ -1998,7 +2048,7 @@ async function salvarEdicao(id) {
   };
   const nivelSel = document.getElementById('ed-nivel');
   const parentSel = document.getElementById('ed-parent');
-  if(currentRole==='lideranca' && nivelSel && parentSel && parentSel.value){
+  if((papelEfetivo()==='candidato'||currentRole==='lideranca') && nivelSel && parentSel && parentSel.value){
     body.nivel = parseInt(nivelSel.value, 10);
     body.parent_id = parentSel.value;
   }
