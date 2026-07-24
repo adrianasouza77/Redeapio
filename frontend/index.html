@@ -271,7 +271,9 @@
     <div id="auto-descricao" style="font-size:12px;color:var(--slate-light);margin-bottom:20px">Preencha seus dados para entrar na rede</div>
     <div class="field"><label>Nome Completo *</label><input type="text" id="auto-nome" placeholder="Seu nome completo"></div>
     <div class="field"><label>Telefone *</label><input type="tel" id="auto-tel" placeholder="(67) 00000-0000"></div>
-    <div class="field"><label>Data de Nascimento *</label><input type="date" id="auto-nasc"></div>
+    <div class="field"><label>Data de Nascimento *</label><input type="text" id="auto-nasc" placeholder="dd/mm/aaaa" inputmode="numeric" maxlength="10" oninput="mascaraData(this)">
+      <div style="font-size:11px;color:var(--slate-light);margin-top:4px">Digite dia, mês e ano — ex: 07/03/1958.</div>
+    </div>
     <div class="field"><label>CEP</label>
       <div style="display:flex;gap:8px">
         <input type="text" id="auto-cep" placeholder="00000-000" maxlength="9" inputmode="numeric" oninput="mascaraCep(this)" onblur="buscarCep('auto-cep','auto-end','auto-bairro','auto-cidade','auto-uf','auto-cep-msg')">
@@ -289,6 +291,17 @@
     <div class="form-grid">
       <div class="field"><label>Zona Eleitoral *</label><input type="text" id="auto-zona" placeholder="000" inputmode="numeric"></div>
       <div class="field"><label>Seção Eleitoral *</label><input type="text" id="auto-secao" placeholder="0000" inputmode="numeric"></div>
+    </div>
+    <div id="auto-login-box" style="display:none">
+      <div class="config-section-title" style="margin-top:8px">🔑 Crie seu acesso ao sistema</div>
+      <p style="font-size:12px;color:var(--slate-light);margin:-4px 0 12px">Com este login e senha você vai entrar no sistema para cadastrar e acompanhar a sua própria rede de apoiadores.</p>
+      <div class="field"><label>Login (usuário) *</label><input type="text" id="auto-login" placeholder="Ex: seunome" autocomplete="off" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9._-]/g,'')">
+        <div style="font-size:11px;color:var(--slate-light);margin-top:4px">É o usuário para entrar no sistema — sem espaços, acentos ou maiúsculas (ex: joaosilva). Anote para não esquecer.</div>
+      </div>
+      <div class="form-grid">
+        <div class="field"><label>Senha *</label><input type="password" id="auto-senha" placeholder="Mínimo 4 caracteres" autocomplete="new-password"></div>
+        <div class="field"><label>Confirmar senha *</label><input type="password" id="auto-senha2" placeholder="Repita a senha" autocomplete="new-password"></div>
+      </div>
     </div>
     <div class="lgpd-box">
       <input type="checkbox" id="auto-lgpd" style="margin-top:3px;flex-shrink:0">
@@ -387,6 +400,7 @@
         <button class="nav-item active" onclick="showPage('dashboard')" data-short="Painel"><span>📊</span> Meu Painel</button>
         <button class="nav-item" onclick="showPage('minha-rede')" data-short="Rede"><span>🌐</span> Minha Rede</button>
         <button class="nav-item" onclick="showPage('cadastrar')" data-short="Indicar"><span>➕</span> Indicar Pessoa</button>
+        <button class="nav-item" onclick="gerarLinkAutoCadastro()" style="background:linear-gradient(135deg,#276749,#1a4a32);color:#fff;border-radius:8px;margin-top:4px"><span>🔗</span> Gerar link de cadastro</button>
         <button class="nav-item" onclick="showPage('minha-conta')"><span>👤</span> Minha Conta</button>
       </div>
       <div class="sidebar-section" id="nav-admin" style="display:none">
@@ -454,6 +468,11 @@ function getLimite(nivel) {
   if(nivel===4) return CONFIG.limiteNivel4;
   return 0;
 }
+
+// Nível real do usuário logado na pirâmide. Vem do backend (currentUser.nivel):
+// liderança é sempre 1, mas um apoiador pode estar no nível 2 OU 3 (se ele mesmo
+// se autocadastrou pelo link de alguém acima). Fallback pro comportamento antigo.
+function meuNivel(){ return currentUser?.nivel || (currentRole==='lideranca'?1:2); }
 
 // ══════════════════════════════════════════
 //  STATE
@@ -598,7 +617,7 @@ function textoTermoCompleto(){
   return `
     <p><strong>Base legal:</strong> Lei nº 13.709/2018 (LGPD), art. 5º, II e art. 11, I (dado pessoal sensível — opinião política, mediante consentimento específico e destacado).</p>
     <h4>1. Identificação do Controlador</h4>
-    <p>O tratamento dos seus dados pessoais é de responsabilidade de <strong>${CONFIG.candidatoNome}</strong> ("Controlador"), que utiliza a plataforma ${CONFIG.appNome}, operada por <strong>${CONFIG.idealizadora}</strong> ("Operadora"), nos termos do art. 39 da LGPD. <em>(CNPJ/CPF e endereço do Controlador a preencher pelo cliente antes da campanha.)</em></p>
+    <p>O tratamento dos seus dados pessoais é de responsabilidade de <strong>${CONFIG.candidatoNome}</strong> ("Controlador"), que utiliza a plataforma ${CONFIG.appNome}, operada por <strong>Adriana Pereira de Souza</strong> ("Operadora"), inscrita no CNPJ nº <strong>68.014.930/0001-38</strong>, nos termos do art. 39 da LGPD. <em>(CNPJ/CPF e endereço do Controlador a preencher pelo cliente antes da campanha.)</em></p>
     <h4>2. Dados coletados</h4>
     <p>Nome completo, telefone/WhatsApp, e-mail (quando informado), endereço/bairro/zona eleitoral, título de eleitor, e manifestação de apoio político (dado pessoal sensível, art. 5º, II, LGPD).</p>
     <h4>3. Finalidade do tratamento</h4>
@@ -626,6 +645,7 @@ function abrirTermoLeitura(){
 // ══════════════════════════════════════════
 let _autoLiderancaId = null;
 let _versaoTermoAutocadastro = null;
+let _autoCriaLogin = false; // se quem se autocadastra vira usuário com login (nível 2 ou 3)
 
 function gerarLinkAutoCadastro() {
   if(!currentUser) return;
@@ -646,6 +666,8 @@ function verificarAutoCadastro() {
       api(`/public/lideranca/${_autoLiderancaId}`).then(data => {
         document.getElementById('auto-descricao').textContent = `Rede de apoio — ${data.nome}`;
         _versaoTermoAutocadastro = data.versaoTermo || null;
+        _autoCriaLogin = !!data.criaLogin;
+        document.getElementById('auto-login-box').style.display = _autoCriaLogin ? 'block' : 'none';
       }).catch(() => {});
     }
   }
@@ -659,7 +681,8 @@ function fecharAutoCadastro() {
 async function salvarAutoCadastro() {
   const nome = document.getElementById('auto-nome').value.trim();
   const tel = document.getElementById('auto-tel').value.trim();
-  const nasc = document.getElementById('auto-nasc').value;
+  const nascDigitado = document.getElementById('auto-nasc').value.trim();
+  const nasc = dataParaISO(nascDigitado);
   const end = document.getElementById('auto-end').value.trim();
   const bairro = document.getElementById('auto-bairro').value.trim();
   const cidade = document.getElementById('auto-cidade').value.trim();
@@ -670,10 +693,16 @@ async function salvarAutoCadastro() {
   const lgpd = document.getElementById('auto-lgpd').checked;
   const res = document.getElementById('auto-result');
 
-  if(!nome || !tel || !nasc || !bairro) {
+  if(!nome || !tel || !nascDigitado || !bairro) {
     res.style.display = 'block';
     res.style.background = '#fff5f5'; res.style.border = '1px solid #c53030'; res.style.color = '#c53030';
     res.innerHTML = '⚠️ Preencha nome, telefone, nascimento e bairro.';
+    return;
+  }
+  if(!nasc) {
+    res.style.display = 'block';
+    res.style.background = '#fff5f5'; res.style.border = '1px solid #c53030'; res.style.color = '#c53030';
+    res.innerHTML = '⚠️ Data de nascimento inválida — use o formato dia/mês/ano, ex: 07/03/1958.';
     return;
   }
   if(!titulo || !zona || !secao) {
@@ -695,17 +724,34 @@ async function salvarAutoCadastro() {
     return;
   }
 
+  let login = null, senha = null;
+  if(_autoCriaLogin) {
+    login = document.getElementById('auto-login').value.trim().toLowerCase();
+    senha = document.getElementById('auto-senha').value;
+    const senha2 = document.getElementById('auto-senha2').value;
+    const erro = (msg)=>{ res.style.display='block'; res.style.background='#fff5f5'; res.style.border='1px solid #c53030'; res.style.color='#c53030'; res.innerHTML='⚠️ '+msg; };
+    if(!login){ erro('Crie um login para acessar o sistema.'); return; }
+    if(senha.length < 4){ erro('A senha precisa ter pelo menos 4 caracteres.'); return; }
+    if(senha !== senha2){ erro('As senhas não coincidem — digite a mesma senha nos dois campos.'); return; }
+  }
+
   try {
-    await api('/public/autocadastro', { method:'POST', body: JSON.stringify({
+    const resp = await api('/public/autocadastro', { method:'POST', body: JSON.stringify({
       lideranca_id: _autoLiderancaId, nome, telefone: tel, nascimento: nasc,
       endereco: end || null, regiao: bairro, cidade: cidade || null, estado: uf || null,
       titulo: titulo || null, zona: zona || null, secao: secao || null,
       lgpd_aceite: true, lgpd_versao: _versaoTermoAutocadastro,
+      login, senha,
     })});
     res.style.display = 'block';
     res.style.background = '#e6f4ec'; res.style.border = '1px solid #276749'; res.style.color = '#276749';
-    res.innerHTML = `✅ Cadastro enviado com sucesso, ${nome.split(' ')[0]}! Obrigado por fazer parte desta rede.`;
-    setTimeout(fecharAutoCadastro, 3000);
+    if(resp && resp.criouLogin) {
+      res.innerHTML = `✅ Cadastro concluído, ${nome.split(' ')[0]}! Seu login é <strong>${resp.login}</strong> — anote-o e use a senha que você criou para entrar no sistema e montar a sua rede.`;
+      setTimeout(fecharAutoCadastro, 9000);
+    } else {
+      res.innerHTML = `✅ Cadastro enviado com sucesso, ${nome.split(' ')[0]}! Obrigado por fazer parte desta rede.`;
+      setTimeout(fecharAutoCadastro, 3000);
+    }
   } catch(e) {
     res.style.display = 'block';
     res.style.background = '#fff5f5'; res.style.border = '1px solid #c53030'; res.style.color = '#c53030';
@@ -992,7 +1038,7 @@ function renderDashboard(){
     </div>`;
   }
   const myId=String(currentUser.id);
-  const myNivel=currentRole==='lideranca'?1:2;
+  const myNivel=meuNivel();
   const limite=getLimite(myNivel);
   const myAp=APOIADORES.filter(a=>String(a.parent_id)===myId);
   const pct=Math.round((myAp.length/limite)*100);
@@ -1190,7 +1236,7 @@ function renderExportar(){
 
 function renderMinhaRede(){
   const myId = String(currentUser.id);
-  const myNivel = currentRole === 'lideranca' ? 1 : 2;
+  const myNivel = meuNivel();
   const limite = getLimite(myNivel);
   const minha = APOIADORES.filter(a => String(a.parent_id) === myId || String(a.cadastrado_por) === myId);
   return `
@@ -1215,11 +1261,11 @@ function renderMinhaRede(){
 
 function renderCadastrar(){
   const myId=String(currentUser.id);
-  const myNivel=currentRole==='lideranca'?1:2;
+  const myNivel=meuNivel();
   const novoNivel=myNivel+1;
   const limite=getLimite(myNivel);
   const count=APOIADORES.filter(a=>String(a.parent_id)===myId).length;
-  if(novoNivel>3) return `<div class="page-header"><h1>Indicar Pessoa</h1></div><div class="card"><div class="empty-state"><div class="icon">🔒</div><p>Nível máximo atingido.</p></div></div>`;
+  if(novoNivel>4) return `<div class="page-header"><h1>Indicar Pessoa</h1></div><div class="card"><div class="empty-state"><div class="icon">🔒</div><p>Nível máximo atingido.</p></div></div>`;
   if(count>=limite) return `<div class="page-header"><h1>Indicar Pessoa</h1></div><div class="card"><div class="empty-state"><div class="icon">🔒</div><p>Limite de <strong>${limite}</strong> indicações atingido.</p></div></div>`;
   return `
   <div class="page-header"><h1>Cadastrar Novo Apoiador</h1><p>Nível ${novoNivel} — Vaga ${count+1} de ${limite}</p></div>
@@ -1227,7 +1273,7 @@ function renderCadastrar(){
     <div class="form-grid">
       <div class="field full"><label>Nome Completo *</label><input type="text" id="c-nome" placeholder="Nome completo"></div>
       <div class="field"><label>Telefone *</label><input type="tel" id="c-tel" placeholder="(67) 00000-0000"></div>
-      <div class="field"><label>Data de Nascimento *</label><input type="date" id="c-nasc"></div>
+      <div class="field"><label>Data de Nascimento *</label><input type="text" id="c-nasc" placeholder="dd/mm/aaaa" inputmode="numeric" maxlength="10" oninput="mascaraData(this)"></div>
       <div class="field"><label>CEP</label>
         <div style="display:flex;gap:8px">
           <input type="text" id="c-cep" placeholder="00000-000" maxlength="9" inputmode="numeric" oninput="mascaraCep(this)" onblur="buscarCep('c-cep','c-endereco','c-reg','c-cidade','c-uf','c-cep-msg')">
@@ -1873,7 +1919,7 @@ function editarApoiador(id) {
         <div class="form-grid">
           <div class="field full"><label>Nome Completo *</label><input type="text" id="ed-nome" value="${a.nome||''}" placeholder="Nome completo"></div>
           <div class="field"><label>Telefone</label><input type="tel" id="ed-tel" value="${a.telefone||''}" placeholder="(67) 00000-0000"></div>
-          <div class="field"><label>Data de Nascimento</label><input type="date" id="ed-nasc" value="${a.nascimento?String(a.nascimento).slice(0,10):''}"></div>
+          <div class="field"><label>Data de Nascimento</label><input type="text" id="ed-nasc" placeholder="dd/mm/aaaa" inputmode="numeric" maxlength="10" oninput="mascaraData(this)" value="${isoParaData(a.nascimento)}"></div>
           <div class="field"><label>CEP</label>
             <div style="display:flex;gap:8px">
               <input type="text" id="ed-cep" placeholder="00000-000" maxlength="9" inputmode="numeric" oninput="mascaraCep(this)" onblur="buscarCep('ed-cep','ed-end','ed-reg','ed-cidade','ed-uf','ed-cep-msg')">
@@ -1936,10 +1982,12 @@ function atualizarResponsavelSelect(id){
 async function salvarEdicao(id) {
   const nome = document.getElementById('ed-nome').value.trim();
   if(!nome) { alert('Nome é obrigatório.'); return; }
+  const nascDigitado = document.getElementById('ed-nasc').value.trim();
+  if(nascDigitado && !dataParaISO(nascDigitado)){ showToast('Data de nascimento inválida — use dia/mês/ano, ex: 07/03/1958.','error'); return; }
   const body = {
     nome,
     telefone: document.getElementById('ed-tel').value.trim() || null,
-    nascimento: document.getElementById('ed-nasc').value || null,
+    nascimento: dataParaISO(nascDigitado),
     endereco: document.getElementById('ed-end').value.trim() || null,
     regiao: document.getElementById('ed-reg').value.trim() || null,
     cidade: document.getElementById('ed-cidade').value.trim() || null,
@@ -1971,7 +2019,8 @@ async function salvarEdicao(id) {
 async function salvarApoiador(){
   const nome=document.getElementById('c-nome').value.trim();
   const tel=document.getElementById('c-tel').value.trim();
-  const nasc=document.getElementById('c-nasc').value;
+  const nascDigitado=document.getElementById('c-nasc').value.trim();
+  const nasc=dataParaISO(nascDigitado);
   const reg=document.getElementById('c-reg').value.trim();
   const endereco=document.getElementById('c-endereco').value.trim();
   const cidade=document.getElementById('c-cidade').value.trim();
@@ -1979,7 +2028,8 @@ async function salvarApoiador(){
   const tit=document.getElementById('c-titulo').value.trim();
   const zon=document.getElementById('c-zona').value.trim();
   const sec=document.getElementById('c-secao').value.trim();
-  if(!nome||!tel||!nasc||!reg){showToast('Preencha os campos obrigatórios.','error');return;}
+  if(!nome||!tel||!nascDigitado||!reg){showToast('Preencha os campos obrigatórios.','error');return;}
+  if(!nasc){showToast('Data de nascimento inválida — use dia/mês/ano, ex: 07/03/1958.','error');return;}
   showLoading('Salvando...');
   try {
     await api('/apoiadores', { method:'POST', body: JSON.stringify({
@@ -2198,6 +2248,36 @@ function mascaraCep(input){
   let v = input.value.replace(/\D/g,'').slice(0,8);
   if(v.length > 5) v = v.slice(0,5) + '-' + v.slice(5);
   input.value = v;
+}
+
+// Data de nascimento por DIGITAÇÃO (dd/mm/aaaa) em vez do seletor nativo de
+// calendário — pessoas idosas se perdiam rolando anos no seletor do celular e
+// acabavam desistindo do cadastro. Teclado numérico + máscara automática.
+function mascaraData(input){
+  let v = input.value.replace(/\D/g,'').slice(0,8);
+  if(v.length > 4) v = v.slice(0,2)+'/'+v.slice(2,4)+'/'+v.slice(4);
+  else if(v.length > 2) v = v.slice(0,2)+'/'+v.slice(2);
+  input.value = v;
+}
+
+// 'dd/mm/aaaa' -> 'aaaa-mm-dd' (formato que o backend/Postgres esperam), ou
+// null se a data for incompleta/impossível. Valida dia/mês/ano de verdade
+// (rejeita 31/02, mês 13, ano fora de 1900..hoje) usando o próprio Date.
+function dataParaISO(str){
+  const m = String(str||'').trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if(!m) return null;
+  const dia = +m[1], mes = +m[2], ano = +m[3];
+  const anoAtual = new Date().getFullYear();
+  if(mes < 1 || mes > 12 || dia < 1 || dia > 31 || ano < 1900 || ano > anoAtual) return null;
+  const d = new Date(ano, mes-1, dia);
+  if(d.getFullYear() !== ano || d.getMonth() !== mes-1 || d.getDate() !== dia) return null;
+  return `${ano}-${m[2]}-${m[1]}`;
+}
+
+// 'aaaa-mm-dd' (ou ISO com hora) -> 'dd/mm/aaaa' para preencher o campo ao editar.
+function isoParaData(iso){
+  const m = String(iso||'').slice(0,10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : '';
 }
 
 async function buscarCep(cepId, enderecoId, bairroId, cidadeId, ufId, msgId){

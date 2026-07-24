@@ -6,6 +6,7 @@ const { jwtSecret, tokenExpiresIn, cookieMaxAgeMs, publicUrl } = require('../con
 const { authRequired } = require('../middleware/auth');
 const { hash, compare } = require('../utils/password');
 const { avaliarStatusTermo } = require('../utils/termoStatus');
+const { nivelUsuario } = require('../utils/nivelUsuario');
 const mail = require('../services/mail');
 const asyncHandler = require('../utils/asyncHandler');
 
@@ -61,7 +62,7 @@ router.post('/login', asyncHandler(async (req, res) => {
   // impacto de um eventual XSS (só cookies acessíveis por JS podem ser roubados).
   res.cookie('token', token, COOKIE_OPTS);
   res.json({
-    user: { id: user.id, nome: user.nome, login: user.login, perfil: user.perfil, criado_por: user.criado_por, ...avaliarStatusTermo(user) },
+    user: { id: user.id, nome: user.nome, login: user.login, perfil: user.perfil, criado_por: user.criado_por, nivel: await nivelUsuario(user), ...avaliarStatusTermo(user) },
   });
 }));
 
@@ -69,7 +70,7 @@ router.get('/me', authRequired, asyncHandler(async (req, res) => {
   const { rows } = await pool.query('SELECT id, nome, login, perfil, criado_por, senha_temporaria, termo_versao_aceita FROM usuarios WHERE id = $1 AND ativo = true', [req.user.id]);
   if (!rows[0]) return res.status(401).json({ error: 'Sessão inválida.' });
   const { senha_temporaria, termo_versao_aceita, ...user } = rows[0];
-  res.json({ user: { ...user, ...avaliarStatusTermo(rows[0]) } });
+  res.json({ user: { ...user, nivel: await nivelUsuario(user), ...avaliarStatusTermo(rows[0]) } });
 }));
 
 router.post('/logout', (req, res) => {

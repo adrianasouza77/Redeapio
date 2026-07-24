@@ -3,6 +3,7 @@ const pool = require('../db');
 const { authRequired, requireRole } = require('../middleware/auth');
 const resolveWorkspace = require('../middleware/workspace');
 const { limitesDoCandidato } = require('../utils/limites');
+const { nivelUsuario } = require('../utils/nivelUsuario');
 const { buscarDuplicidade, resolverCandidatoId } = require('../utils/duplicidade');
 const asyncHandler = require('../utils/asyncHandler');
 
@@ -66,9 +67,9 @@ router.post('/', requireRole('lideranca', 'apoiador'), asyncHandler(async (req, 
   if (!nome || !telefone || !nascimento || !regiao) {
     return res.status(400).json({ error: 'Preencha nome, telefone, nascimento e bairro.' });
   }
-  const myNivel = req.user.perfil === 'lideranca' ? 1 : 2;
+  const myNivel = await nivelUsuario(req.user);
   const novoNivel = myNivel + 1;
-  if (novoNivel > 3) return res.status(400).json({ error: 'Nível máximo atingido.' });
+  if (novoNivel > 4) return res.status(400).json({ error: 'Nível máximo atingido.' });
 
   const { rows: countRows } = await pool.query(
     'SELECT count(*)::int AS c FROM apoiadores WHERE parent_id = $1',
