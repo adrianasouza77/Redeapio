@@ -5,6 +5,7 @@ const resolveWorkspace = require('../middleware/workspace');
 const { limitesDoCandidato } = require('../utils/limites');
 const { nivelUsuario } = require('../utils/nivelUsuario');
 const { buscarDuplicidade, resolverCandidatoId } = require('../utils/duplicidade');
+const { hash, gerarSenhaTemporaria } = require('../utils/password');
 const asyncHandler = require('../utils/asyncHandler');
 
 const router = express.Router();
@@ -20,7 +21,8 @@ const SQL_ARVORE_CANDIDATO = `
     UNION ALL
     SELECT u.id FROM usuarios u JOIN arvore a ON u.criado_por = a.id
   )
-  SELECT ap.* FROM apoiadores ap
+  SELECT ap.*, (u.id IS NOT NULL) AS tem_login FROM apoiadores ap
+  LEFT JOIN usuarios u ON u.id = ap.id
   WHERE ap.cadastrado_por IN (SELECT id FROM arvore)
      OR ap.parent_id IN (SELECT id FROM arvore)
   ORDER BY ap.created_at
@@ -37,7 +39,9 @@ const SQL_ARVORE_LIDERANCA = `
     UNION ALL
     SELECT ap.id FROM apoiadores ap JOIN arvore a ON ap.parent_id = a.id
   )
-  SELECT ap.* FROM apoiadores ap WHERE ap.id IN (SELECT id FROM arvore) AND ap.id <> $1
+  SELECT ap.*, (u.id IS NOT NULL) AS tem_login FROM apoiadores ap
+  LEFT JOIN usuarios u ON u.id = ap.id
+  WHERE ap.id IN (SELECT id FROM arvore) AND ap.id <> $1
   ORDER BY ap.created_at
 `;
 
@@ -198,6 +202,32 @@ router.put('/:id', asyncHandler(async (req, res) => {
     vals
   );
   res.json(rows[0]);
+}));
+
+// Redefinir a senha de um usuário-com-login da rede. Usa a mesma regra de
+// permissão da pirâmide (podeGerenciar): o candidato/admin redefine de qualquer
+// um da rede; a liderança redefine apenas os apoiadores-com-login da própria
+// subárvore (níveis 2 e 3). O alvo precisa existir em "usuarios" (ter login). A
+// nova senha entra como temporária — a pessoa é obrigada a trocá-la no 1º acesso.
+router.put('/:id/senha', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  if (id === req.user.id) {
+    return res.status(400).json({ error: 'Para trocar a sua própria senha use "Minha Conta".' });
+  }
+  if (!(await podeGerenciar(req, id))) {
+    return res.status(403).json({ error: 'Sem permissão para redefinir a senha deste cadastro.' });
+  }
+  const { rows } = await pool.query(
+    "SELECT id, nome, login FROM usuarios WHERE id = $1 AND perfil IN ('lideranca','apoiador')",
+    [id]
+  );
+  if (!rows[0]) return res.status(404).json({ error: 'Esse cadastro não tem login — não há senha para redefinir.' });
+
+  const { senha } = req.body || {};
+  const novaSenha = senha && senha.length >= 4 ? senha : gerarSenhaTemporaria();
+  const senhaHash = await hash(novaSenha);
+  await pool.query('UPDATE usuarios SET senha_hash = $1, senha_temporaria = true WHERE id = $2', [senhaHash, id]);
+  res.json({ senha: novaSenha, login: rows[0].login, nome: rows[0].nome });
 }));
 
 router.delete('/:id', asyncHandler(async (req, res) => {

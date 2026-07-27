@@ -1996,6 +1996,11 @@ function editarApoiador(id) {
         </div>
         <p style="font-size:11px;color:var(--slate-light);margin-top:-8px;margin-bottom:8px">Diz embaixo de quem esse cadastro fica — ex: apoiador do nível 3 responde a um apoiador do nível 2.</p>
         ` : ''}
+        ${((papelEfetivo()==='candidato'||currentRole==='lideranca') && a.tem_login) ? `
+        <div class="config-section-title" style="margin-top:16px">🔑 Acesso ao sistema</div>
+        <p style="font-size:11px;color:var(--slate-light);margin:-4px 0 8px">Gera uma nova senha para este login. A pessoa será obrigada a trocá-la no primeiro acesso.</p>
+        <button type="button" class="btn-sm btn-outline" style="width:100%" onclick="redefinirSenhaRede('${id}','${escapeAttr(a.nome)}')">🔑 Redefinir senha deste apoiador</button>
+        ` : ''}
         <div class="form-actions" style="display:flex;gap:10px;margin-top:16px">
           <button onclick="document.getElementById('modal-editar').remove()" style="flex:1;padding:12px;background:#f0f0f0;border:none;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif">Cancelar</button>
           <button onclick="salvarEdicao('${id}')" style="flex:1.5;padding:12px;background:#0F1F3D;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif;font-weight:600">✔ Salvar alterações</button>
@@ -2171,6 +2176,26 @@ async function trocarSenha(id,nome,login){
     hideLoading();
     showToast('Senha atualizada!','success');
     mostrarSenhaGerada(nome, login, data.senha);
+  } catch(e){
+    hideLoading();
+    showToast(e.message || 'Erro ao atualizar senha.', 'error');
+  }
+}
+
+// Redefinição de senha a partir da rede (pirâmide) — usada pela liderança para os
+// apoiadores-com-login da subárvore dela e pelo candidato de dentro do modal de
+// edição. Passa pela rota /apoiadores/:id/senha, que valida a permissão.
+async function redefinirSenhaRede(id,nome){
+  const nova=prompt(`Nova senha para "${nome}":\n(mínimo 4 caracteres, ou deixe em branco para gerar uma automática)`);
+  if(nova===null)return;
+  if(nova && nova.length<4){showToast('Senha muito curta.','error');return;}
+  showLoading('Atualizando senha...');
+  try {
+    const data = await api(`/apoiadores/${id}/senha${wsQuery()}`, { method:'PUT', body: JSON.stringify({ senha: nova || undefined }) });
+    hideLoading();
+    document.getElementById('modal-editar')?.remove();
+    showToast('Senha atualizada!','success');
+    mostrarSenhaGerada(data.nome || nome, data.login || '', data.senha);
   } catch(e){
     hideLoading();
     showToast(e.message || 'Erro ao atualizar senha.', 'error');
