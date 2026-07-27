@@ -21,7 +21,7 @@ const SQL_ARVORE_CANDIDATO = `
     UNION ALL
     SELECT u.id FROM usuarios u JOIN arvore a ON u.criado_por = a.id
   )
-  SELECT ap.*, (u.id IS NOT NULL) AS tem_login FROM apoiadores ap
+  SELECT ap.*, (u.id IS NOT NULL) AS tem_login, u.login, u.email FROM apoiadores ap
   LEFT JOIN usuarios u ON u.id = ap.id
   WHERE ap.cadastrado_por IN (SELECT id FROM arvore)
      OR ap.parent_id IN (SELECT id FROM arvore)
@@ -39,7 +39,7 @@ const SQL_ARVORE_LIDERANCA = `
     UNION ALL
     SELECT ap.id FROM apoiadores ap JOIN arvore a ON ap.parent_id = a.id
   )
-  SELECT ap.*, (u.id IS NOT NULL) AS tem_login FROM apoiadores ap
+  SELECT ap.*, (u.id IS NOT NULL) AS tem_login, u.login, u.email FROM apoiadores ap
   LEFT JOIN usuarios u ON u.id = ap.id
   WHERE ap.id IN (SELECT id FROM arvore) AND ap.id <> $1
   ORDER BY ap.created_at
@@ -142,7 +142,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
   if (!(await podeGerenciar(req, id))) return res.status(403).json({ error: 'Sem permissão para editar este registro.' });
 
-  const { nome, telefone, nascimento, endereco, regiao, cidade, estado, titulo, zona, secao, nivel, parent_id } = req.body || {};
+  const { nome, telefone, nascimento, endereco, regiao, cidade, estado, titulo, zona, secao, nivel, parent_id, login, email } = req.body || {};
   if (!nome) return res.status(400).json({ error: 'Nome é obrigatório.' });
 
   // Reorganização de hierarquia (nível + responsável). A liderança mexe só dentro
@@ -201,7 +201,40 @@ router.put('/:id', asyncHandler(async (req, res) => {
     `UPDATE apoiadores SET ${campos.join(', ')} WHERE id = $${vals.length} RETURNING *`,
     vals
   );
-  res.json(rows[0]);
+  const atualizado = rows[0];
+
+  // Se este cadastro também tem login (usuário nível 1..3), mantém o "usuarios"
+  // em sincronia e permite ajustar login/e-mail do acesso a partir daqui — tanto
+  // para o candidato quanto para a liderança (a permissão já foi validada acima
+  // por podeGerenciar). Só entra quando o modal enviou esses campos, então nunca
+  // apaga o e-mail de quem não os edita.
+  if (login !== undefined || email !== undefined) {
+    const { rows: uRows } = await pool.query('SELECT id FROM usuarios WHERE id = $1', [id]);
+    if (uRows[0]) {
+      const loginNovo = login != null && String(login).trim() ? String(login).trim().toLowerCase() : null;
+      if (loginNovo && !/^[a-z0-9._-]+$/.test(loginNovo)) {
+        return res.status(400).json({ error: 'Login deve conter apenas letras minúsculas, números, ponto, hífen ou underline — sem espaços.' });
+      }
+      const emailLimpo = email && String(email).trim() ? String(email).trim().toLowerCase() : null;
+      const candId = (req.effectivePerfil === 'candidato' || req.user.perfil === 'admin')
+        ? req.effectiveId
+        : resolverCandidatoId(req.user);
+      const dup = await buscarDuplicidade({ candidatoId: candId, email: emailLimpo, excluirUsuarioId: id });
+      if (dup) return res.status(409).json({ error: `Já existe um cadastro com esse ${dup.campo} nesta rede (${dup.nome}).` });
+      try {
+        if (loginNovo) {
+          await pool.query('UPDATE usuarios SET nome = $1, email = $2, login = $3 WHERE id = $4', [nome, emailLimpo, loginNovo, id]);
+        } else {
+          await pool.query('UPDATE usuarios SET nome = $1, email = $2 WHERE id = $3', [nome, emailLimpo, id]);
+        }
+      } catch (err) {
+        if (err.code === '23505') return res.status(409).json({ error: 'Esse login já está em uso. Escolha outro.' });
+        throw err;
+      }
+    }
+  }
+
+  res.json(atualizado);
 }));
 
 // Redefinir a senha de um usuário-com-login da rede. Usa a mesma regra de
