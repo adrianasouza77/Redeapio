@@ -307,7 +307,7 @@
     <div id="auto-login-box" style="display:none">
       <div class="config-section-title" style="margin-top:8px">🔑 Crie seu acesso ao sistema</div>
       <p style="font-size:12px;color:var(--slate-light);margin:-4px 0 12px">Com este login e senha você vai entrar no sistema para cadastrar e acompanhar a sua própria rede de apoiadores.</p>
-      <div class="field"><label>Login (usuário) *</label><input type="text" id="auto-login" placeholder="Ex: seunome" autocomplete="off" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9._-]/g,'')">
+      <div class="field"><label>Login (usuário) *</label><input type="text" id="auto-login" placeholder="Ex: seunome" data-login autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" oninput="mascaraLogin(this,event)">
         <div style="font-size:11px;color:var(--slate-light);margin-top:4px">É o usuário para entrar no sistema — sem espaços, acentos ou maiúsculas (ex: joaosilva). Anote para não esquecer.</div>
       </div>
       <div class="form-grid">
@@ -353,7 +353,7 @@
         <div style="font-size:11px;color:var(--slate-light);margin-top:4px">Mínimo 4 caracteres. Misture letras e números — evite usar o próprio nome ou "1234".</div>
       </div>
       <div class="field"><label>Confirmar nova senha *</label><input type="password" id="pa-senha2" placeholder="Repita a senha" oninput="atualizarBotaoPrimeiroAcesso()"></div>
-      <div class="field"><label>Novo login (opcional)</label><input type="text" id="pa-login" placeholder="Ex: nomecandidato" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9._-]/g,'')">
+      <div class="field"><label>Novo login (opcional)</label><input type="text" id="pa-login" placeholder="Ex: nomecandidato" data-login autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" oninput="mascaraLogin(this,event)">
         <div style="font-size:11px;color:var(--slate-light);margin-top:4px">É o usuário para entrar no sistema, não o nome completo — sem espaços, acentos ou maiúsculas (ex: nomecandidato). Deixe em branco para manter o login atual.</div>
       </div>
     </div>
@@ -1382,7 +1382,7 @@ function renderUsuarios(){
     <div class="card-header"><div class="card-title">Novo Usuário</div></div>
     <div class="form-grid">
       <div class="field"><label>Nome Completo *</label><input type="text" id="nu-nome" placeholder="Nome"></div>
-      <div class="field"><label>Login *</label><input type="text" id="nu-login" placeholder="Ex: nomelideranca" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9._-]/g,''); verificarLoginInput('nu-login','nu-login-msg')">
+      <div class="field"><label>Login *</label><input type="text" id="nu-login" placeholder="Ex: nomelideranca" data-login autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" oninput="mascaraLogin(this,event); verificarLoginInput('nu-login','nu-login-msg')">
         <div style="font-size:11px;color:var(--slate-light);margin-top:4px">É o usuário para entrar no sistema — sem espaços, acentos ou maiúsculas (ex: nomelideranca, nomeapoiador2).</div>
         <div id="nu-login-msg" style="font-size:11px;margin-top:4px"></div>
       </div>
@@ -1454,7 +1454,7 @@ function editarUsuario(u){
         <div class="config-section-title" style="margin-top:0">👤 Acesso</div>
         <div class="form-grid">
           <div class="field full"><label>Nome Completo *</label><input type="text" id="eu-nome" value="${escapeAttr(u.nome||'')}"></div>
-          <div class="field"><label>Login *</label><input type="text" id="eu-login" value="${escapeAttr(u.login||'')}" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9._-]/g,''); verificarLoginInputEdicao('eu-login','eu-login-msg','${escapeAttr(u.login||'')}')">
+          <div class="field"><label>Login *</label><input type="text" id="eu-login" value="${escapeAttr(u.login||'')}" data-login autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" oninput="mascaraLogin(this,event); verificarLoginInputEdicao('eu-login','eu-login-msg','${escapeAttr(u.login||'')}')">
             <div style="font-size:11px;color:var(--slate-light);margin-top:4px">Sem espaços, acentos ou maiúsculas (ex: nomelideranca).</div>
             <div id="eu-login-msg" style="font-size:11px;margin-top:4px"></div>
           </div>
@@ -1594,7 +1594,7 @@ function renderMinhaConta(){
   <div class="card">
     <div class="card-header"><div class="card-title">👤 Trocar login</div></div>
     <div class="form-grid">
-      <div class="field"><label>Novo login *</label><input type="text" id="mc-login-novo" placeholder="Ex: nomecandidato" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9._-]/g,''); verificarLoginInput('mc-login-novo','mc-login-msg')">
+      <div class="field"><label>Novo login *</label><input type="text" id="mc-login-novo" placeholder="Ex: nomecandidato" data-login autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" oninput="mascaraLogin(this,event); verificarLoginInput('mc-login-novo','mc-login-msg')">
         <div style="font-size:11px;color:var(--slate-light);margin-top:4px">É o usuário para entrar no sistema, não o nome completo — sem espaços, acentos ou maiúsculas (ex: nomecandidato).</div>
         <div id="mc-login-msg" style="font-size:11px;margin-top:4px"></div>
       </div>
@@ -1756,7 +1756,7 @@ function renderVagas(){
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start">
       <input class="search-input" id="novo-candidato-nome" placeholder="Nome do candidato (opcional)">
       <div style="flex:1;min-width:160px">
-        <input class="search-input" id="novo-candidato-login" placeholder="Ex: nomecandidato (opcional)" style="width:100%" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9._-]/g,''); verificarLoginInput('novo-candidato-login','novo-candidato-login-msg')">
+        <input class="search-input" id="novo-candidato-login" placeholder="Ex: nomecandidato (opcional)" style="width:100%" data-login autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" oninput="mascaraLogin(this,event); verificarLoginInput('novo-candidato-login','novo-candidato-login-msg')">
         <div style="font-size:11px;color:var(--slate-light);margin-top:4px">Sem espaços, acentos ou maiúsculas. Deixe em branco pra gerar automático.</div>
         <div id="novo-candidato-login-msg" style="font-size:11px;margin-top:4px"></div>
       </div>
@@ -1999,7 +1999,7 @@ function editarApoiador(id) {
         ${((papelEfetivo()==='candidato'||currentRole==='lideranca') && a.tem_login) ? `
         <div class="config-section-title" style="margin-top:16px">🔑 Acesso ao sistema</div>
         <div class="form-grid">
-          <div class="field"><label>Login (nome de usuário)</label><input type="text" id="ed-login" value="${escapeAttr(a.login||'')}" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9._-]/g,'')">
+          <div class="field"><label>Login (nome de usuário)</label><input type="text" id="ed-login" value="${escapeAttr(a.login||'')}" data-login autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" oninput="mascaraLogin(this,event)">
             <div style="font-size:11px;color:var(--slate-light);margin-top:4px">Sem espaços, acentos ou maiúsculas (ex: mariasilva).</div>
           </div>
           <div class="field"><label>E-mail</label><input type="email" id="ed-email" value="${escapeAttr(a.email||'')}" placeholder="para recuperação de senha"></div>
@@ -2345,6 +2345,44 @@ function mascaraData(input){
   else if(v.length > 2) v = v.slice(0,2)+'/'+v.slice(2);
   input.value = v;
 }
+
+// ══════════════════════════════════════════
+//  CAMPO DE LOGIN (nome de usuário)
+// ══════════════════════════════════════════
+// No celular o teclado (Gboard/iOS) digita em "modo composição": ele segura a
+// palavra em aberto enquanto sugere correções e só a confirma no fim. Se o
+// campo reescrever o próprio .value nesse meio-tempo, o teclado descarta a
+// composição inteira e o campo volta a ficar VAZIO por mais que a pessoa
+// digite — era isso que travava o cadastro pelo celular.
+// Solução: enquanto o teclado está compondo a gente não encosta no value; a
+// limpeza (minúsculas, sem acento, sem espaço) roda quando a composição fecha.
+function mascaraLogin(input, ev){
+  if(ev && ev.isComposing) return;            // teclado ainda montando a palavra
+  if(input.dataset.compondo === '1') return;  // fallback p/ navegadores sem isComposing
+  const antes = input.value;
+  const depois = antes.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')  // joao com til -> joao (antes a letra sumia)
+    .replace(/[^a-z0-9._-]/g,'');
+  if(depois === antes) return;                // não mexe no value à toa (cursor pulando)
+  const pos = input.selectionStart;
+  input.value = depois;
+  const nova = Math.max(0, (pos == null ? depois.length : pos) - (antes.length - depois.length));
+  try { input.setSelectionRange(nova, nova); } catch(e){}
+}
+
+// Marca o estado de composição do teclado. Vale para os campos criados
+// dinamicamente também, por isso é delegado no document (fase de captura).
+document.addEventListener('compositionstart', e => {
+  const el = e.target;
+  if(el && el.dataset && 'login' in el.dataset) el.dataset.compondo = '1';
+}, true);
+document.addEventListener('compositionend', e => {
+  const el = e.target;
+  if(!el || !el.dataset || !('login' in el.dataset)) return;
+  el.dataset.compondo = '0';
+  mascaraLogin(el);
+  el.dispatchEvent(new Event('input', { bubbles:true }));  // reroda a checagem de disponibilidade
+}, true);
 
 // 'dd/mm/aaaa' -> 'aaaa-mm-dd' (formato que o backend/Postgres esperam), ou
 // null se a data for incompleta/impossível. Valida dia/mês/ano de verdade
