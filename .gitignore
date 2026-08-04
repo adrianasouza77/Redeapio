@@ -1,3 +1,6 @@
 ignorados/
 .env
 backend/node_modules/
+
+# Google Drive cria estes arquivos em toda pasta sincronizada no Windows.
+desktop.ini

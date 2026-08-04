@@ -1,0 +1,12 @@
+# Scripts que rodam no servidor Linux precisam de quebra de linha LF. Se o Git
+# do Windows converter para CRLF, o shebang vira "#!/bin/bash\r" e o Ubuntu
+# responde "bad interpreter: No such file or directory" — erro cuja causa é
+# difícil de enxergar. O repositório é editado no Windows (dentro do Google
+# Drive), então essa conversão aconteceria por padrão sem esta regra.
+*.sh    text eol=lf
+*.yml   text eol=lf
+*.sql   text eol=lf
+Dockerfile text eol=lf
+
+# PDFs dos manuais — binários, nunca converter.
+*.pdf   binary

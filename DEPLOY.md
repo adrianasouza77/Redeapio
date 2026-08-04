@@ -1,5 +1,13 @@
 # Deploy do RedeApoio no Portainer (Docker Swarm + Traefik)
 
+> **📌 Este documento é histórico.** Ele descreve o deploy original de julho de
+> 2025, num servidor que **já tinha** Traefik e Portainer instalados, e inclui a
+> importação única do Supabase (concluída, não repetir).
+>
+> **Para instalar num servidor novo, use [`docs/01-instalacao-servidor-novo.md`](docs/01-instalacao-servidor-novo.md)** —
+> que cobre o Ubuntu do zero, incluindo Docker, Traefik e Portainer.
+> Índice completo da documentação em [`docs/README.md`](docs/README.md).
+
 Este projeto substitui o Vercel + Supabase por um stack próprio: Node/Express +
 PostgreSQL, containerizado, seguindo o mesmo padrão já usado neste servidor
 para outras stacks (gtw-banners, gtw-platform): Docker Swarm, rede externa
@@ -98,10 +106,9 @@ existir para imagens locais) para os containers pegarem a imagem nova.
 
 ## Backup
 
-O volume `redeapoio_pgdata` contém todos os dados. Para fazer backup manual:
+O volume `redeapoio_pgdata` contém todos os dados, e o Postgres self-hosted não
+faz backup sozinho (o Supabase fazia).
 
-```bash
-docker exec $(docker ps -q -f name=redeapoio_redeapoio-postgres) pg_dump -U redeapoio redeapoio > backup-$(date +%F).sql
-```
-
-Configure isso como uma rotina periódica (cron no host, ou um container auxiliar) assim que possível — o Supabase fazia backup automático disso, o Postgres self-hosted não faz sozinho.
+A rotina automática já está pronta em `scripts/backup-db.sh` — instalação,
+agendamento no cron, cópia para fora do servidor e restauração estão em
+[`docs/02-backup-e-migracao.md`](docs/02-backup-e-migracao.md).

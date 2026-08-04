@@ -1,0 +1,93 @@
+version: '3.9'
+
+# =============================================================
+# Traefik — proxy reverso e emissor de certificados SSL
+#
+# Esta stack é PRÉ-REQUISITO da stack "redeapoio". Ela cria/usa a rede
+# externa "network_public" e define o certresolver "letsencryptresolver",
+# que são exatamente os nomes que o docker-compose.yml do RedeApoio espera
+# nas labels. Se você mudar qualquer um dos dois nomes aqui, precisa mudar
+# também lá — senão o site sobe sem HTTPS ou nem aparece.
+#
+# Antes de subir esta stack, crie a rede (uma única vez, via SSH):
+#   docker network create --driver=overlay --attachable network_public
+#
+# Variáveis de ambiente a configurar no Portainer (ou no deploy via CLI):
+#   ACME_EMAIL = e-mail que recebe os avisos de expiração do Let's Encrypt
+# =============================================================
+
+networks:
+  network_public:
+    external: true
+
+volumes:
+  # Guarda o acme.json (chaves privadas + certificados emitidos). Fazer
+  # backup deste volume evita reemitir tudo e bater no rate limit do
+  # Let's Encrypt numa reinstalação.
+  traefik_certs:
+    driver: local
+
+services:
+
+  traefik:
+    image: traefik:v3
+    command:
+      # ── Provider: lê as labels dos serviços do Swarm ──
+      - "--providers.swarm.endpoint=unix:///var/run/docker.sock"
+      - "--providers.swarm.exposedByDefault=false"
+      - "--providers.swarm.network=network_public"
+
+      # ── Entrypoints ──
+      # Os nomes "web" e "websecure" são os que a stack do RedeApoio usa.
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      # Todo HTTP vira HTTPS automaticamente.
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+
+      # ── Let's Encrypt ──
+      # O nome "letsencryptresolver" é o que aparece nas labels do RedeApoio.
+      - "--certificatesresolvers.letsencryptresolver.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.letsencryptresolver.acme.storage=/certs/acme.json"
+      - "--certificatesresolvers.letsencryptresolver.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencryptresolver.acme.httpchallenge.entrypoint=web"
+      # Para TESTAR sem gastar o limite de 5 certificados/semana por domínio,
+      # descomente a linha abaixo, valide que o roteamento funciona (o navegador
+      # vai reclamar de certificado inválido, isso é esperado), depois comente de
+      # novo, APAGUE o volume traefik_certs e faça o deploy definitivo.
+      # - "--certificatesresolvers.letsencryptresolver.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
+
+      - "--log.level=INFO"
+      - "--accesslog=false"
+
+    ports:
+      # mode: host em vez do ingress mesh do Swarm — é o que preserva o IP real
+      # do visitante no X-Forwarded-For. Isso importa aqui: o RedeApoio grava o
+      # IP de quem aceita o termo LGPD como prova de consentimento (art. 8º, §2º).
+      # Com o ingress mesh padrão, todo mundo chegaria com o IP interno do Docker.
+      - target: 80
+        published: 80
+        mode: host
+      - target: 443
+        published: 443
+        mode: host
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_certs:/certs
+
+    networks:
+      - network_public
+
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: any
+        delay: 10s
+      resources:
+        limits:
+          memory: 256M

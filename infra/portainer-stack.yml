@@ -1,0 +1,88 @@
+version: '3.9'
+
+# =============================================================
+# Portainer CE — painel web para administrar o Docker Swarm
+#
+# Esta stack é a ÚNICA que precisa ser criada pela linha de comando
+# (docker stack deploy), porque é ela que dá origem ao painel de onde todas
+# as outras serão criadas depois.
+#
+# Pré-requisitos:
+#   - Swarm inicializado (docker swarm init)
+#   - rede network_public criada
+#   - stack do Traefik já no ar (senão o painel não ganha HTTPS)
+#
+# Deploy (via SSH, uma única vez):
+#   export PORTAINER_DOMAIN=painel.seudominio.com.br
+#   docker stack deploy -c infra/portainer-stack.yml portainer
+#
+# ATENÇÃO na primeira vez: o Portainer só aceita criar o usuário
+# administrador nos primeiros 5 minutos depois de subir. Se você demorar,
+# a tela vai dizer que o tempo esgotou — nesse caso rode
+# "docker service update --force portainer_portainer" e recarregue.
+# =============================================================
+
+networks:
+  # Rede interna só do Portainer, para ele falar com o agente.
+  agent_network:
+    driver: overlay
+    attachable: true
+  network_public:
+    external: true
+
+volumes:
+  portainer_data:
+    driver: local
+
+services:
+
+  # O agente roda em TODO nó do cluster e é o que dá ao Portainer acesso aos
+  # containers, volumes e logs daquele nó. Num servidor de nó único ele
+  # continua sendo necessário — é por ele que o painel enxerga os volumes.
+  agent:
+    # Fixe a tag numa versão concreta depois de conferir em
+    # hub.docker.com/r/portainer/agent/tags — e use a MESMA versão do
+    # portainer-ce abaixo. "latest" facilita a primeira instalação, mas deixa
+    # o painel sujeito a mudar de comportamento sozinho num redeploy futuro.
+    image: portainer/agent:latest
+    environment:
+      AGENT_CLUSTER_ADDR: tasks.agent
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/docker/volumes:/var/lib/docker/volumes
+    networks:
+      - agent_network
+    deploy:
+      mode: global
+      placement:
+        constraints:
+          - node.platform.os == linux
+
+  portainer:
+    image: portainer/portainer-ce:latest
+    command: -H tcp://tasks.agent:9001 --tlsskipverify
+    volumes:
+      - portainer_data:/data
+    networks:
+      - agent_network
+      - network_public
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: any
+        delay: 10s
+      resources:
+        limits:
+          memory: 512M
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.portainer.rule=Host(`${PORTAINER_DOMAIN}`)"
+        - "traefik.http.routers.portainer.entrypoints=websecure"
+        - "traefik.http.routers.portainer.tls.certresolver=letsencryptresolver"
+        # 9000 é a porta HTTP do painel. Não use 9443 (HTTPS interno do
+        # Portainer) — quem termina o TLS aqui é o Traefik.
+        - "traefik.http.services.portainer.loadbalancer.server.port=9000"
