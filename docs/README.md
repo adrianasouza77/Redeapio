@@ -51,6 +51,30 @@ de programador.
 | [`04-referencia-tecnica.md`](04-referencia-tecnica.md) | programador / agente | arquitetura, dados, invariantes, endpoints, dívidas técnicas |
 | [`05-rotinas-de-manutencao.md`](05-rotinas-de-manutencao.md) | programador / agente | ciclo de correção, roteiro de teste, diagnóstico |
 
+## Versão em PDF
+
+Os mesmos documentos, prontos para ler fora do GitHub, imprimir ou repassar,
+estão em [`pdf/`](pdf/):
+
+| PDF | Páginas |
+|---|---|
+| `RedeApoio-00-Indice.pdf` | 4 |
+| `RedeApoio-01-Instalacao-Servidor.pdf` | 11 |
+| `RedeApoio-02-Backup-e-Migracao.pdf` | 8 |
+| `RedeApoio-03-Manual-do-Dono.pdf` | 7 |
+| `RedeApoio-04-Referencia-Tecnica.pdf` | 13 |
+| `RedeApoio-05-Rotinas-Manutencao.pdf` | 8 |
+
+> Os `.md` são a fonte da verdade — os PDFs são gerados a partir deles. Sempre
+> que a documentação mudar, gere de novo:
+>
+> ```bash
+> npm install --no-save marked puppeteer-core
+> node scripts/gerar-pdfs.js
+> ```
+>
+> Requer o Google Chrome instalado (o script não baixa navegador nenhum).
+
 Complementos na raiz do repositório:
 
 - [`../CLAUDE.md`](../CLAUDE.md) — contexto curto, carregado automaticamente por agentes de IA
