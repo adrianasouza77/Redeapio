@@ -307,6 +307,7 @@
     <div id="auto-login-box" style="display:none">
       <div class="config-section-title" style="margin-top:8px">🔑 Crie seu acesso ao sistema</div>
       <p style="font-size:12px;color:var(--slate-light);margin:-4px 0 12px">Com este login e senha você vai entrar no sistema para cadastrar e acompanhar a sua própria rede de apoiadores.</p>
+      <p id="auto-aviso-link" style="font-size:12px;color:#8a6a10;background:#fdf5e0;border:1px solid var(--gold);border-radius:8px;padding:10px;margin:-4px 0 12px"></p>
       <div class="field"><label>Login (usuário) *</label><input type="text" id="auto-login" placeholder="Ex: seunome" data-login autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" oninput="mascaraLogin(this,event)">
         <div style="font-size:11px;color:var(--slate-light);margin-top:4px">É o usuário para entrar no sistema — sem espaços, acentos ou maiúsculas (ex: joaosilva). Anote para não esquecer.</div>
       </div>
@@ -702,11 +703,24 @@ function verificarAutoCadastro() {
     _autoCandidatoId = params.get('candidato');
     _autoNivel = params.get('nivel');
     document.getElementById('modal-autocadastro').style.display = 'flex';
+    // Diz na cara quem vai ficar como responsável e em que nível a pessoa entra.
+    // Antes só aparecia "Rede de apoio — Fulano", que é o nome do dono do link:
+    // quem recebia um link REPASSADO (o caso comum — a pessoa reencaminha no
+    // WhatsApp o mesmo link que usou para se cadastrar, em vez de gerar o dela)
+    // não tinha como perceber que estava entrando embaixo da pessoa errada, e
+    // depois a rede aparecia toda pendurada em quem não indicou ninguém.
     const aplicarContexto = (data) => {
-      document.getElementById('auto-descricao').textContent = `Rede de apoio — ${data.nome}`;
+      const desc = document.getElementById('auto-descricao');
+      if(_autoCandidatoId && _autoNivel) {
+        desc.innerHTML = `Rede de apoio — <strong>${data.nome}</strong> · você entrará no <strong>Nível ${data.novoNivel}</strong>, sem responsável definido.`;
+      } else {
+        desc.innerHTML = `Quem está te indicando: <strong>${data.nome}</strong> — você entrará na rede dele(a), no <strong>Nível ${data.novoNivel}</strong>.<br><span style="color:#c53030">Se não foi ${data.nome} quem te chamou, não preencha: peça o link de quem te convidou.</span>`;
+      }
       _versaoTermoAutocadastro = data.versaoTermo || null;
       _autoCriaLogin = !!data.criaLogin;
       document.getElementById('auto-login-box').style.display = _autoCriaLogin ? 'block' : 'none';
+      const aviso = document.getElementById('auto-aviso-link');
+      if(aviso) aviso.innerHTML = `Depois de entrar, gere o <strong>seu próprio</strong> link em “🔗 Gerar link de cadastro”. Se você repassar <em>este</em> link, quem se cadastrar entra como indicado de <strong>${data.nome}</strong> — e não seu.`;
     };
     if(_autoCandidatoId && _autoNivel) {
       api(`/public/convite?candidato=${encodeURIComponent(_autoCandidatoId)}&nivel=${encodeURIComponent(_autoNivel)}`).then(aplicarContexto).catch(() => {});
@@ -789,8 +803,12 @@ async function salvarAutoCadastro() {
     res.style.display = 'block';
     res.style.background = '#e6f4ec'; res.style.border = '1px solid #276749'; res.style.color = '#276749';
     if(resp && resp.criouLogin) {
-      res.innerHTML = `✅ Cadastro concluído, ${nome.split(' ')[0]}! Seu login é <strong>${resp.login}</strong> — anote-o e use a senha que você criou para entrar no sistema e montar a sua rede.`;
-      setTimeout(fecharAutoCadastro, 9000);
+      // O aviso de não repassar o link fica também aqui, no fim: é neste momento
+      // que a pessoa costuma pegar o link que acabou de usar e reencaminhar para
+      // os apoiadores dela — e aí a rede inteira dela nasce pendurada em quem a
+      // indicou, não nela.
+      res.innerHTML = `✅ Cadastro concluído, ${nome.split(' ')[0]}! Seu login é <strong>${resp.login}</strong> — anote-o e use a senha que você criou para entrar no sistema e montar a sua rede.<br><br>⚠️ <strong>Não reencaminhe este link.</strong> Entre no sistema e clique em “🔗 Gerar link de cadastro” para pegar o <strong>seu</strong> link — só assim quem você indicar aparece na sua rede.`;
+      setTimeout(fecharAutoCadastro, 15000);
     } else {
       res.innerHTML = `✅ Cadastro enviado com sucesso, ${nome.split(' ')[0]}! Obrigado por fazer parte desta rede.`;
       setTimeout(fecharAutoCadastro, 3000);

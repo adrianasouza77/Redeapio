@@ -159,10 +159,16 @@ router.post('/autocadastro', asyncHandler(async (req, res) => {
         [nome, loginLimpo, senhaHash, perfilNovo, candidatoId, telefone, regiao, endereco || null, cidade || null, estado || null, titulo || null, zona || null, secao || null, termoVersaoAtual]
       );
       novoId = uRows[0].id;
+      // cadastrado_por = QUEM ENVIOU O LINK (ctx.cadastradoPor), não o candidato.
+      // Estava gravando candidatoId: o único registro de quem realmente recrutou
+      // a pessoa se perdia, e quando alguém repassava o link de outro (erro comum
+      // no WhatsApp) não sobrava nenhum rastro para descobrir o pai correto —
+      // parent_id já apontava para o dono do link. No modo candidato os dois
+      // valores são iguais, então nada muda por lá.
       await client.query(
         `INSERT INTO apoiadores (id, nome, telefone, nascimento, regiao, endereco, cidade, estado, titulo, zona, secao, nivel, parent_id, cadastrado_por, lgpd_aceite, lgpd_aceite_em, lgpd_versao)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,true,now(),$15)`,
-        [novoId, nome, telefone, nascimento, regiao, endereco || null, cidade || null, estado || null, titulo || null, zona || null, secao || null, novoNivel, parentId, candidatoId, termoVersaoAtual]
+        [novoId, nome, telefone, nascimento, regiao, endereco || null, cidade || null, estado || null, titulo || null, zona || null, secao || null, novoNivel, parentId, cadastradoPor, termoVersaoAtual]
       );
       await client.query(
         `INSERT INTO termos_aceite (usuario_id, versao_termo, ip, user_agent) VALUES ($1,$2,$3,$4)`,
