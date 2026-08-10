@@ -33,15 +33,33 @@ const SQL_ARVORE_CANDIDATO = `
 // que a liderança reorganiza a hierarquia (parent_id passa a apontar para
 // outro apoiador, não mais para um usuário). Esta resolve a subárvore inteira
 // a partir de qualquer nó de "apoiadores", seguindo parent_id em cascata.
-const SQL_ARVORE_LIDERANCA = `
+//
+// Dois detalhes faziam a corrente quebrar e o nível 3/4 só aparecer no login do
+// candidato (que usa a outra query, baseada em cadastrado_por):
+//   1) a raiz vinha de "SELECT id FROM apoiadores WHERE id = $1" — quem não
+//      tinha a ficha-espelho (usuário criado antes dessa regra) recebia uma
+//      lista VAZIA e não via nem os próprios indicados diretos. A raiz agora é
+//      o próprio id, então a busca funciona mesmo sem ficha.
+//   2) quem entra pelos links por nível do candidato fica com parent_id NULL:
+//      a descida parava nesse nó e ninguém abaixo dele aparecia. O cadastro
+//      órfão passa a ser puxado por quem o cadastrou — só quando parent_id é
+//      NULL, para não desfazer a reorganização de hierarquia (se o candidato
+//      moveu alguém para outro responsável, quem cadastrou perde o acesso).
+const RECURSAO_SUBARVORE = `
   WITH RECURSIVE arvore AS (
-    SELECT id FROM apoiadores WHERE id = $1
-    UNION ALL
-    SELECT ap.id FROM apoiadores ap JOIN arvore a ON ap.parent_id = a.id
+    SELECT $1::uuid AS id
+    UNION
+    SELECT ap.id FROM apoiadores ap JOIN arvore a
+      ON ap.parent_id = a.id
+      OR (ap.parent_id IS NULL AND ap.cadastrado_por = a.id)
   )
+`;
+
+const SQL_ARVORE_LIDERANCA = `
+  ${RECURSAO_SUBARVORE}
   SELECT ap.*, (u.id IS NOT NULL) AS tem_login, u.login, u.email FROM apoiadores ap
   LEFT JOIN usuarios u ON u.id = ap.id
-  WHERE ap.id IN (SELECT id FROM arvore) AND ap.id <> $1
+  WHERE ap.id IN (SELECT id FROM arvore) AND ap.id <> $1::uuid
   ORDER BY ap.created_at
 `;
 
@@ -101,13 +119,13 @@ router.post('/', requireRole('lideranca', 'apoiador'), asyncHandler(async (req, 
 // Sub-árvore (nível/parent_id) a partir de um nó qualquer de "apoiadores" — usada
 // tanto para permissão (lideranca/apoiador podem gerenciar qualquer descendente,
 // não só quem indicaram direto) quanto para validar a reorganização de hierarquia.
+// Mesma recursão da listagem (raiz = o próprio id, órfão puxado por quem
+// cadastrou): permissão e listagem precisam enxergar exatamente a mesma rede,
+// senão a pessoa vê um nome na tela e leva 403 ao tentar editá-lo.
 const SQL_SUBARVORE = `
-  WITH RECURSIVE arvore AS (
-    SELECT id, nivel, parent_id FROM apoiadores WHERE id = $1
-    UNION ALL
-    SELECT ap.id, ap.nivel, ap.parent_id FROM apoiadores ap JOIN arvore a ON ap.parent_id = a.id
-  )
-  SELECT id, nivel, parent_id FROM arvore
+  ${RECURSAO_SUBARVORE}
+  SELECT ap.id, ap.nivel, ap.parent_id FROM apoiadores ap
+  WHERE ap.id IN (SELECT id FROM arvore)
 `;
 
 async function podeGerenciar(req, id) {

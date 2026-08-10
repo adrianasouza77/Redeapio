@@ -1085,15 +1085,20 @@ function renderDashboard(){
   const limite=getLimite(myNivel);
   const myAp=APOIADORES.filter(a=>String(a.parent_id)===myId);
   const pct=Math.round((myAp.length/limite)*100);
+  // "Rede completa" = todo mundo abaixo de mim, em qualquer nível (o backend já
+  // devolve só a minha subárvore). O card das vagas continua contando apenas os
+  // indicados diretos, que é o que o limite do meu nível controla.
+  const totalRede=APOIADORES.length;
   return `
   <div class="page-header"><h1>Meu Painel</h1><p>Sua rede de indicações</p></div>
-  <div class="stats-grid" style="grid-template-columns:repeat(2,1fr)">
+  <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
     <div class="stat-card">
       <div class="stat-label">Indicações Feitas</div>
       <div class="stat-value">${myAp.length} <span style="font-size:18px;color:var(--slate-light)">/ ${limite}</span></div>
       <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
     </div>
     <div class="stat-card"><div class="stat-label">Vagas Disponíveis</div><div class="stat-value" style="color:var(--green)">${limite-myAp.length}</div><div class="stat-sub">ainda podem ser adicionadas</div></div>
+    <div class="stat-card"><div class="stat-label">Rede Completa</div><div class="stat-value">${totalRede}</div><div class="stat-sub">todos os níveis abaixo de você</div></div>
   </div>
   <div class="card">
     <div class="card-header"><div class="card-title">Meus Indicados</div>${myAp.length<limite?`<button class="btn-sm btn-navy" onclick="showPage('cadastrar')">+ Indicar</button>`:''}</div>
@@ -1281,29 +1286,49 @@ function renderExportar(){
   </div>`;
 }
 
+// A rede INTEIRA abaixo de quem está logado, separada por nível. Antes esta tela
+// filtrava só os indicados diretos (parent_id/cadastrado_por = eu) e jogava fora
+// o resto — então o que o nível 2 cadastrava não aparecia para a liderança, e o
+// que o nível 3 cadastrava não aparecia nem para o nível 2: só o candidato via a
+// rede completa. O backend já devolve apenas a subárvore de quem está logado,
+// então tudo que veio em APOIADORES é rede dessa pessoa e pode ser listado.
 function renderMinhaRede(){
   const myId = String(currentUser.id);
   const myNivel = meuNivel();
   const limite = getLimite(myNivel);
-  const minha = APOIADORES.filter(a => String(a.parent_id) === myId || String(a.cadastrado_por) === myId);
+  // Indicados diretos: é o que conta contra o limite de vagas do meu nível.
+  const diretos = APOIADORES.filter(a => String(a.parent_id) === myId || String(a.cadastrado_por) === myId);
+  const nomePorId = new Map(APOIADORES.map(a => [String(a.id), a.nome]));
+
+  // Agrupa pelo nível que veio do banco (e não por myNivel+1) para que dado
+  // fora do padrão — ex.: alguém remanejado pelo candidato — continue visível.
+  const niveis = [...new Set(APOIADORES.map(a => a.nivel))].sort((x, y) => x - y);
+  const blocos = niveis.map(n => {
+    const gente = APOIADORES.filter(a => a.nivel === n);
+    const rotulo = n === myNivel + 1 ? 'Meus indicados diretos' : 'Indicados pela minha rede';
+    return `
+    <div class="card">
+      <div class="card-header"><div class="card-title">${rotulo} — Nível ${n} (${gente.length})</div></div>
+      <table><thead><tr><th>Nome</th><th>Indicado por</th><th>Região</th><th>Telefone</th><th>Nascimento</th><th>Ações</th></tr></thead>
+      <tbody>${gente.map(a => `
+        <tr>
+          <td onclick="showDetail('${a.id}')" style="cursor:pointer"><strong>${a.nome}</strong></td>
+          <td>${String(a.parent_id) === myId ? '<em>você</em>' : (nomePorId.get(String(a.parent_id)) || '—')}</td>
+          <td><span class="region-tag">${a.regiao||'—'}</span></td>
+          <td>${a.telefone||'—'}</td>
+          <td>${formatDate(a.nascimento)}</td>
+          <td style="white-space:nowrap">
+            <button onclick="editarApoiador('${a.id}')" class="btn-sm btn-outline" style="font-size:11px;padding:4px 8px">✏️ Editar</button>
+            <button onclick="excluirApoiador('${a.id}','${escapeAttr(a.nome)}')" class="btn-del" style="margin-left:4px">🗑 Excluir</button>
+          </td>
+        </tr>`).join('')}
+      </tbody></table>
+    </div>`;
+  }).join('');
+
   return `
-  <div class="page-header"><h1>Minha Rede</h1><p>${minha.length} de ${limite} vagas utilizadas</p></div>
-  <div class="card">
-    ${minha.length === 0 ? `<div class="empty-state"><div class="icon">🤝</div><p>Você ainda não tem indicações cadastradas.</p></div>` : `
-    <table><thead><tr><th>Nome</th><th>Região</th><th>Telefone</th><th>Nascimento</th><th>Ações</th></tr></thead>
-    <tbody>${minha.map(a => `
-      <tr>
-        <td onclick="showDetail('${a.id}')" style="cursor:pointer"><strong>${a.nome}</strong></td>
-        <td><span class="region-tag">${a.regiao||'—'}</span></td>
-        <td>${a.telefone||'—'}</td>
-        <td>${formatDate(a.nascimento)}</td>
-        <td style="white-space:nowrap">
-          <button onclick="editarApoiador('${a.id}')" class="btn-sm btn-outline" style="font-size:11px;padding:4px 8px">✏️ Editar</button>
-          <button onclick="excluirApoiador('${a.id}','${escapeAttr(a.nome)}')" class="btn-del" style="margin-left:4px">🗑 Excluir</button>
-        </td>
-      </tr>`).join('')}
-    </tbody></table>`}
-  </div>`;
+  <div class="page-header"><h1>Minha Rede</h1><p>${APOIADORES.length} pessoa(s) na sua rede — ${diretos.length} de ${limite} vagas diretas utilizadas</p></div>
+  ${APOIADORES.length === 0 ? `<div class="card"><div class="empty-state"><div class="icon">🤝</div><p>Você ainda não tem indicações cadastradas.</p></div></div>` : blocos}`;
 }
 
 function renderCadastrar(){
