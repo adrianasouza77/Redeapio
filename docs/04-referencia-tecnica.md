@@ -107,6 +107,39 @@ serviço acabaria bloqueando o IP do servidor.
 sem cidade preenchida). Sem isso o sistema tentaria de novo para sempre uma
 busca que nunca vai dar certo.
 
+`versao_geo` invalida cache sem apagar linha: subir `VERSAO_GEO` no código faz
+todas as linhas antigas voltarem para a fila de pendentes. Foi assim que as
+coordenadas erradas da primeira versão foram descartadas sem `DELETE`.
+
+### `geo_cidades` — cache da cidade e do retângulo dela
+
+`cidade + estado` (chave única), `lat`, `lng` e as quatro bordas do retângulo
+(`bbox_*`). Também é só cache.
+
+**Por que a cidade vem antes do bairro.** A primeira versão procurava o bairro
+no Brasil inteiro e aceitava o primeiro resultado. Numa campanha de Dourados-MS
+o bairro "Centro" casou com **Uraí-PR**, e o mapa espalhou bolhas por três
+estados — errado, mas com cara de certo, que é o pior defeito possível num
+relatório. Agora a cidade é localizada primeiro e a busca do bairro é presa ao
+retângulo dela (`bounded=1&viewbox=...`); o que cair fora é descartado.
+
+**Duas fontes, porque elas erram diferente** (`geocodificarBairro`):
+
+1. **Nominatim** limitado ao retângulo da cidade. Quando acha, é o resultado
+   mais confiável. Mas a maioria dos bairros brasileiros não está no índice de
+   busca dele — numa amostra de 8 bairros de Dourados, só 3 foram encontrados.
+2. **Photon** (outro índice do mesmo OpenStreetMap), que informa em qual bairro
+   cada resultado fica. O resultado **não é aceito de cara**: só vale se o
+   bairro que ele informa bater com o procurado, comparando sem acento, sem
+   caixa e sem as palavras genéricas ("Jardim", "Vila", "Parque"...). Sem essa
+   conferência, "Jardim Paulista" voltaria como uma pizzaria no Jardim América.
+
+Com as duas, 6 dos 8 bairros da amostra são posicionados; os 2 restantes são
+**recusados de propósito** e o mapa os agrupa numa bolha tracejada no centro da
+cidade, dizendo que a posição é aproximada. Bairro sem cidade no cadastro nem
+chega a ser procurado — buscar só pelo nome é exatamente o que trazia a cidade
+errada.
+
 ### `termos_aceite` — trilha de auditoria da LGPD
 
 Uma linha por aceite, **nunca sobrescrita**: `usuario_id` **ou** `apoiador_id`

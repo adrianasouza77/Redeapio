@@ -2089,12 +2089,19 @@ function renderMapa(){
   </div>
   <div class="card" id="mapa-nao-encontrados-card" style="display:none">
     <div class="card-header"><div class="card-title">Bairros que o mapa não reconheceu</div></div>
-    <p style="font-size:13px;color:var(--slate-light);margin-bottom:12px">Quase sempre é erro de digitação no cadastro ou bairro sem cidade preenchida. Corrija em “Todos os Apoiadores” e clique em Atualizar.</p>
+    <p style="font-size:13px;color:var(--slate-light);margin-bottom:12px" id="mapa-nao-encontrados-aviso"></p>
     <div id="mapa-nao-encontrados" style="display:flex;gap:8px;flex-wrap:wrap"></div>
   </div>`;
 }
 
 function filtrarMapa(z){ _mapaFiltroZona = z; desenharMarcadores(); }
+
+// Chave de contagem por bairro E cidade: "Centro" existe em Dourados e em Juti,
+// e contar só pelo nome do bairro somava as duas numa bolha só.
+function chaveLocal(bairro, cidade){
+  return String(bairro||'').trim().toLowerCase() + '|' + String(cidade||'').trim().toLowerCase();
+}
+function localDoApoiador(a){ return chaveLocal(bairroDe(a), a.cidade); }
 
 async function carregarMapa(recarregar){
   const alvo = document.getElementById('mapa-canvas');
@@ -2132,13 +2139,20 @@ function desenharMarcadores(){
   _mapaCamada = L.layerGroup().addTo(_mapa);
 
   const filtrados = _mapaFiltroZona ? APOIADORES.filter(a=>zonaDe(a)===_mapaFiltroZona) : APOIADORES;
-  const contagem = new Map(contarPor(filtrados, bairroDe));
-  const comPonto = _mapaGeo.filter(g=>g.lat!=null && g.lng!=null && contagem.get(g.bairro));
-  const maior = Math.max(1, ...comPonto.map(g=>contagem.get(g.bairro)||0));
+  const contagem = new Map(contarPor(filtrados, localDoApoiador));
+  const geoBairros = _mapaGeo.bairros || [];
+  const geoCidades = _mapaGeo.cidades || [];
+
+  const comPonto = geoBairros.filter(g=>g.lat!=null && g.lng!=null && contagem.get(chaveLocal(g.bairro,g.cidade)));
+  const maior = Math.max(1, ...comPonto.map(g=>contagem.get(chaveLocal(g.bairro,g.cidade))||0));
   const pontos = [];
 
+  const detalheZonas = (lista)=>contarPor(lista, zonaDe)
+    .map(([z,q])=>`${z===ZONA_VAZIA?'Sem zona':'Zona '+z}: ${q}`).join('<br>');
+
   comPonto.forEach(g=>{
-    const n = contagem.get(g.bairro) || 0;
+    const chave = chaveLocal(g.bairro, g.cidade);
+    const n = contagem.get(chave) || 0;
     // Raio pela RAIZ da contagem: a área do círculo é que fica proporcional ao
     // número de apoiadores. Usando o número direto no raio, um bairro com 106
     // apoiadores viraria uma mancha cobrindo metade da cidade.
@@ -2147,27 +2161,59 @@ function desenharMarcadores(){
     const circulo = L.circleMarker([g.lat, g.lng], {
       radius: raio, color:'#fff', weight:2, fillColor:cor, fillOpacity:0.78,
     });
-    const zonasDoBairro = contarPor(filtrados.filter(a=>bairroDe(a)===g.bairro), zonaDe);
     circulo.bindPopup(
       `<strong style="font-size:14px">${g.bairro}</strong><br>`+
+      `<span style="font-size:12px;color:#4a5568">${g.cidade||'cidade não informada'}</span><br>`+
       `<span style="font-size:13px">${n} apoiador${n>1?'es':''}</span><br>`+
       `<span style="font-size:12px;color:#4a5568">`+
-      zonasDoBairro.map(([z,q])=>`${z===ZONA_VAZIA?'Sem zona':'Zona '+z}: ${q}`).join('<br>')+
-      `</span>`
+      detalheZonas(filtrados.filter(a=>localDoApoiador(a)===chave))+`</span>`
     );
     circulo.bindTooltip(`${g.bairro} (${n})`, { direction:'top' });
     circulo.addTo(_mapaCamada);
     pontos.push([g.lat, g.lng]);
   });
 
+  // Bairro que o OpenStreetMap não conhece não some do mapa: vira uma bolha
+  // tracejada no centro da cidade, somando todos os bairros nessa situação.
+  // Antes eles apenas desapareciam, e a soma das bolhas não batia com o total
+  // da rede — num relatório de campanha isso é pior do que uma posição
+  // aproximada, porque some gente sem ninguém perceber.
+  const semPonto = geoBairros.filter(g=>(g.lat==null||g.lng==null) && contagem.get(chaveLocal(g.bairro,g.cidade)));
+  const porCidade = new Map();
+  semPonto.forEach(g=>{
+    const k = String(g.cidade||'').trim().toLowerCase();
+    if(!porCidade.has(k)) porCidade.set(k, { cidade:g.cidade, bairros:[], total:0 });
+    const grupo = porCidade.get(k);
+    grupo.bairros.push(g.bairro);
+    grupo.total += contagem.get(chaveLocal(g.bairro,g.cidade)) || 0;
+  });
+  porCidade.forEach((grupo, k)=>{
+    const cidadeGeo = geoCidades.find(c=>String(c.cidade||'').trim().toLowerCase()===k);
+    if(!cidadeGeo || cidadeGeo.lat==null) return;
+    const raio = 9 + Math.sqrt(grupo.total/maior) * 26;
+    const circulo = L.circleMarker([cidadeGeo.lat, cidadeGeo.lng], {
+      radius: raio, color:'#c53030', weight:2, dashArray:'4,3', fillColor:'#c53030', fillOpacity:0.28,
+    });
+    circulo.bindPopup(
+      `<strong style="font-size:14px">${grupo.cidade} — posição aproximada</strong><br>`+
+      `<span style="font-size:13px">${grupo.total} apoiador${grupo.total>1?'es':''} em ${grupo.bairros.length} bairro${grupo.bairros.length>1?'s':''} que o mapa não reconheceu</span><br>`+
+      `<span style="font-size:12px;color:#4a5568">${grupo.bairros.slice(0,12).join(', ')}${grupo.bairros.length>12?'…':''}</span>`
+    );
+    circulo.bindTooltip(`${grupo.cidade}: ${grupo.total} sem posição exata`, { direction:'top' });
+    circulo.addTo(_mapaCamada);
+    pontos.push([cidadeGeo.lat, cidadeGeo.lng]);
+  });
+
   if(pontos.length) _mapa.fitBounds(pontos, { padding:[40,40], maxZoom:14 });
 
-  const pendentes = _mapaGeo.filter(g=>g.pendente);
-  const naoEncontrados = _mapaGeo.filter(g=>g.naoEncontrado);
+  const pendentes = geoBairros.filter(g=>g.pendente);
+  const naoEncontrados = geoBairros.filter(g=>g.naoEncontrado && !g.semCidade);
+  const semCidade = geoBairros.filter(g=>g.semCidade);
+  const noMapa = comPonto.reduce((s,g)=>s+(contagem.get(chaveLocal(g.bairro,g.cidade))||0),0);
   const status = document.getElementById('mapa-status');
   if(status){
     status.textContent = pontos.length
-      ? `${pontos.length} bairro${pontos.length>1?'s':''} no mapa · ${filtrados.length} apoiadores${_mapaFiltroZona?' nesta zona':''}.`
+      ? `${comPonto.length} bairro${comPonto.length>1?'s':''} posicionado${comPonto.length>1?'s':''} · ${noMapa} de ${filtrados.length} apoiadores${_mapaFiltroZona?' desta zona':''} no ponto exato.`
       : 'Nenhum bairro posicionado ainda — use o botão abaixo para localizar os bairros.';
   }
   const cardPend = document.getElementById('mapa-pendentes-card');
@@ -2178,10 +2224,14 @@ function desenharMarcadores(){
   }
   const cardNao = document.getElementById('mapa-nao-encontrados-card');
   if(cardNao){
-    cardNao.style.display = naoEncontrados.length ? 'block' : 'none';
+    cardNao.style.display = (naoEncontrados.length || semCidade.length) ? 'block' : 'none';
+    const aviso = document.getElementById('mapa-nao-encontrados-aviso');
+    if(aviso) aviso.innerHTML = semCidade.length
+      ? `<strong>${semCidade.length} bairro${semCidade.length>1?'s estão':' está'} sem cidade no cadastro.</strong> Sem a cidade não dá para procurar: buscar só pelo nome do bairro traz a cidade errada (foi assim que "Centro" caiu em Uraí-PR). Preencha a cidade em “Todos os Apoiadores”.`
+      : 'Quase sempre é erro de digitação no cadastro. Esses bairros aparecem no mapa como uma bolha vermelha tracejada no centro da cidade, então ninguém fica de fora da contagem.';
     const lista = document.getElementById('mapa-nao-encontrados');
-    if(lista) lista.innerHTML = naoEncontrados.map(g=>
-      `<span class="region-tag">${g.bairro}${g.cidade?` · ${g.cidade}`:' · sem cidade'}</span>`).join('');
+    if(lista) lista.innerHTML = [...semCidade, ...naoEncontrados].map(g=>
+      `<span class="region-tag">${g.bairro}${g.cidade?` · ${g.cidade}`:' · ⚠️ sem cidade'}</span>`).join('');
   }
 }
 
@@ -2190,13 +2240,15 @@ async function resolverPendentesMapa(){
   const txt = document.getElementById('mapa-pendentes-texto');
   if(btn){ btn.disabled = true; btn.textContent = '📍 Localizando...'; }
   try {
-    let restantes = 1, voltas = 0;
-    // Trava de segurança: sem ela, um erro que devolvesse "restantes" sempre
-    // igual deixaria o navegador chamando o servidor para sempre.
-    while(restantes > 0 && voltas < 40){
+    let restantes = 1, voltas = 0, semProgresso = 0;
+    // Duas travas: o teto de voltas e a checagem de progresso. Sem elas, um
+    // erro que devolvesse "restantes" sempre igual deixaria o navegador
+    // chamando o servidor para sempre.
+    while(restantes > 0 && voltas < 60){
       const r = await api('/apoiadores/geo/resolver' + wsQuery(), { method:'POST', body: JSON.stringify({ as: workspaceAdmin?.id }) });
-      restantes = r.restantes;
       voltas++;
+      if(!r.processados){ semProgresso++; if(semProgresso >= 2) break; } else semProgresso = 0;
+      restantes = r.restantes;
       if(txt) txt.textContent = restantes
         ? `Faltam ${restantes} bairro${restantes>1?'s':''}... (pode demorar, é 1 por segundo)`
         : 'Todos os bairros foram processados.';

@@ -220,3 +220,32 @@ CREATE TABLE IF NOT EXISTS geo_bairros (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_geo_bairros_chave
   ON geo_bairros (lower(cidade), lower(estado), lower(bairro));
+
+-- Posição e retângulo de cada cidade da rede. Existe porque procurar o bairro
+-- no Brasil inteiro dá resultado errado com cara de certo: "Centro" casou com
+-- Uraí-PR numa campanha de Dourados-MS, e o mapa ficou com bolhas espalhadas
+-- por três estados. Agora a cidade é localizada primeiro e a busca do bairro é
+-- limitada ao retângulo dela — o que estiver fora simplesmente não é aceito.
+CREATE TABLE IF NOT EXISTS geo_cidades (
+  id            BIGSERIAL PRIMARY KEY,
+  cidade        TEXT NOT NULL,
+  estado        TEXT NOT NULL DEFAULT '',
+  lat           DOUBLE PRECISION,
+  lng           DOUBLE PRECISION,
+  bbox_sul      DOUBLE PRECISION,
+  bbox_norte    DOUBLE PRECISION,
+  bbox_oeste    DOUBLE PRECISION,
+  bbox_leste    DOUBLE PRECISION,
+  encontrado    BOOLEAN NOT NULL DEFAULT false,
+  tentativas    INT NOT NULL DEFAULT 0,
+  atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_geo_cidades_chave
+  ON geo_cidades (lower(cidade), lower(estado));
+
+-- As coordenadas gravadas antes desta correção foram obtidas procurando no
+-- Brasil inteiro, então parte delas aponta para a cidade errada. Em vez de
+-- apagar (regra do projeto: nada de DELETE sem filtro), a linha antiga fica
+-- marcada como versão 1 e o app a trata como pendente — ela é sobrescrita pela
+-- busca nova na primeira vez que alguém abrir o mapa.
+ALTER TABLE geo_bairros ADD COLUMN IF NOT EXISTS versao_geo INT NOT NULL DEFAULT 1;
