@@ -88,7 +88,11 @@
   .pyr-level-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--slate-light);margin-bottom:10px;display:flex;align-items:center;gap:8px;}
   .pyr-level-label::after{content:'';flex:1;height:1px;background:var(--border);}
   .pyr-nodes{display:flex;flex-wrap:wrap;gap:10px;}
-  .pyr-node{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:180px;cursor:pointer;transition:all .15s;box-shadow:var(--shadow);}
+  .pyr-node{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:180px;cursor:pointer;transition:all .15s;box-shadow:var(--shadow);position:relative;}
+  /* Espaço reservado à direita para o botão de informações não cobrir o nome. */
+  .pyr-node.tem-info{padding-right:40px;}
+  .pn-info{position:absolute;top:8px;right:8px;width:24px;height:24px;padding:0;border-radius:50%;border:1px solid var(--border);background:var(--bg);color:var(--slate-light);font-family:'Inter',sans-serif;font-size:13px;font-weight:700;font-style:italic;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+  .pn-info:hover{background:var(--navy);color:var(--white);border-color:var(--navy);}
   .pyr-node:hover{border-color:var(--gold);transform:translateY(-1px);}
   .pyr-node.level-1{border-left:4px solid var(--gold);}
   .pyr-node.level-2{border-left:4px solid var(--navy);}
@@ -192,6 +196,9 @@
     .config-input{width:100%;}
     .config-input-num{width:100px;}
     .pyr-node{min-width:0;flex:1 1 46%;}
+    /* Alvo maior no celular: 24px é difícil de acertar com o dedo. */
+    .pn-info{width:30px;height:30px;font-size:14px;}
+    .pyr-node.tem-info{padding-right:44px;}
     .table-wrap{-webkit-overflow-scrolling:touch;margin:0 -16px;padding:0 16px;}
     .modal-overlay{padding:12px;}
     .modal{padding:20px;max-height:88dvh;}
@@ -1220,6 +1227,16 @@ function limparFiltroRede(){
   showPage('rede');
 }
 
+// Nos níveis 1 a 3 o clique no cartão abre a árvore de quem está abaixo, então
+// não sobrava gesto nenhum para ver a ficha da pessoa: só o nível 4 — que não
+// tem ninguém abaixo — abria os dados. Este botão dá o segundo gesto sem tirar
+// o primeiro. O stopPropagation é o que impede o clique no botão de também
+// filtrar a árvore, já que ele fica DENTRO do cartão clicável.
+function botaoInfo(id){
+  return `<button class="pn-info" title="Ver dados de cadastro" aria-label="Ver dados de cadastro"`
+    + ` onclick="event.stopPropagation();showDetail('${id}')">i</button>`;
+}
+
 function renderRede(){
   const n1=APOIADORES.filter(a=>a.nivel===1);
   let n2=APOIADORES.filter(a=>a.nivel===2);
@@ -1250,13 +1267,13 @@ function renderRede(){
   </div>` : ''}
   <div class="card">
     <div class="pyr-level"><div class="pyr-level-label">🏆 Nível 1 — Lideranças (${n1.length})</div>
-      <div class="pyr-nodes">${n1.map(a=>`<div class="pyr-node level-1${String(redeFiltroL1)===String(a.id)?' pyr-node-active':''}" onclick="filtrarRedeL1('${a.id}')"><div class="pn-name">${a.nome}</div><div class="pn-region">${a.regiao||'—'}</div><div class="pn-count">↳ ${APOIADORES.filter(x=>String(x.parent_id)===String(a.id)).length} indicados</div></div>`).join('')||'<p style="color:var(--slate-light);font-size:13px">Nenhuma liderança cadastrada.</p>'}</div>
+      <div class="pyr-nodes">${n1.map(a=>`<div class="pyr-node tem-info level-1${String(redeFiltroL1)===String(a.id)?' pyr-node-active':''}" onclick="filtrarRedeL1('${a.id}')">${botaoInfo(a.id)}<div class="pn-name">${a.nome}</div><div class="pn-region">${a.regiao||'—'}</div><div class="pn-count">↳ ${APOIADORES.filter(x=>String(x.parent_id)===String(a.id)).length} indicados</div></div>`).join('')||'<p style="color:var(--slate-light);font-size:13px">Nenhuma liderança cadastrada.</p>'}</div>
     </div>
     <div class="pyr-level"><div class="pyr-level-label">🔵 Nível 2 — Apoiadores (${n2.length})</div>
-      <div class="pyr-nodes">${n2.map(a=>`<div class="pyr-node level-2${String(redeFiltroL2)===String(a.id)?' pyr-node-active':''}" onclick="filtrarRedeL2('${a.id}')"><div class="pn-name">${a.nome}</div><div class="pn-region">${a.regiao||'—'}</div><div class="pn-count">↳ ${APOIADORES.filter(x=>String(x.parent_id)===String(a.id)).length} indicados</div></div>`).join('')||`<p style="color:var(--slate-light);font-size:13px">${redeFiltroL1?'Essa liderança ainda não tem indicados de nível 2.':'Nenhum apoiador nível 2.'}</p>`}</div>
+      <div class="pyr-nodes">${n2.map(a=>`<div class="pyr-node tem-info level-2${String(redeFiltroL2)===String(a.id)?' pyr-node-active':''}" onclick="filtrarRedeL2('${a.id}')">${botaoInfo(a.id)}<div class="pn-name">${a.nome}</div><div class="pn-region">${a.regiao||'—'}</div><div class="pn-count">↳ ${APOIADORES.filter(x=>String(x.parent_id)===String(a.id)).length} indicados</div></div>`).join('')||`<p style="color:var(--slate-light);font-size:13px">${redeFiltroL1?'Essa liderança ainda não tem indicados de nível 2.':'Nenhum apoiador nível 2.'}</p>`}</div>
     </div>
     <div class="pyr-level"><div class="pyr-level-label">⚪ Nível 3 (${n3.length})</div>
-      <div class="pyr-nodes">${n3.map(a=>`<div class="pyr-node level-3${String(redeFiltroL3)===String(a.id)?' pyr-node-active':''}" onclick="filtrarRedeL3('${a.id}')"><div class="pn-name">${a.nome}</div><div class="pn-region">${a.regiao||'—'}</div><div class="pn-count">↳ ${APOIADORES.filter(x=>String(x.parent_id)===String(a.id)).length} indicados</div></div>`).join('')||`<p style="color:var(--slate-light);font-size:13px">${redeFiltroL2?'Esse apoiador ainda não tem indicados de nível 3.':'Nenhum apoiador nível 3.'}</p>`}</div>
+      <div class="pyr-nodes">${n3.map(a=>`<div class="pyr-node tem-info level-3${String(redeFiltroL3)===String(a.id)?' pyr-node-active':''}" onclick="filtrarRedeL3('${a.id}')">${botaoInfo(a.id)}<div class="pn-name">${a.nome}</div><div class="pn-region">${a.regiao||'—'}</div><div class="pn-count">↳ ${APOIADORES.filter(x=>String(x.parent_id)===String(a.id)).length} indicados</div></div>`).join('')||`<p style="color:var(--slate-light);font-size:13px">${redeFiltroL2?'Esse apoiador ainda não tem indicados de nível 3.':'Nenhum apoiador nível 3.'}</p>`}</div>
     </div>
     <div class="pyr-level"><div class="pyr-level-label">◽ Nível 4 — Base (${n4.length})</div>
       <div class="pyr-nodes">${n4.map(a=>`<div class="pyr-node level-4" onclick="showDetail('${a.id}')"><div class="pn-name">${a.nome}</div><div class="pn-region">${a.regiao||'—'}</div></div>`).join('')||`<p style="color:var(--slate-light);font-size:13px">${redeFiltroL3?'Esse apoiador ainda não tem indicados de nível 4.':'Nenhum apoiador nível 4.'}</p>`}</div>
@@ -2882,6 +2899,7 @@ function showDetail(id){
     <div class="detail-row"><span class="detail-key">Nome</span><span class="detail-val">${a.nome}</span></div>
     <div class="detail-row"><span class="detail-key">Região</span><span class="detail-val"><span class="region-tag">${a.regiao}</span></span></div>
     <div class="detail-row"><span class="detail-key">Nível</span><span class="detail-val">${nivelBadge(a.nivel)}</span></div>
+    ${a.login ? `<div class="detail-row"><span class="detail-key">Login de acesso</span><span class="detail-val"><code style="background:#f0f2f8;padding:2px 8px;border-radius:4px;font-size:12px">${a.login}</code></span></div>` : ''}
     <div class="detail-row"><span class="detail-key">Telefone</span><span class="detail-val ${canSee?'':'sensitive'}" onclick="this.classList.toggle('revealed')">${a.telefone}</span></div>
     <div class="detail-row"><span class="detail-key">Endereço</span><span class="detail-val ${canSee?'':'sensitive'}" onclick="this.classList.toggle('revealed')">${a.endereco||'—'}</span></div>
     <div class="detail-row"><span class="detail-key">Cidade</span><span class="detail-val">${a.cidade||'—'}${a.estado?' / '+a.estado:''}</span></div>
