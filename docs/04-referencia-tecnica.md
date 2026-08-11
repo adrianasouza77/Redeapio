@@ -89,6 +89,27 @@ dados de contato e eleitorais, `ativo`, `senha_temporaria`,
 `id` (UUID), dados pessoais, `nivel` (1 a 4), `parent_id` (quem é o
 responsável), `cadastrado_por`, `lgpd_aceite`/`_em`/`_versao`.
 
+### `mapas_mentais` — quadro de ideias do candidato
+
+Ferramenta de gestão do candidato (estrutura política, grupos, compromissos).
+**Não tem relação com a pirâmide**: aqui não existe nível, limite nem LGPD.
+
+`id`, `candidato_id`, `titulo`, `dados` (JSONB), `atualizado_em`.
+
+A árvore inteira mora num único JSONB, e não numa linha por nó. O mapa é
+sempre lido e salvo por completo, por uma pessoa só: uma tabela de nós
+exigiria dezenas de consultas para montar a tela e uma transação a cada
+arrastar de galho, sem ganho nenhum em troca.
+
+O que chega do navegador **nunca é gravado como veio**: `limparDados()` em
+`routes/mapas.js` reconstrói a árvore campo a campo, descarta propriedade
+inventada, recusa cor fora da paleta e aplica os tetos (2000 nós, 20 níveis,
+300 caracteres por item, 30 mapas por candidato). Sem isso, um laço no
+frontend — ou alguém com o console aberto — encheria o banco.
+
+No frontend o texto do item passa por `escapeHtml()` antes de virar HTML. É
+texto livre digitado pelo próprio usuário e desenhado com `innerHTML`.
+
 ### `geo_bairros` — cache de coordenadas do mapa
 
 Uma linha por `cidade + estado + bairro` (chave única em minúsculas, porque o
@@ -380,6 +401,16 @@ Todos sob `/api`. `[A]` = exige sessão.
 | PUT | `/:id/senha` | idem (alvo precisa ter login) |
 | DELETE | `/:id` | idem |
 
+### `/mapas` `[A]` — candidato, admin
+`GET /` (lista, sem o campo `dados`), `POST /`, `GET /:id`, `PUT /:id`
+(título e/ou árvore), `DELETE /:id`. Todas escopadas por `req.effectiveId`,
+então o admin só enxerga os mapas do workspace que abriu.
+
+Fica em arquivo próprio (`routes/mapas.js`), contrariando a convenção de
+concentrar rotas: `apoiadores.js` é o arquivo mais delicado do sistema
+(árvore recursiva, permissões, limites) e não tem nada a ver com isto —
+misturar aumentaria o risco de mexer na pirâmide sem querer.
+
 ### `/admin` `[A]` — só admin
 `GET /candidatos`, `POST /candidatos`, `PUT /candidatos/:id/senha`,
 `PUT /candidatos/:id/plano`, `PUT /candidatos/:id/login`,
@@ -424,6 +455,31 @@ papelEfetivo()   // 'candidato' quando o admin abre um workspace
 idEfetivo()      // id do candidato do workspace, ou do usuário logado
 wsQuery()        // '?as=<id>' para anexar à URL da API
 ```
+
+### Mapa mental: onde está a regra
+
+Quase tudo é DOM e gesto, mas duas funções concentram a lógica e podem ser
+testadas sem navegador:
+
+- **`mmCalcularLayout(raiz, medir)`** devolve a posição de cada nó. `x` cresce
+  um passo por nível; `y` empilha por folha e o pai fica centrado entre o
+  primeiro e o último filho. Recebe a função de medida em vez de ler o DOM
+  justamente para poder ser testada — a largura real vem de `offsetWidth`,
+  porque nó de largura fixa ou corta nome comprido ou deixa um vazio enorme.
+- **`mmCaminho(x1,y1,x2,y2)`** monta a ligação em ângulo reto com canto
+  arredondado entre pai e filho.
+
+Gestos usam **Pointer Events** (um só conjunto de handlers para mouse, dedo e
+caneta). Com mouse e touch separados, o tablet dispara os dois e os dois
+arrastos se atrapalham. O `touch-action:none` no viewport é o que impede o
+navegador de roubar o gesto para rolar a página.
+
+Tela cheia tenta a API nativa e cai numa classe CSS `position:fixed` quando
+ela não existe — o Safari do iPhone não tem `requestFullscreen`, e é no
+celular que a tela cheia mais faz falta.
+
+O mapa salva sozinho ~1s depois da última mudança. Salvar a cada tecla
+afogaria o servidor; salvar só no botão perderia trabalho.
 
 ### Endereço por tela (`#/exportar`, `#/mapa`)
 

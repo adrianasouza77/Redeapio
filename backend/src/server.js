@@ -48,6 +48,7 @@ app.use('/api/admin', require('./routes/admin'));
 app.use('/api/public', require('./routes/public'));
 app.use('/api/conta', require('./routes/conta'));
 app.use('/api/config', require('./routes/config'));
+app.use('/api/mapas', require('./routes/mapas'));
 
 const frontendDir = process.env.FRONTEND_DIR || path.join(__dirname, '..', '..', 'frontend');
 app.use(express.static(frontendDir));

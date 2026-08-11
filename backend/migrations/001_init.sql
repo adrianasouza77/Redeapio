@@ -278,3 +278,18 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_geo_lugares_chave
 -- bloqueia quem consulta em sequência, então isso precisa ser feito uma vez só
 -- por cidade e ficar guardado.
 ALTER TABLE geo_cidades ADD COLUMN IF NOT EXISTS lugares_em TIMESTAMPTZ;
+
+-- Mapa mental do candidato — ferramenta de gestão dele, não tem relação com a
+-- pirâmide de apoiadores. A árvore inteira fica num único JSONB em vez de uma
+-- linha por nó: o mapa é sempre lido e salvo por completo, por uma pessoa só,
+-- e uma tabela de nós exigiria dezenas de consultas para montar a tela e uma
+-- transação a cada arrastar de galho, sem ganho nenhum em troca.
+CREATE TABLE IF NOT EXISTS mapas_mentais (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  candidato_id  UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  titulo        TEXT NOT NULL DEFAULT 'Novo mapa',
+  dados         JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_mapas_mentais_candidato ON mapas_mentais(candidato_id);

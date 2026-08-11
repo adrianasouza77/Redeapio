@@ -37,6 +37,44 @@
   .btn-primary:hover{background:var(--navy-mid);}
   .auth-note{text-align:center;margin-top:20px;font-size:12px;color:var(--slate-light);}
 
+  /* MAPA MENTAL */
+  .mm-barra{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 12px;border-bottom:1px solid var(--border);background:var(--bg);}
+  .mm-grupo{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+  .mm-btn{padding:8px 12px;border:1px solid var(--border);background:var(--white);border-radius:8px;font-size:12px;font-weight:600;color:var(--navy);cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;transition:border-color .15s;}
+  .mm-btn:hover{border-color:var(--gold);}
+  .mm-btn-perigo{color:var(--red);}
+  .mm-cor{width:22px;height:22px;border-radius:50%;border:2px solid var(--white);box-shadow:0 0 0 1px var(--border);cursor:pointer;padding:0;}
+  .mm-cor:hover{transform:scale(1.15);}
+  /* touch-action:none é o que permite arrastar e dar pinça sem o navegador
+     roubar o gesto para rolar a página — sem isso o mapa fica intocável no celular. */
+  .mm-viewport{position:relative;height:560px;overflow:hidden;touch-action:none;cursor:grab;
+    background:radial-gradient(circle,#e4e9f5 1px,transparent 1px) 0 0/22px 22px,var(--white);}
+  .mm-viewport:active{cursor:grabbing;}
+  .mm-mundo{position:absolute;top:0;left:0;transform-origin:0 0;}
+  .mm-mundo svg{position:absolute;top:0;left:0;pointer-events:none;}
+  .mm-no{position:absolute;background:var(--white);border:2px solid var(--navy);border-radius:9px;padding:7px 12px;
+    font-size:13px;font-weight:500;color:var(--navy);white-space:nowrap;cursor:pointer;user-select:none;
+    box-shadow:0 1px 4px rgba(15,31,61,.10);display:flex;align-items:center;gap:8px;}
+  .mm-no-raiz{color:var(--white);font-weight:700;font-size:14px;}
+  .mm-no-sel{box-shadow:0 0 0 3px rgba(200,168,75,.6);}
+  .mm-no-txt{max-width:280px;overflow:hidden;text-overflow:ellipsis;}
+  .mm-fechar{width:20px;height:20px;flex-shrink:0;border-radius:50%;border:1px solid var(--border);background:var(--bg);
+    color:var(--slate);font-size:11px;font-weight:700;line-height:1;cursor:pointer;padding:0;
+    display:flex;align-items:center;justify-content:center;font-family:'Inter',sans-serif;}
+  .mm-fechar:hover{background:var(--navy);color:var(--white);}
+  .mm-dica{position:absolute;left:12px;bottom:10px;font-size:11px;color:var(--slate-light);
+    background:rgba(255,255,255,.88);padding:5px 12px;border-radius:20px;pointer-events:none;}
+  /* Tela cheia: a API nativa quando existe, e esta classe como reserva — o
+     Safari do iPhone não tem requestFullscreen, e é justamente no celular que
+     a tela cheia mais faz falta. */
+  .mm-cheio{position:fixed;inset:0;z-index:9500;margin:0;border-radius:0;}
+  .mm-cheio .mm-viewport{height:calc(100vh - 58px);}
+  #mm-area:fullscreen{background:var(--white);}
+  #mm-area:fullscreen .mm-viewport{height:calc(100vh - 58px);}
+  .mm-modal{display:none;position:fixed;inset:0;background:rgba(15,31,61,.8);z-index:9999;align-items:center;justify-content:center;padding:20px;}
+  .mm-modal.aberto{display:flex;}
+  .mm-modal-caixa{background:var(--white);border-radius:14px;padding:22px;width:100%;max-width:440px;box-shadow:0 20px 60px rgba(0,0,0,.3);}
+
   /* LOADING */
   .loading-overlay{display:none;position:fixed;inset:0;background:rgba(15,31,61,0.7);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:16px;}
   .loading-overlay.show{display:flex;}
@@ -196,6 +234,14 @@
     .config-input{width:100%;}
     .config-input-num{width:100px;}
     .pyr-node{min-width:0;flex:1 1 46%;}
+    /* No celular a barra rola de lado em vez de virar quatro linhas de botao,
+       e a area do mapa ocupa quase a tela toda — que e o que a ferramenta pede. */
+    .mm-viewport{height:66vh;}
+    .mm-barra{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+    .mm-btn{padding:10px 13px;font-size:13px;}
+    .mm-cor{width:26px;height:26px;}
+    .mm-no-txt{max-width:180px;}
+    .mm-dica{display:none;}
     /* Alvo maior no celular: 24px é difícil de acertar com o dedo. */
     .pn-info{width:30px;height:30px;font-size:14px;}
     .pyr-node.tem-info{padding-right:44px;}
@@ -405,6 +451,7 @@
         <button class="nav-item" onclick="showPage('exportar')"><span>📥</span> Exportar Dados</button>
         <button class="nav-item" onclick="showPage('grafico')"><span>📈</span> Gráficos da Rede</button>
         <button class="nav-item" onclick="showPage('mapa')" data-short="Mapa"><span>🗺️</span> Mapa da Rede</button>
+        <button class="nav-item" onclick="showPage('mapa-mental')" data-short="Mental"><span>🧠</span> Mapa Mental</button>
         <button class="nav-item" onclick="showPage('usuarios')"><span>🔑</span> Usuários</button>
         <button class="nav-item" onclick="showPage('configuracoes')"><span>⚙️</span> Configurações</button>
         <button class="nav-item" onclick="showPage('minha-conta')"><span>👤</span> Minha Conta</button>
@@ -1055,7 +1102,7 @@ function atualizarBottomNav(){
 // sistema não mostrar uma tela em branco quando alguém digita um endereço de
 // outro perfil na barra do navegador.
 const PAGINAS_POR_PAPEL = {
-  candidato: ['dashboard','rede','apoiadores','exportar','grafico','mapa','usuarios','configuracoes','minha-conta'],
+  candidato: ['dashboard','rede','apoiadores','exportar','grafico','mapa','mapa-mental','usuarios','configuracoes','minha-conta'],
   lideranca: ['dashboard','minha-rede','cadastrar','minha-conta'],
   apoiador:  ['dashboard','minha-rede','cadastrar','minha-conta'],
   admin:     ['vagas','minha-conta'],
@@ -1105,6 +1152,7 @@ function showPage(page) {
     case 'exportar':      c.innerHTML=renderExportar(); break;
     case 'grafico':       c.innerHTML=renderGrafico(); setTimeout(desenharGrafico,50); break;
     case 'mapa':          c.innerHTML=renderMapa(); setTimeout(carregarMapa,50); break;
+    case 'mapa-mental':   c.innerHTML=renderMapaMental(); setTimeout(()=>{ mmLigarGestos(); mmIniciar(); },50); break;
     case 'minha-rede':    c.innerHTML=renderMinhaRede(); break;
     case 'cadastrar':     c.innerHTML=renderCadastrar(); break;
     case 'minha-conta':   c.innerHTML=renderMinhaConta(); break;
@@ -2400,6 +2448,545 @@ async function resolverPendentesMapa(){
   }
 }
 
+// ══════════════════════════════════════════
+//  MAPA MENTAL (só do candidato)
+// ══════════════════════════════════════════
+// Ferramenta de rascunho do candidato — estrutura política, grupos, promessas.
+// Não tem nada a ver com a pirâmide de apoiadores: aqui não há nível, limite
+// nem LGPD, é papel em branco.
+//
+// O mapa inteiro vive em memória como uma árvore e é salvo por completo, com
+// atraso, depois de cada mudança. Salvar nó a nó exigiria identificar o que
+// mudou a cada tecla — e o mapa cabe folgado num único JSON.
+const MM_CORES = ['#0f1f3d','#c8a84b','#276749','#c53030','#6b8ed6','#8b5cf6','#ea580c','#0891b2'];
+const MM_GAP_X = 46;   // espaço horizontal entre um nó e os filhos dele
+const MM_GAP_Y = 14;   // espaço vertical entre irmãos
+const MM_ESCALA_MIN = 0.25, MM_ESCALA_MAX = 2.5;
+
+let MM = {
+  lista: [], mapaId: null, titulo: '', raiz: null,
+  selecionado: null, escala: 1, panX: 40, panY: 40,
+  sujo: false, salvando: false, medidas: new Map(), posicoes: [],
+};
+let _mmTimerSalvar = null;
+
+function renderMapaMental(){
+  return `
+  <div class="page-header"><h1>Mapa Mental</h1><p>Seu quadro de ideias e estrutura da campanha</p></div>
+  <div class="card" style="padding:14px 16px">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <select class="search-input" id="mm-seletor" style="max-width:260px" onchange="mmAbrir(this.value)">
+        <option value="">Carregando mapas...</option>
+      </select>
+      <button class="btn-sm btn-navy" onclick="mmNovoMapa()">➕ Novo mapa</button>
+      <button class="btn-sm btn-outline" onclick="mmRenomearMapa()">✏️ Renomear</button>
+      <button class="btn-sm btn-outline" onclick="mmExcluirMapa()" style="color:var(--red)">🗑 Excluir mapa</button>
+      <span id="mm-estado" style="font-size:12px;color:var(--slate-light);margin-left:auto"></span>
+    </div>
+  </div>
+
+  <div class="card" id="mm-area" style="padding:0;overflow:hidden">
+    <div class="mm-barra">
+      <div class="mm-grupo">
+        <button class="mm-btn" onclick="mmAdicionarFilho()" title="Novo item ligado ao selecionado">➕ Item</button>
+        <button class="mm-btn" onclick="mmAdicionarIrmao()" title="Novo item no mesmo galho">↳ Irmão</button>
+        <button class="mm-btn" onclick="mmEditarNo()" title="Escrever no item selecionado">✏️ Escrever</button>
+        <button class="mm-btn mm-btn-perigo" onclick="mmExcluirNo()" title="Excluir o item e tudo abaixo dele">🗑</button>
+      </div>
+      <div class="mm-grupo">
+        ${MM_CORES.map(c=>`<button class="mm-cor" style="background:${c}" onclick="mmPintar('${c}')" title="Pintar o galho"></button>`).join('')}
+      </div>
+      <div class="mm-grupo" style="margin-left:auto">
+        <button class="mm-btn" onclick="mmZoom(-1)" title="Diminuir">➖</button>
+        <button class="mm-btn" onclick="mmAjustar()" title="Encaixar o mapa inteiro na tela">⤢ Ajustar</button>
+        <button class="mm-btn" onclick="mmZoom(1)" title="Aumentar">➕</button>
+        <button class="mm-btn" onclick="mmTelaCheia()" id="mm-btn-cheia" title="Tela cheia">⛶ Tela cheia</button>
+      </div>
+    </div>
+    <div class="mm-viewport" id="mm-viewport">
+      <div class="mm-mundo" id="mm-mundo">
+        <svg id="mm-links" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div id="mm-nos"></div>
+      </div>
+      <div class="mm-dica" id="mm-dica">Toque num item para selecionar · arraste o fundo para mover · dois dedos para aproximar</div>
+    </div>
+  </div>
+
+  <div class="mm-modal" id="mm-modal">
+    <div class="mm-modal-caixa">
+      <div style="font-weight:600;font-size:15px;color:var(--navy);margin-bottom:12px" id="mm-modal-titulo">Escrever</div>
+      <input class="search-input" id="mm-modal-input" style="width:100%" maxlength="300" autocomplete="off">
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+        <button class="btn-sm btn-outline" onclick="mmFecharModal()">Cancelar</button>
+        <button class="btn-sm btn-navy" onclick="mmConfirmarModal()">Salvar</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── carregar e salvar ─────────────────────────────────────────────────────
+async function mmIniciar(){
+  try { MM.lista = await api('/mapas' + wsQuery()); }
+  catch(e){ showToast(e.message,'error'); return; }
+  if(!MM.lista.length){
+    try { const novo = await api('/mapas' + wsQuery(), { method:'POST', body: JSON.stringify({ titulo:'Minha campanha', as: workspaceAdmin?.id }) });
+      MM.lista = [novo];
+    } catch(e){ showToast(e.message,'error'); return; }
+  }
+  mmPreencherSeletor();
+  await mmAbrir(MM.lista[0].id);
+}
+
+function mmPreencherSeletor(){
+  const sel = document.getElementById('mm-seletor');
+  if(!sel) return;
+  sel.innerHTML = MM.lista.map(m=>`<option value="${m.id}" ${m.id===MM.mapaId?'selected':''}>${escapeHtml(m.titulo)}</option>`).join('');
+}
+
+async function mmAbrir(id){
+  if(!id) return;
+  // Salva o que estiver pendente antes de trocar de mapa — o autosave tem
+  // atraso, e sem isto trocar rápido de mapa perderia a última alteração.
+  if(MM.sujo && MM.mapaId) await mmSalvar();
+  try {
+    const mapa = await api(`/mapas/${id}` + wsQuery());
+    MM.mapaId = mapa.id;
+    MM.titulo = mapa.titulo;
+    MM.raiz = (mapa.dados && mapa.dados.raiz) || { id:'raiz', texto:mapa.titulo, cor:MM_CORES[0], fechado:false, filhos:[] };
+    MM.selecionado = MM.raiz.id;
+    MM.sujo = false;
+    mmPreencherSeletor();
+    mmDesenhar();
+    mmAjustar();
+    mmEstado('salvo');
+  } catch(e){ showToast(e.message,'error'); }
+}
+
+async function mmNovoMapa(){
+  const titulo = prompt('Nome do novo mapa:', 'Novo mapa');
+  if(titulo === null) return;
+  try {
+    const novo = await api('/mapas' + wsQuery(), { method:'POST', body: JSON.stringify({ titulo: titulo.trim() || 'Novo mapa', as: workspaceAdmin?.id }) });
+    MM.lista.unshift(novo);
+    mmPreencherSeletor();
+    await mmAbrir(novo.id);
+    showToast('Mapa criado!','success');
+  } catch(e){ showToast(e.message,'error'); }
+}
+
+async function mmRenomearMapa(){
+  if(!MM.mapaId) return;
+  const titulo = prompt('Nome do mapa:', MM.titulo);
+  if(titulo === null) return;
+  if(!titulo.trim()) return showToast('O mapa precisa de um nome.','error');
+  try {
+    await api(`/mapas/${MM.mapaId}` + wsQuery(), { method:'PUT', body: JSON.stringify({ titulo: titulo.trim(), as: workspaceAdmin?.id }) });
+    MM.titulo = titulo.trim();
+    const item = MM.lista.find(m=>m.id===MM.mapaId);
+    if(item) item.titulo = MM.titulo;
+    mmPreencherSeletor();
+    showToast('Nome alterado!','success');
+  } catch(e){ showToast(e.message,'error'); }
+}
+
+async function mmExcluirMapa(){
+  if(!MM.mapaId) return;
+  if(!confirm(`Excluir o mapa "${MM.titulo}"? Isso não tem volta.`)) return;
+  try {
+    await api(`/mapas/${MM.mapaId}` + wsQuery(), { method:'DELETE' });
+    MM.lista = MM.lista.filter(m=>m.id!==MM.mapaId);
+    MM.mapaId = null; MM.sujo = false;
+    if(MM.lista.length){ mmPreencherSeletor(); await mmAbrir(MM.lista[0].id); }
+    else await mmIniciar();
+    showToast('Mapa excluído.','success');
+  } catch(e){ showToast(e.message,'error'); }
+}
+
+function mmEstado(t){
+  const el = document.getElementById('mm-estado');
+  if(!el) return;
+  el.textContent = t==='salvo' ? '✓ salvo' : (t==='salvando' ? 'salvando...' : '• alterações não salvas');
+  el.style.color = t==='salvo' ? 'var(--green)' : 'var(--slate-light)';
+}
+
+// Salva sozinho um tempinho depois da última mudança: quem está montando um
+// mapa faz dezenas de alterações seguidas, e uma requisição por tecla afogaria
+// o servidor sem nenhum ganho.
+function mmMarcarSujo(){
+  MM.sujo = true;
+  mmEstado('sujo');
+  clearTimeout(_mmTimerSalvar);
+  _mmTimerSalvar = setTimeout(mmSalvar, 900);
+}
+
+async function mmSalvar(){
+  if(!MM.mapaId || !MM.raiz || MM.salvando) return;
+  MM.salvando = true;
+  mmEstado('salvando');
+  try {
+    await api(`/mapas/${MM.mapaId}` + wsQuery(), {
+      method:'PUT',
+      body: JSON.stringify({ dados: { raiz: MM.raiz }, as: workspaceAdmin?.id }),
+    });
+    MM.sujo = false;
+    mmEstado('salvo');
+  } catch(e){
+    mmEstado('sujo');
+    showToast(e.message || 'Não foi possível salvar o mapa.','error');
+  } finally {
+    MM.salvando = false;
+  }
+}
+
+// ── árvore ────────────────────────────────────────────────────────────────
+function mmNovoId(){
+  // Sem Math.random: dois nós criados no mesmo milissegundo com o mesmo id
+  // fariam a seleção e a exclusão pegarem o nó errado.
+  MM._seq = (MM._seq || 0) + 1;
+  return 'n' + Date.now().toString(36) + MM._seq.toString(36);
+}
+
+function mmVisitar(no, fn, pai){
+  fn(no, pai);
+  (no.filhos||[]).forEach(f=>mmVisitar(f, fn, no));
+}
+function mmAchar(id){
+  let achado = null;
+  if(MM.raiz) mmVisitar(MM.raiz, (no)=>{ if(no.id===id) achado = no; });
+  return achado;
+}
+function mmAcharPai(id){
+  let pai = null;
+  if(MM.raiz) mmVisitar(MM.raiz, (no, p)=>{ if(no.id===id) pai = p; });
+  return pai;
+}
+
+function mmAdicionarFilho(){
+  const alvo = mmAchar(MM.selecionado) || MM.raiz;
+  if(!alvo) return;
+  const novo = { id: mmNovoId(), texto:'', cor: alvo === MM.raiz ? MM_CORES[1] : alvo.cor, fechado:false, filhos:[] };
+  alvo.filhos = alvo.filhos || [];
+  alvo.filhos.push(novo);
+  alvo.fechado = false; // não adianta criar filho dentro de um galho recolhido
+  MM.selecionado = novo.id;
+  mmMarcarSujo();
+  mmDesenhar();
+  mmEditarNo();
+}
+
+function mmAdicionarIrmao(){
+  const alvo = mmAchar(MM.selecionado);
+  if(!alvo || alvo === MM.raiz) return mmAdicionarFilho();
+  const pai = mmAcharPai(alvo.id);
+  if(!pai) return;
+  const novo = { id: mmNovoId(), texto:'', cor: alvo.cor, fechado:false, filhos:[] };
+  pai.filhos.splice(pai.filhos.indexOf(alvo) + 1, 0, novo);
+  MM.selecionado = novo.id;
+  mmMarcarSujo();
+  mmDesenhar();
+  mmEditarNo();
+}
+
+function mmExcluirNo(){
+  const alvo = mmAchar(MM.selecionado);
+  if(!alvo) return;
+  if(alvo === MM.raiz) return showToast('O item principal não pode ser excluído — renomeie ou crie outro mapa.','error');
+  const filhos = mmContar(alvo) - 1;
+  if(filhos && !confirm(`Excluir "${alvo.texto || 'sem nome'}" e os ${filhos} itens abaixo dele?`)) return;
+  const pai = mmAcharPai(alvo.id);
+  pai.filhos.splice(pai.filhos.indexOf(alvo), 1);
+  MM.selecionado = pai.id;
+  mmMarcarSujo();
+  mmDesenhar();
+}
+function mmContar(no){
+  let n = 1;
+  (no.filhos||[]).forEach(f=>{ n += mmContar(f); });
+  return n;
+}
+
+function mmPintar(cor){
+  const alvo = mmAchar(MM.selecionado);
+  if(!alvo) return;
+  // Pinta o galho inteiro: no mapa mental a cor serve para separar assunto, e
+  // pintar um nó solto no meio de um ramo colorido não quer dizer nada.
+  mmVisitar(alvo, (no)=>{ no.cor = cor; });
+  mmMarcarSujo();
+  mmDesenhar();
+}
+
+function mmAlternarFechado(id, ev){
+  if(ev) ev.stopPropagation();
+  const no = mmAchar(id);
+  if(!no || !(no.filhos||[]).length) return;
+  no.fechado = !no.fechado;
+  mmMarcarSujo();
+  mmDesenhar();
+}
+
+function mmSelecionar(id, ev){
+  if(ev) ev.stopPropagation();
+  MM.selecionado = id;
+  document.querySelectorAll('.mm-no').forEach(el=>{
+    el.classList.toggle('mm-no-sel', el.dataset.id === id);
+  });
+}
+
+// ── edição de texto ───────────────────────────────────────────────────────
+function mmEditarNo(){
+  const alvo = mmAchar(MM.selecionado);
+  if(!alvo) return;
+  const modal = document.getElementById('mm-modal');
+  const input = document.getElementById('mm-modal-input');
+  if(!modal || !input) return;
+  document.getElementById('mm-modal-titulo').textContent = alvo === MM.raiz ? 'Item principal' : 'Escrever no item';
+  input.value = alvo.texto || '';
+  modal.classList.add('aberto');
+  // O foco vai depois de a caixa aparecer: no iOS, focar um campo escondido
+  // não abre o teclado.
+  setTimeout(()=>{ input.focus(); input.select(); }, 60);
+}
+function mmFecharModal(){
+  const modal = document.getElementById('mm-modal');
+  if(modal) modal.classList.remove('aberto');
+}
+function mmConfirmarModal(){
+  const alvo = mmAchar(MM.selecionado);
+  const input = document.getElementById('mm-modal-input');
+  if(alvo && input){
+    alvo.texto = input.value.trim();
+    mmMarcarSujo();
+    mmDesenhar();
+  }
+  mmFecharModal();
+}
+
+// ── desenho ───────────────────────────────────────────────────────────────
+// Calcula a posição de cada nó. Fica separada do DOM de propósito: é a única
+// parte com regra de verdade aqui, e assim dá para testar sem navegador.
+// x cresce para a direita (um galho por nível) e y é empilhado por folha, que
+// é o desenho clássico de mapa mental.
+function mmCalcularLayout(raiz, medir){
+  const posicoes = [];
+  let cursorY = 0;
+  function passo(no, x, nivel){
+    const m = medir(no);
+    const filhos = no.fechado ? [] : (no.filhos || []);
+    if(!filhos.length){
+      const y = cursorY + m.h/2;
+      cursorY += m.h + MM_GAP_Y;
+      posicoes.push({ no, x, y, w:m.w, h:m.h, nivel });
+      return y;
+    }
+    const ys = filhos.map(f => passo(f, x + m.w + MM_GAP_X, nivel+1));
+    const y = (ys[0] + ys[ys.length-1]) / 2;
+    posicoes.push({ no, x, y, w:m.w, h:m.h, nivel });
+    return y;
+  }
+  passo(raiz, 0, 0);
+  return posicoes;
+}
+
+// Ligação em ângulo reto com o canto arredondado, como num mapa mental de
+// papel — a curva sai do meio da direita do pai e entra no meio da esquerda
+// do filho.
+function mmCaminho(x1, y1, x2, y2){
+  if(Math.abs(y2 - y1) < 0.6) return `M ${x1} ${y1} L ${x2} ${y2}`;
+  const meio = x1 + (x2 - x1) / 2;
+  const s = y2 > y1 ? 1 : -1;
+  const r = Math.min(10, Math.abs(y2 - y1) / 2, Math.abs(x2 - x1) / 2);
+  return `M ${x1} ${y1} H ${meio - r} Q ${meio} ${y1} ${meio} ${y1 + s*r}`
+       + ` V ${y2 - s*r} Q ${meio} ${y2} ${meio + r} ${y2} H ${x2}`;
+}
+
+function mmDesenhar(){
+  const caixaNos = document.getElementById('mm-nos');
+  const svg = document.getElementById('mm-links');
+  if(!caixaNos || !svg || !MM.raiz) return;
+
+  // 1) cria os nós escondidos só para o navegador medir a largura do texto.
+  //    Sem medir, todo nó teria largura fixa e ou cortaria nome comprido ou
+  //    deixaria um vazio enorme em volta dos curtos.
+  // Desce parando no galho recolhido, em vez de percorrer tudo e perguntar
+  // depois se cada nó está escondido: a pergunta custava uma varredura da
+  // árvore inteira POR NÓ, o que num mapa grande virava trabalho ao quadrado.
+  const visiveis = [];
+  (function coletar(no){
+    visiveis.push(no);
+    if(no.fechado) return;
+    (no.filhos||[]).forEach(coletar);
+  })(MM.raiz);
+  caixaNos.innerHTML = visiveis.map(no=>{
+    const qtd = (no.filhos||[]).length;
+    const ehRaiz = no === MM.raiz;
+    return `<div class="mm-no${ehRaiz?' mm-no-raiz':''}${no.id===MM.selecionado?' mm-no-sel':''}" data-id="${no.id}"
+      style="border-color:${no.cor};${ehRaiz?`background:${no.cor};`:''}"
+      onclick="mmSelecionar('${no.id}',event)" ondblclick="mmSelecionar('${no.id}',event);mmEditarNo()">
+      <span class="mm-no-txt">${escapeHtml(no.texto || 'sem nome')}</span>
+      ${qtd?`<button class="mm-fechar" onclick="mmAlternarFechado('${no.id}',event)" title="${no.fechado?'Abrir':'Recolher'}">${no.fechado?'+'+qtd:'−'}</button>`:''}
+    </div>`;
+  }).join('');
+
+  const els = new Map();
+  caixaNos.querySelectorAll('.mm-no').forEach(el=>els.set(el.dataset.id, el));
+  const medidas = new Map();
+  els.forEach((el, id)=>medidas.set(id, { w: el.offsetWidth || 120, h: el.offsetHeight || 34 }));
+
+  // 2) posiciona
+  const pos = mmCalcularLayout(MM.raiz, (no)=>medidas.get(no.id) || { w:120, h:34 });
+  MM.posicoes = pos;
+  const minY = Math.min(...pos.map(p=>p.y - p.h/2));
+  const maxY = Math.max(...pos.map(p=>p.y + p.h/2));
+  const maxX = Math.max(...pos.map(p=>p.x + p.w));
+  const desloca = 20 - minY;
+
+  pos.forEach(p=>{
+    const el = els.get(p.no.id);
+    if(!el) return;
+    el.style.left = (p.x + 20) + 'px';
+    el.style.top = (p.y + desloca - p.h/2) + 'px';
+  });
+
+  // 3) liga os pontos
+  const largura = maxX + 60, altura = (maxY - minY) + 60;
+  const porId = new Map(pos.map(p=>[p.no.id, p]));
+  const linhas = [];
+  pos.forEach(p=>{
+    if(p.no.fechado) return;
+    (p.no.filhos||[]).forEach(f=>{
+      const pf = porId.get(f.id);
+      if(!pf) return;
+      linhas.push(`<path d="${mmCaminho(p.x + p.w + 20, p.y + desloca, pf.x + 20, pf.y + desloca)}"
+        fill="none" stroke="${f.cor}" stroke-width="2" stroke-linecap="round"/>`);
+    });
+  });
+  svg.setAttribute('width', largura);
+  svg.setAttribute('height', altura);
+  svg.setAttribute('viewBox', `0 0 ${largura} ${altura}`);
+  svg.innerHTML = linhas.join('');
+
+  const mundo = document.getElementById('mm-mundo');
+  if(mundo){ mundo.style.width = largura + 'px'; mundo.style.height = altura + 'px'; }
+  MM._tamanho = { largura, altura };
+  mmAplicarTransform();
+}
+
+// ── mover e aproximar ─────────────────────────────────────────────────────
+function mmAplicarTransform(){
+  const mundo = document.getElementById('mm-mundo');
+  if(mundo) mundo.style.transform = `translate(${MM.panX}px, ${MM.panY}px) scale(${MM.escala})`;
+}
+function mmZoom(dir, centro){
+  const antes = MM.escala;
+  const nova = Math.min(MM_ESCALA_MAX, Math.max(MM_ESCALA_MIN, antes * (dir > 0 ? 1.2 : 1/1.2)));
+  if(nova === antes) return;
+  // Aproxima em direção ao ponto apontado (dedo ou cursor), e não ao canto:
+  // aproximar sempre pelo canto faz o item que a pessoa está olhando fugir da tela.
+  const vp = document.getElementById('mm-viewport');
+  const c = centro || (vp ? { x: vp.clientWidth/2, y: vp.clientHeight/2 } : { x:0, y:0 });
+  MM.panX = c.x - ((c.x - MM.panX) * nova / antes);
+  MM.panY = c.y - ((c.y - MM.panY) * nova / antes);
+  MM.escala = nova;
+  mmAplicarTransform();
+}
+function mmAjustar(){
+  const vp = document.getElementById('mm-viewport');
+  if(!vp || !MM._tamanho) return;
+  const escala = Math.min(1.2, Math.max(MM_ESCALA_MIN,
+    Math.min((vp.clientWidth - 24) / MM._tamanho.largura, (vp.clientHeight - 24) / MM._tamanho.altura)));
+  MM.escala = escala;
+  MM.panX = Math.max(12, (vp.clientWidth - MM._tamanho.largura * escala) / 2);
+  MM.panY = Math.max(12, (vp.clientHeight - MM._tamanho.altura * escala) / 2);
+  mmAplicarTransform();
+}
+
+// Um único conjunto de handlers para mouse, dedo e caneta: Pointer Events
+// unifica os três. Com mouse/touch separados a tela ficava com dois códigos de
+// arrasto que se atrapalhavam no tablet, que dispara os dois.
+function mmLigarGestos(){
+  const vp = document.getElementById('mm-viewport');
+  if(!vp || vp.dataset.ligado === '1') return;
+  vp.dataset.ligado = '1';
+  const ativos = new Map();
+  let arrastando = false, ultimo = null, pinca = null;
+
+  vp.addEventListener('pointerdown', (ev)=>{
+    // Clique em cima de um nó é seleção, não arrasto do fundo.
+    if(ev.target.closest('.mm-no')) return;
+    ativos.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+    vp.setPointerCapture(ev.pointerId);
+    if(ativos.size === 1){ arrastando = true; ultimo = { x: ev.clientX, y: ev.clientY }; }
+    else if(ativos.size === 2){ arrastando = false; pinca = mmDistanciaDedos(ativos); }
+  });
+
+  vp.addEventListener('pointermove', (ev)=>{
+    if(!ativos.has(ev.pointerId)) return;
+    ativos.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+    if(arrastando && ultimo){
+      MM.panX += ev.clientX - ultimo.x;
+      MM.panY += ev.clientY - ultimo.y;
+      ultimo = { x: ev.clientX, y: ev.clientY };
+      mmAplicarTransform();
+    } else if(ativos.size === 2 && pinca){
+      const agora = mmDistanciaDedos(ativos);
+      const fator = agora.dist / pinca.dist;
+      if(Math.abs(fator - 1) > 0.01){
+        const r = vp.getBoundingClientRect();
+        const centro = { x: agora.cx - r.left, y: agora.cy - r.top };
+        const nova = Math.min(MM_ESCALA_MAX, Math.max(MM_ESCALA_MIN, MM.escala * fator));
+        MM.panX = centro.x - ((centro.x - MM.panX) * nova / MM.escala);
+        MM.panY = centro.y - ((centro.y - MM.panY) * nova / MM.escala);
+        MM.escala = nova;
+        mmAplicarTransform();
+        pinca = agora;
+      }
+    }
+  });
+
+  const soltar = (ev)=>{
+    ativos.delete(ev.pointerId);
+    if(ativos.size < 2) pinca = null;
+    if(ativos.size === 0){ arrastando = false; ultimo = null; }
+  };
+  vp.addEventListener('pointerup', soltar);
+  vp.addEventListener('pointercancel', soltar);
+  vp.addEventListener('pointerleave', soltar);
+
+  vp.addEventListener('wheel', (ev)=>{
+    ev.preventDefault();
+    const r = vp.getBoundingClientRect();
+    mmZoom(ev.deltaY < 0 ? 1 : -1, { x: ev.clientX - r.left, y: ev.clientY - r.top });
+  }, { passive:false });
+}
+function mmDistanciaDedos(ativos){
+  const [a, b] = [...ativos.values()];
+  return { dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, cx: (a.x + b.x)/2, cy: (a.y + b.y)/2 };
+}
+
+function mmTelaCheia(){
+  const area = document.getElementById('mm-area');
+  if(!area) return;
+  // API de tela cheia quando existe; no iPhone ela não existe no Safari, então
+  // o CSS assume e cobre a tela na marra — sem isso o botão não faria nada
+  // justamente no aparelho em que a tela é mais apertada.
+  if(document.fullscreenElement){
+    document.exitFullscreen?.();
+    return;
+  }
+  if(area.requestFullscreen){
+    area.requestFullscreen().catch(()=>area.classList.toggle('mm-cheio'));
+  } else {
+    area.classList.toggle('mm-cheio');
+  }
+  setTimeout(()=>{ mmAjustar(); }, 250);
+}
+
+// Sair da tela cheia pelo Esc não avisa ninguém — sem isto o mapa ficava com o
+// zoom calculado para a tela grande depois de voltar ao tamanho normal.
+document.addEventListener('fullscreenchange', ()=>{
+  if(paginaAtual === 'mapa-mental') setTimeout(mmAjustar, 200);
+});
+
 function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();}
 
 // ══════════════════════════════════════════
@@ -3349,6 +3936,14 @@ function formatDate(d){
   } catch { return String(d); }
 }
 function escapeAttr(s){return String(s).replace(/'/g,"\\'").replace(/"/g,'&quot;');}
+// Texto livre que vira HTML precisa passar por aqui. No mapa mental o candidato
+// escreve o que quiser dentro dos itens, e um "<" solto quebraria o desenho —
+// além de deixar a porta aberta para script injetado no próprio mapa.
+function escapeHtml(s){
+  return String(s==null?'':s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
 let _toastTimeout = null;
 function fecharToast(){ document.getElementById('toast').classList.remove('show'); }
 // Erros ficam na tela até a pessoa fechar manualmente (dá tempo de ler, anotar
