@@ -293,3 +293,13 @@ CREATE TABLE IF NOT EXISTS mapas_mentais (
   atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_mapas_mentais_candidato ON mapas_mentais(candidato_id);
+
+-- Onde o mapa mental "acontece". O candidato monta a rede de contatos de um
+-- lugar específico ("Brasília — Asa Norte"), e sem isso todos os mapas viravam
+-- uma lista solta de nomes sem contexto nenhum. Os três campos são opcionais:
+-- mapa de tema geral (ex.: "Diretório estadual") continua funcionando sem lugar.
+ALTER TABLE mapas_mentais ADD COLUMN IF NOT EXISTS estado TEXT;
+ALTER TABLE mapas_mentais ADD COLUMN IF NOT EXISTS cidade TEXT;
+ALTER TABLE mapas_mentais ADD COLUMN IF NOT EXISTS bairro TEXT;
+CREATE INDEX IF NOT EXISTS idx_mapas_mentais_lugar
+  ON mapas_mentais (candidato_id, lower(COALESCE(estado,'')), lower(COALESCE(cidade,'')));

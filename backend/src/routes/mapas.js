@@ -68,6 +68,26 @@ function limparDados(dados) {
   return { dados: { raiz }, nos: contador.total };
 }
 
+const UFS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+
+// O candidato escolhe LIVREMENTE o alcance do mapa: só o estado ("MS"), a
+// cidade ("Dourados") ou o bairro ("Dourados — Centro"). Nada é obrigatório:
+// mapa de tema ("Diretório estadual", "Campanha 2026") não tem lugar.
+//
+// O que vale é a cascata — cidade só existe dentro de um estado, e bairro só
+// dentro de uma cidade. Sem isso sobra dado que não identifica lugar nenhum:
+// "Centro" existe em toda cidade do Brasil, e foi exatamente esse tipo de
+// registro solto que fez o mapa geográfico posicionar bairro no estado errado.
+// Aqui a parte de baixo é descartada em vez de recusada, porque o formulário
+// já impede a combinação — isto é a rede de segurança de quem chama a API direto.
+function limparLugar(corpo) {
+  const uf = String(corpo.estado || '').trim().toUpperCase().slice(0, 2);
+  const estado = UFS.includes(uf) ? uf : null;
+  const cidade = estado ? (String(corpo.cidade || '').trim().slice(0, 120) || null) : null;
+  const bairro = cidade ? (String(corpo.bairro || '').trim().slice(0, 120) || null) : null;
+  return { estado, cidade, bairro };
+}
+
 function mapaPadrao(titulo) {
   return {
     raiz: {
@@ -88,9 +108,10 @@ function mapaPadrao(titulo) {
 // trafegados só para desenhar um seletor de nomes.
 router.get('/', asyncHandler(async (req, res) => {
   const { rows } = await pool.query(
-    `SELECT id, titulo, atualizado_em,
+    `SELECT id, titulo, estado, cidade, bairro, atualizado_em,
             jsonb_array_length(COALESCE(dados->'raiz'->'filhos', '[]'::jsonb)) AS ramos
-     FROM mapas_mentais WHERE candidato_id = $1 ORDER BY atualizado_em DESC`,
+     FROM mapas_mentais WHERE candidato_id = $1
+     ORDER BY COALESCE(estado,'zz'), COALESCE(cidade,'zz'), COALESCE(bairro,'zz'), titulo`,
     [donoDoMapa(req)]
   );
   res.json(rows);
@@ -106,16 +127,19 @@ router.post('/', asyncHandler(async (req, res) => {
   }
 
   const titulo = String(req.body?.titulo || '').trim().slice(0, 120) || 'Novo mapa';
+  const lugar = limparLugar(req.body || {});
   const { rows } = await pool.query(
-    'INSERT INTO mapas_mentais (candidato_id, titulo, dados) VALUES ($1, $2, $3) RETURNING id, titulo, dados, atualizado_em',
-    [donoDoMapa(req), titulo, mapaPadrao(titulo)]
+    `INSERT INTO mapas_mentais (candidato_id, titulo, dados, estado, cidade, bairro)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING id, titulo, dados, estado, cidade, bairro, atualizado_em`,
+    [donoDoMapa(req), titulo, mapaPadrao(lugar.bairro || lugar.cidade || titulo), lugar.estado, lugar.cidade, lugar.bairro]
   );
   res.status(201).json(rows[0]);
 }));
 
 router.get('/:id', asyncHandler(async (req, res) => {
   const { rows } = await pool.query(
-    'SELECT id, titulo, dados, atualizado_em FROM mapas_mentais WHERE id = $1 AND candidato_id = $2',
+    'SELECT id, titulo, dados, estado, cidade, bairro, atualizado_em FROM mapas_mentais WHERE id = $1 AND candidato_id = $2',
     [req.params.id, donoDoMapa(req)]
   );
   if (!rows[0]) return res.status(404).json({ error: 'Mapa não encontrado.' });
@@ -149,13 +173,22 @@ router.put('/:id', asyncHandler(async (req, res) => {
     campos.push(`dados = $${vals.length}`);
   }
 
+  // Os tres campos de lugar andam juntos: mandar "estado" sozinho apagaria a
+  // cidade sem querer, entao o frontend envia os tres ou nenhum.
+  if (req.body?.estado !== undefined || req.body?.cidade !== undefined || req.body?.bairro !== undefined) {
+    const lugar = limparLugar(req.body);
+    vals.push(lugar.estado); campos.push(`estado = $${vals.length}`);
+    vals.push(lugar.cidade); campos.push(`cidade = $${vals.length}`);
+    vals.push(lugar.bairro); campos.push(`bairro = $${vals.length}`);
+  }
+
   if (!campos.length) return res.status(400).json({ error: 'Nada para salvar.' });
 
   vals.push(req.params.id, donoDoMapa(req));
   const { rows } = await pool.query(
     `UPDATE mapas_mentais SET ${campos.join(', ')}, atualizado_em = now()
      WHERE id = $${vals.length - 1} AND candidato_id = $${vals.length}
-     RETURNING id, titulo, atualizado_em`,
+     RETURNING id, titulo, estado, cidade, bairro, atualizado_em`,
     vals
   );
   res.json(rows[0]);

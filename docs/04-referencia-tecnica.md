@@ -94,7 +94,22 @@ responsável), `cadastrado_por`, `lgpd_aceite`/`_em`/`_versao`.
 Ferramenta de gestão do candidato (estrutura política, grupos, compromissos).
 **Não tem relação com a pirâmide**: aqui não existe nível, limite nem LGPD.
 
-`id`, `candidato_id`, `titulo`, `dados` (JSONB), `atualizado_em`.
+`id`, `candidato_id`, `titulo`, `dados` (JSONB), `estado`, `cidade`, `bairro`,
+`atualizado_em`.
+
+**O lugar do mapa é uma cascata, e o alcance é escolha do candidato.** Ele
+decide se o mapa é de um estado inteiro ("DF"), de uma cidade ("MS › Dourados")
+ou de um bairro ("MS › Dourados › Centro") — e pode não ter lugar nenhum, para
+mapa de tema. O que não se aceita é pular degrau: cidade só existe dentro de um
+estado, bairro só dentro de uma cidade. `limparLugar()` descarta a parte de
+baixo quando a de cima falta, porque "Centro" solto não identifica lugar
+nenhum — foi esse tipo de registro que fez o mapa geográfico posicionar bairro
+no estado errado.
+
+O seletor de mapas agrupa até a **cidade**, não até o bairro: com um grupo por
+bairro, o seletor ficaria mais comprido que a lista que deveria organizar. As
+sugestões de cidade e bairro no formulário saem de `APOIADORES`, que é a mesma
+gente que o candidato vai mapear.
 
 A árvore inteira mora num único JSONB, e não numa linha por nó. O mapa é
 sempre lido e salvo por completo, por uma pessoa só: uma tabela de nós

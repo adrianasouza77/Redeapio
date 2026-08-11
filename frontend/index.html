@@ -2478,11 +2478,12 @@ function renderMapaMental(){
       <select class="search-input" id="mm-seletor" style="max-width:260px" onchange="mmAbrir(this.value)">
         <option value="">Carregando mapas...</option>
       </select>
-      <button class="btn-sm btn-navy" onclick="mmNovoMapa()">➕ Novo mapa</button>
-      <button class="btn-sm btn-outline" onclick="mmRenomearMapa()">✏️ Renomear</button>
+      <button class="btn-sm btn-navy" onclick="mmAbrirModalMapa()">➕ Novo mapa</button>
+      <button class="btn-sm btn-outline" onclick="mmAbrirModalMapa(MM.mapaId)">✏️ Editar</button>
       <button class="btn-sm btn-outline" onclick="mmExcluirMapa()" style="color:var(--red)">🗑 Excluir mapa</button>
       <span id="mm-estado" style="font-size:12px;color:var(--slate-light);margin-left:auto"></span>
     </div>
+    <div id="mm-lugar" style="margin-top:10px;font-size:13px;font-weight:600;color:var(--navy)"></div>
   </div>
 
   <div class="card" id="mm-area" style="padding:0;overflow:hidden">
@@ -2512,6 +2513,43 @@ function renderMapaMental(){
     </div>
   </div>
 
+  <div class="mm-modal" id="mm-modal-mapa">
+    <div class="mm-modal-caixa">
+      <div style="font-weight:600;font-size:15px;color:var(--navy);margin-bottom:16px" id="mm-mapa-titulo-modal">Novo mapa</div>
+
+      <div class="field"><label>Nome do mapa</label>
+        <input id="mm-f-nome" maxlength="120" autocomplete="off" placeholder="Deixe em branco para usar o nome do lugar"></div>
+
+      <div class="field"><label>Este mapa é de</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button type="button" class="btn-sm btn-outline" id="mm-abr-estado" onclick="mmSetAbrangencia('estado')">Um estado</button>
+          <button type="button" class="btn-sm btn-outline" id="mm-abr-cidade" onclick="mmSetAbrangencia('cidade')">Uma cidade</button>
+          <button type="button" class="btn-sm btn-outline" id="mm-abr-bairro" onclick="mmSetAbrangencia('bairro')">Um bairro</button>
+          <button type="button" class="btn-sm btn-outline" id="mm-abr-nenhum" onclick="mmSetAbrangencia('nenhum')">Nenhum lugar</button>
+        </div>
+      </div>
+
+      <div class="field" id="mm-campo-uf"><label>Estado</label>
+        <select id="mm-f-uf" onchange="mmAtualizarSugestoes()">
+          <option value="">Selecione...</option>
+          ${MM_UFS.map(u=>`<option value="${u}">${u}</option>`).join('')}
+        </select></div>
+
+      <div class="field" id="mm-campo-cidade"><label>Cidade</label>
+        <input id="mm-f-cidade" list="mm-lista-cidades" maxlength="120" autocomplete="off" onchange="mmAtualizarSugestoes()" placeholder="Digite ou escolha">
+        <datalist id="mm-lista-cidades"></datalist></div>
+
+      <div class="field" id="mm-campo-bairro"><label>Bairro</label>
+        <input id="mm-f-bairro" list="mm-lista-bairros" maxlength="120" autocomplete="off" placeholder="Digite ou escolha">
+        <datalist id="mm-lista-bairros"></datalist></div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:6px">
+        <button class="btn-sm btn-outline" onclick="mmFecharModalMapa()">Cancelar</button>
+        <button class="btn-sm btn-navy" onclick="mmSalvarMapa()">Salvar</button>
+      </div>
+    </div>
+  </div>
+
   <div class="mm-modal" id="mm-modal">
     <div class="mm-modal-caixa">
       <div style="font-weight:600;font-size:15px;color:var(--navy);margin-bottom:12px" id="mm-modal-titulo">Escrever</div>
@@ -2529,7 +2567,7 @@ async function mmIniciar(){
   try { MM.lista = await api('/mapas' + wsQuery()); }
   catch(e){ showToast(e.message,'error'); return; }
   if(!MM.lista.length){
-    try { const novo = await api('/mapas' + wsQuery(), { method:'POST', body: JSON.stringify({ titulo:'Minha campanha', as: workspaceAdmin?.id }) });
+    try { const novo = await api('/mapas' + wsQuery(), { method:'POST', body: JSON.stringify({ titulo:'Meu primeiro mapa', as: workspaceAdmin?.id }) });
       MM.lista = [novo];
     } catch(e){ showToast(e.message,'error'); return; }
   }
@@ -2537,10 +2575,14 @@ async function mmIniciar(){
   await mmAbrir(MM.lista[0].id);
 }
 
-function mmPreencherSeletor(){
-  const sel = document.getElementById('mm-seletor');
-  if(!sel) return;
-  sel.innerHTML = MM.lista.map(m=>`<option value="${m.id}" ${m.id===MM.mapaId?'selected':''}>${escapeHtml(m.titulo)}</option>`).join('');
+const MM_UFS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+// null = criando um mapa novo; um id = editando aquele mapa
+let _mmEditando = null;
+let _mmAbrangencia = 'cidade';
+
+function mmRotuloLugar(m){
+  if(!m || !m.estado) return 'Sem lugar definido';
+  return [m.estado, m.cidade, m.bairro].filter(Boolean).join(' › ');
 }
 
 async function mmAbrir(id){
@@ -2552,9 +2594,14 @@ async function mmAbrir(id){
     const mapa = await api(`/mapas/${id}` + wsQuery());
     MM.mapaId = mapa.id;
     MM.titulo = mapa.titulo;
-    MM.raiz = (mapa.dados && mapa.dados.raiz) || { id:'raiz', texto:mapa.titulo, cor:MM_CORES[0], fechado:false, filhos:[] };
+    MM.raiz = (mapa.dados && mapa.dados.raiz)
+      || { id:'raiz', texto:mapa.titulo, cor:MM_CORES[0], fechado:false, filhos:[] };
     MM.selecionado = MM.raiz.id;
     MM.sujo = false;
+    // Mantém a lista em dia com o que veio do servidor: é dela que a faixa do
+    // lugar e o agrupamento do seletor são montados.
+    const i = MM.lista.findIndex(m=>m.id===mapa.id);
+    if(i >= 0) MM.lista[i] = { ...MM.lista[i], titulo: mapa.titulo, estado: mapa.estado, cidade: mapa.cidade, bairro: mapa.bairro };
     mmPreencherSeletor();
     mmDesenhar();
     mmAjustar();
@@ -2562,31 +2609,141 @@ async function mmAbrir(id){
   } catch(e){ showToast(e.message,'error'); }
 }
 
-async function mmNovoMapa(){
-  const titulo = prompt('Nome do novo mapa:', 'Novo mapa');
-  if(titulo === null) return;
-  try {
-    const novo = await api('/mapas' + wsQuery(), { method:'POST', body: JSON.stringify({ titulo: titulo.trim() || 'Novo mapa', as: workspaceAdmin?.id }) });
-    MM.lista.unshift(novo);
-    mmPreencherSeletor();
-    await mmAbrir(novo.id);
-    showToast('Mapa criado!','success');
-  } catch(e){ showToast(e.message,'error'); }
+// Agrupa os mapas por lugar no seletor. Com 30 mapas de cidades diferentes,
+// uma lista solta de nomes não diz nada sobre onde cada um atua.
+function mmPreencherSeletor(){
+  const sel = document.getElementById('mm-seletor');
+  if(!sel) return;
+  // O grupo vai até a CIDADE, não até o bairro: senão cada bairro de Brasília
+  // viraria um grupo de um item só, e o seletor ficaria mais comprido que a
+  // lista que ele deveria organizar. O bairro aparece no nome da opção.
+  const grupos = new Map();
+  MM.lista.forEach(m=>{
+    const g = m.estado ? [m.estado, m.cidade].filter(Boolean).join(' › ') : 'Sem lugar definido';
+    if(!grupos.has(g)) grupos.set(g, []);
+    grupos.get(g).push(m);
+  });
+  sel.innerHTML = [...grupos.entries()].map(([lugar, mapas])=>
+    `<optgroup label="${escapeHtml(lugar)}">`
+    + mapas.map(m=>{
+        const nome = m.bairro && !m.titulo.includes(m.bairro) ? `${m.titulo} — ${m.bairro}` : m.titulo;
+        return `<option value="${m.id}" ${m.id===MM.mapaId?'selected':''}>${escapeHtml(nome)}</option>`;
+      }).join('')
+    + `</optgroup>`).join('');
+  const faixa = document.getElementById('mm-lugar');
+  const atual = MM.lista.find(m=>m.id===MM.mapaId);
+  if(faixa) faixa.innerHTML = atual && atual.estado
+    ? `📍 ${escapeHtml(mmRotuloLugar(atual))}`
+    : '<span style="color:var(--slate-light)">Sem lugar definido</span>';
 }
 
-async function mmRenomearMapa(){
-  if(!MM.mapaId) return;
-  const titulo = prompt('Nome do mapa:', MM.titulo);
-  if(titulo === null) return;
-  if(!titulo.trim()) return showToast('O mapa precisa de um nome.','error');
+// ── formulário do mapa (criar e editar) ───────────────────────────────────
+// Substituiu o prompt() do navegador: além de não caber os quatro campos, o
+// prompt é inconsistente no celular — em alguns navegadores nem aparece.
+function mmAbrirModalMapa(id){
+  _mmEditando = id || null;
+  const atual = id ? MM.lista.find(m=>m.id===id) : null;
+  document.getElementById('mm-mapa-titulo-modal').textContent = id ? 'Editar mapa' : 'Novo mapa';
+  document.getElementById('mm-f-nome').value = atual ? atual.titulo : '';
+  document.getElementById('mm-f-uf').value = (atual && atual.estado) || '';
+  document.getElementById('mm-f-cidade').value = (atual && atual.cidade) || '';
+  document.getElementById('mm-f-bairro').value = (atual && atual.bairro) || '';
+  _mmAbrangencia = !atual ? 'cidade'
+    : (atual.bairro ? 'bairro' : (atual.cidade ? 'cidade' : (atual.estado ? 'estado' : 'nenhum')));
+  mmSetAbrangencia(_mmAbrangencia, true);
+  document.getElementById('mm-modal-mapa').classList.add('aberto');
+  setTimeout(()=>document.getElementById('mm-f-nome').focus(), 60);
+}
+function mmFecharModalMapa(){ document.getElementById('mm-modal-mapa').classList.remove('aberto'); }
+
+// Cascata: cidade só existe dentro de um estado, e bairro dentro de uma cidade.
+// O formulário mostra apenas os campos daquele alcance — assim não existe a
+// combinação inválida "bairro Centro" sem cidade nenhuma.
+function mmSetAbrangencia(nivel, manter){
+  _mmAbrangencia = nivel;
+  ['nenhum','estado','cidade','bairro'].forEach(n=>{
+    const b = document.getElementById('mm-abr-' + n);
+    if(b){ b.classList.toggle('btn-navy', n===nivel); b.classList.toggle('btn-outline', n!==nivel); }
+  });
+  const mostrar = (id, sim)=>{ const el = document.getElementById(id); if(el) el.style.display = sim ? '' : 'none'; };
+  mostrar('mm-campo-uf', nivel!=='nenhum');
+  mostrar('mm-campo-cidade', nivel==='cidade' || nivel==='bairro');
+  mostrar('mm-campo-bairro', nivel==='bairro');
+  if(!manter){
+    // Limpa o que deixou de valer, senão um bairro digitado antes continuaria
+    // salvo escondido ao trocar o alcance para "só o estado".
+    if(nivel==='nenhum') document.getElementById('mm-f-uf').value = '';
+    if(nivel==='nenhum' || nivel==='estado') document.getElementById('mm-f-cidade').value = '';
+    if(nivel!=='bairro') document.getElementById('mm-f-bairro').value = '';
+  }
+  mmAtualizarSugestoes();
+}
+
+// As listas de cidade e bairro saem de quem já está cadastrado na rede: é o
+// mesmo lugar que o candidato vai mapear, e digitar de novo só geraria
+// "Dourados" e "dourados" como coisas diferentes.
+function mmAtualizarSugestoes(){
+  const uf = (document.getElementById('mm-f-uf')?.value || '').toUpperCase();
+  const cidadeAtual = (document.getElementById('mm-f-cidade')?.value || '').trim().toLowerCase();
+  const cidades = [...new Set(APOIADORES
+    .filter(a=>!uf || String(a.estado||'').toUpperCase()===uf)
+    .map(a=>String(a.cidade||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  const bairros = [...new Set(APOIADORES
+    .filter(a=>!cidadeAtual || String(a.cidade||'').trim().toLowerCase()===cidadeAtual)
+    .map(a=>String(a.regiao||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  const lista = (id, itens)=>{
+    const el = document.getElementById(id);
+    if(el) el.innerHTML = itens.map(v=>`<option value="${escapeAttr(v)}"></option>`).join('');
+  };
+  lista('mm-lista-cidades', cidades);
+  lista('mm-lista-bairros', bairros);
+}
+
+async function mmSalvarMapa(){
+  const nome = document.getElementById('mm-f-nome').value.trim();
+  const uf = document.getElementById('mm-f-uf').value;
+  const cidade = document.getElementById('mm-f-cidade').value.trim();
+  const bairro = document.getElementById('mm-f-bairro').value.trim();
+
+  if(_mmAbrangencia !== 'nenhum' && !uf) return showToast('Escolha o estado.','error');
+  if((_mmAbrangencia === 'cidade' || _mmAbrangencia === 'bairro') && !cidade) return showToast('Escolha a cidade.','error');
+  if(_mmAbrangencia === 'bairro' && !bairro) return showToast('Escolha o bairro.','error');
+
+  // Nome em branco vira o próprio lugar: "Dourados — Centro" é um nome melhor
+  // do que "Novo mapa" e poupa uma digitação.
+  const lugarTxt = [cidade, bairro].filter(Boolean).join(' — ') || uf;
+  const titulo = nome || lugarTxt || 'Novo mapa';
+  const corpo = {
+    titulo,
+    estado: _mmAbrangencia === 'nenhum' ? '' : uf,
+    cidade: (_mmAbrangencia === 'cidade' || _mmAbrangencia === 'bairro') ? cidade : '',
+    bairro: _mmAbrangencia === 'bairro' ? bairro : '',
+    as: workspaceAdmin?.id,
+  };
+
+  showLoading('Salvando...');
   try {
-    await api(`/mapas/${MM.mapaId}` + wsQuery(), { method:'PUT', body: JSON.stringify({ titulo: titulo.trim(), as: workspaceAdmin?.id }) });
-    MM.titulo = titulo.trim();
-    const item = MM.lista.find(m=>m.id===MM.mapaId);
-    if(item) item.titulo = MM.titulo;
-    mmPreencherSeletor();
-    showToast('Nome alterado!','success');
-  } catch(e){ showToast(e.message,'error'); }
+    if(_mmEditando){
+      const atualizado = await api(`/mapas/${_mmEditando}` + wsQuery(), { method:'PUT', body: JSON.stringify(corpo) });
+      const i = MM.lista.findIndex(m=>m.id===_mmEditando);
+      if(i >= 0) MM.lista[i] = { ...MM.lista[i], ...atualizado };
+      if(MM.mapaId === _mmEditando) MM.titulo = atualizado.titulo;
+      hideLoading();
+      mmFecharModalMapa();
+      mmPreencherSeletor();
+      showToast('Mapa atualizado!','success');
+    } else {
+      const novo = await api('/mapas' + wsQuery(), { method:'POST', body: JSON.stringify(corpo) });
+      MM.lista.unshift(novo);
+      hideLoading();
+      mmFecharModalMapa();
+      await mmAbrir(novo.id);
+      showToast('Mapa criado!','success');
+    }
+  } catch(e){
+    hideLoading();
+    showToast(e.message || 'Não foi possível salvar o mapa.','error');
+  }
 }
 
 async function mmExcluirMapa(){
