@@ -2078,6 +2078,12 @@ function renderMapa(){
       <div id="mapa-status" style="font-size:12px;color:var(--slate-light)">Carregando o mapa...</div>
     </div>
   </div>
+  <div id="mapa-aviso-pino" style="display:none" class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <div style="font-size:14px;font-weight:600;color:#8a6a10">📍 <span id="mapa-pino-texto"></span></div>
+      <button class="btn-sm btn-outline" onclick="cancelarPino()">Cancelar</button>
+    </div>
+  </div>
   <div class="card" style="padding:0;overflow:hidden">
     <div id="mapa-canvas" style="width:100%;height:520px;background:var(--bg)"></div>
   </div>
@@ -2085,12 +2091,13 @@ function renderMapa(){
     <div class="card-header"><div class="card-title">Bairros ainda sem posição no mapa</div></div>
     <p style="font-size:13px;color:var(--slate-light);margin-bottom:14px" id="mapa-pendentes-texto"></p>
     <button class="btn-sm btn-navy" id="mapa-btn-resolver" onclick="resolverPendentesMapa()">📍 Localizar bairros no mapa</button>
-    <p style="font-size:11px;color:var(--slate-light);margin-top:10px">A busca é feita de 8 em 8 bairros porque o serviço de mapas do OpenStreetMap só aceita uma consulta por segundo. O resultado fica guardado — da próxima vez o mapa abre na hora.</p>
+    <p style="font-size:11px;color:var(--slate-light);margin-top:10px">A busca é feita em lotes porque os serviços de mapa só aceitam uma consulta por segundo. O resultado fica guardado — da próxima vez o mapa abre na hora.</p>
   </div>
-  <div class="card" id="mapa-nao-encontrados-card" style="display:none">
+  <div class="card" id="mapa-corrigir-card" style="display:none">
     <div class="card-header"><div class="card-title">Bairros que o mapa não reconheceu</div></div>
-    <p style="font-size:13px;color:var(--slate-light);margin-bottom:12px" id="mapa-nao-encontrados-aviso"></p>
-    <div id="mapa-nao-encontrados" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+    <p style="font-size:13px;color:var(--slate-light);margin-bottom:4px" id="mapa-corrigir-aviso"></p>
+    <p style="font-size:12px;color:var(--slate-light);margin-bottom:16px">Boa parte dos bairros do Brasil não existe no mapa aberto do OpenStreetMap — não é erro do seu cadastro. Você resolve cada um <strong>uma vez</strong>, das duas formas abaixo, e fica valendo para sempre.</p>
+    <div id="mapa-corrigir-lista"></div>
   </div>`;
 }
 
@@ -2130,6 +2137,7 @@ async function carregarMapa(recarregar){
   // Sem centro definido o Leaflet nem desenha. Brasil inteiro é o ponto de
   // partida; assim que houver marcador o mapa se ajusta neles.
   _mapa.setView([-15.78, -47.93], 4);
+  _mapa.on('click', (ev)=>{ if(_pinoAlvo) salvarPino(ev.latlng.lat, ev.latlng.lng); });
   desenharMarcadores();
 }
 
@@ -2149,6 +2157,7 @@ function desenharMarcadores(){
 
   const detalheZonas = (lista)=>contarPor(lista, zonaDe)
     .map(([z,q])=>`${z===ZONA_VAZIA?'Sem zona':'Zona '+z}: ${q}`).join('<br>');
+  const SELO = { manual:'📍 posição marcada por você', rua:'~ posição aproximada, pelas ruas do bairro', busca:'' };
 
   comPonto.forEach(g=>{
     const chave = chaveLocal(g.bairro, g.cidade);
@@ -2160,24 +2169,29 @@ function desenharMarcadores(){
     const cor = n/maior > 0.6 ? '#0f1f3d' : (n/maior > 0.25 ? '#c8a84b' : '#6b8ed6');
     const circulo = L.circleMarker([g.lat, g.lng], {
       radius: raio, color:'#fff', weight:2, fillColor:cor, fillOpacity:0.78,
+      // Tracejado avisa que a posição é aproximada (veio das ruas do bairro,
+      // não do bairro em si) — não dá para o relatório fingir precisão que não tem.
+      dashArray: g.origem==='rua' ? '4,3' : null,
     });
+    const selo = SELO[g.origem] || '';
     circulo.bindPopup(
       `<strong style="font-size:14px">${g.bairro}</strong><br>`+
       `<span style="font-size:12px;color:#4a5568">${g.cidade||'cidade não informada'}</span><br>`+
       `<span style="font-size:13px">${n} apoiador${n>1?'es':''}</span><br>`+
       `<span style="font-size:12px;color:#4a5568">`+
-      detalheZonas(filtrados.filter(a=>localDoApoiador(a)===chave))+`</span>`
+      detalheZonas(filtrados.filter(a=>localDoApoiador(a)===chave))+`</span>`+
+      (selo?`<br><span style="font-size:11px;color:#8a6a10">${selo}</span>`:'')
     );
     circulo.bindTooltip(`${g.bairro} (${n})`, { direction:'top' });
     circulo.addTo(_mapaCamada);
     pontos.push([g.lat, g.lng]);
   });
 
-  // Bairro que o OpenStreetMap não conhece não some do mapa: vira uma bolha
-  // tracejada no centro da cidade, somando todos os bairros nessa situação.
-  // Antes eles apenas desapareciam, e a soma das bolhas não batia com o total
-  // da rede — num relatório de campanha isso é pior do que uma posição
-  // aproximada, porque some gente sem ninguém perceber.
+  // Bairro que ninguém conhece não some do mapa: vira uma bolha tracejada no
+  // centro da cidade, somando todos os que estão nessa situação. Antes eles
+  // apenas desapareciam e a soma das bolhas não batia com o total da rede — num
+  // relatório de campanha isso é pior do que uma posição aproximada, porque
+  // some gente sem ninguém perceber.
   const semPonto = geoBairros.filter(g=>(g.lat==null||g.lng==null) && contagem.get(chaveLocal(g.bairro,g.cidade)));
   const porCidade = new Map();
   semPonto.forEach(g=>{
@@ -2196,7 +2210,7 @@ function desenharMarcadores(){
     });
     circulo.bindPopup(
       `<strong style="font-size:14px">${grupo.cidade} — posição aproximada</strong><br>`+
-      `<span style="font-size:13px">${grupo.total} apoiador${grupo.total>1?'es':''} em ${grupo.bairros.length} bairro${grupo.bairros.length>1?'s':''} que o mapa não reconheceu</span><br>`+
+      `<span style="font-size:13px">${grupo.total} apoiador${grupo.total>1?'es':''} em ${grupo.bairros.length} bairro${grupo.bairros.length>1?'s':''} sem posição</span><br>`+
       `<span style="font-size:12px;color:#4a5568">${grupo.bairros.slice(0,12).join(', ')}${grupo.bairros.length>12?'…':''}</span>`
     );
     circulo.bindTooltip(`${grupo.cidade}: ${grupo.total} sem posição exata`, { direction:'top' });
@@ -2204,34 +2218,140 @@ function desenharMarcadores(){
     pontos.push([cidadeGeo.lat, cidadeGeo.lng]);
   });
 
-  if(pontos.length) _mapa.fitBounds(pontos, { padding:[40,40], maxZoom:14 });
+  // Enquadrar só quando NÃO se está marcando um pino: reposicionar o mapa
+  // embaixo de quem está mirando o clique faz a pessoa errar o ponto.
+  if(pontos.length && !_pinoAlvo) _mapa.fitBounds(pontos, { padding:[40,40], maxZoom:14 });
 
+  atualizarPainelMapa(geoBairros, comPonto, contagem, filtrados);
+}
+
+function atualizarPainelMapa(geoBairros, comPonto, contagem, filtrados){
   const pendentes = geoBairros.filter(g=>g.pendente);
-  const naoEncontrados = geoBairros.filter(g=>g.naoEncontrado && !g.semCidade);
-  const semCidade = geoBairros.filter(g=>g.semCidade);
+  const corrigir = geoBairros.filter(g=>!g.pendente && g.lat==null);
   const noMapa = comPonto.reduce((s,g)=>s+(contagem.get(chaveLocal(g.bairro,g.cidade))||0),0);
+
   const status = document.getElementById('mapa-status');
   if(status){
-    status.textContent = pontos.length
-      ? `${comPonto.length} bairro${comPonto.length>1?'s':''} posicionado${comPonto.length>1?'s':''} · ${noMapa} de ${filtrados.length} apoiadores${_mapaFiltroZona?' desta zona':''} no ponto exato.`
+    status.textContent = comPonto.length
+      ? `${comPonto.length} bairro${comPonto.length>1?'s':''} posicionado${comPonto.length>1?'s':''} · ${noMapa} de ${filtrados.length} apoiadores${_mapaFiltroZona?' desta zona':''} no ponto certo.`
       : 'Nenhum bairro posicionado ainda — use o botão abaixo para localizar os bairros.';
   }
+
   const cardPend = document.getElementById('mapa-pendentes-card');
   if(cardPend){
     cardPend.style.display = pendentes.length ? 'block' : 'none';
     const txt = document.getElementById('mapa-pendentes-texto');
-    if(txt) txt.textContent = `${pendentes.length} bairro${pendentes.length>1?'s ainda não foram localizados':' ainda não foi localizado'} no mapa.`;
+    if(txt) txt.textContent = `${pendentes.length} bairro${pendentes.length>1?'s ainda não foram procurados':' ainda não foi procurado'} no mapa.`;
   }
-  const cardNao = document.getElementById('mapa-nao-encontrados-card');
-  if(cardNao){
-    cardNao.style.display = (naoEncontrados.length || semCidade.length) ? 'block' : 'none';
-    const aviso = document.getElementById('mapa-nao-encontrados-aviso');
-    if(aviso) aviso.innerHTML = semCidade.length
-      ? `<strong>${semCidade.length} bairro${semCidade.length>1?'s estão':' está'} sem cidade no cadastro.</strong> Sem a cidade não dá para procurar: buscar só pelo nome do bairro traz a cidade errada (foi assim que "Centro" caiu em Uraí-PR). Preencha a cidade em “Todos os Apoiadores”.`
-      : 'Quase sempre é erro de digitação no cadastro. Esses bairros aparecem no mapa como uma bolha vermelha tracejada no centro da cidade, então ninguém fica de fora da contagem.';
-    const lista = document.getElementById('mapa-nao-encontrados');
-    if(lista) lista.innerHTML = [...semCidade, ...naoEncontrados].map(g=>
-      `<span class="region-tag">${g.bairro}${g.cidade?` · ${g.cidade}`:' · ⚠️ sem cidade'}</span>`).join('');
+
+  const card = document.getElementById('mapa-corrigir-card');
+  if(!card) return;
+  card.style.display = corrigir.length ? 'block' : 'none';
+  if(!corrigir.length) return;
+
+  const semCidade = corrigir.filter(g=>g.semCidade).length;
+  const aviso = document.getElementById('mapa-corrigir-aviso');
+  if(aviso) aviso.innerHTML = semCidade
+    ? `<strong>${semCidade} deste${semCidade>1?'s':''} está${semCidade>1?'o':''} sem cidade no cadastro.</strong> Sem a cidade não dá nem para procurar — preencha em “Todos os Apoiadores”.`
+    : '';
+
+  const lista = document.getElementById('mapa-corrigir-lista');
+  if(!lista) return;
+  lista.innerHTML = corrigir.map((g)=>{
+    const qtd = contagem.get(chaveLocal(g.bairro,g.cidade)) || 0;
+    const id = chaveLocal(g.bairro, g.cidade);
+    return `
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)">
+      <div style="min-width:180px">
+        <div style="font-weight:600;font-size:14px;color:var(--navy)">${g.bairro}</div>
+        <div style="font-size:11px;color:var(--slate-light)">${g.cidade || '⚠️ sem cidade'} · ${qtd} apoiador${qtd>1?'es':''}</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        ${g.cidade ? `<select class="search-input" style="max-width:260px;font-size:13px"
+            onfocus="carregarLugares('${escapeAttr(g.cidade)}','${escapeAttr(g.estado||'')}',this)"
+            onchange="escolherLugar('${escapeAttr(g.bairro)}','${escapeAttr(g.cidade)}','${escapeAttr(g.estado||'')}',this.value)">
+            <option value="">É outro nome? escolha na lista da cidade…</option>
+          </select>` : ''}
+        <button class="btn-sm btn-navy" style="white-space:nowrap" onclick="marcarNoMapa('${escapeAttr(g.bairro)}','${escapeAttr(g.cidade||'')}','${escapeAttr(g.estado||'')}')">📍 Marcar no mapa</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── correção manual ───────────────────────────────────────────────────────
+let _pinoAlvo = null;               // {bairro, cidade, estado} enquanto espera o clique
+const _lugaresPorCidade = new Map(); // lista oficial já baixada, por cidade
+
+async function carregarLugares(cidade, estado, select){
+  const chave = chaveLocal(cidade, estado);
+  // Só monta a lista uma vez por cidade: são centenas de nomes, e a pessoa vai
+  // abrir esse select dezenas de vezes seguidas para corrigir a lista inteira.
+  if(select.dataset.pronto === '1') return;
+  let lugares = _lugaresPorCidade.get(chave);
+  if(!lugares){
+    try {
+      lugares = await api(`/apoiadores/geo/lugares?cidade=${encodeURIComponent(cidade)}&estado=${encodeURIComponent(estado||'')}` + wsQuery('&'));
+      _lugaresPorCidade.set(chave, lugares);
+    } catch(e){ showToast(e.message,'error'); return; }
+  }
+  if(!lugares.length){
+    select.innerHTML = '<option value="">O mapa não tem a lista desta cidade</option>';
+    select.dataset.pronto = '1';
+    return;
+  }
+  select.innerHTML = '<option value="">É outro nome? escolha na lista da cidade…</option>'
+    + lugares.map(l=>`<option value="${escapeAttr(l.nome)}">${l.nome}</option>`).join('');
+  select.dataset.pronto = '1';
+}
+
+async function escolherLugar(bairro, cidade, estado, nomeOficial){
+  if(!nomeOficial) return;
+  await salvarPosicaoBairro({ bairro, cidade, estado, nomeOficial },
+    `“${bairro}” posicionado como ${nomeOficial}.`);
+}
+
+function marcarNoMapa(bairro, cidade, estado){
+  _pinoAlvo = { bairro, cidade, estado };
+  const aviso = document.getElementById('mapa-aviso-pino');
+  const texto = document.getElementById('mapa-pino-texto');
+  if(texto) texto.textContent = `Clique no mapa onde fica o bairro ${bairro}${cidade?' ('+cidade+')':''}.`;
+  if(aviso) aviso.style.display = 'block';
+  const canvas = document.getElementById('mapa-canvas');
+  if(canvas){
+    canvas.style.cursor = 'crosshair';
+    canvas.scrollIntoView({ behavior:'smooth', block:'center' });
+  }
+}
+
+function cancelarPino(){
+  _pinoAlvo = null;
+  const aviso = document.getElementById('mapa-aviso-pino');
+  if(aviso) aviso.style.display = 'none';
+  const canvas = document.getElementById('mapa-canvas');
+  if(canvas) canvas.style.cursor = '';
+}
+
+async function salvarPino(lat, lng){
+  const alvo = _pinoAlvo;
+  cancelarPino();
+  if(!alvo) return;
+  await salvarPosicaoBairro({ ...alvo, lat, lng }, `“${alvo.bairro}” posicionado no mapa.`);
+}
+
+async function salvarPosicaoBairro(corpo, mensagem){
+  showLoading('Salvando posição...');
+  try {
+    await api('/apoiadores/geo/bairro' + wsQuery(), {
+      method:'PUT',
+      body: JSON.stringify({ ...corpo, as: workspaceAdmin?.id }),
+    });
+    _mapaGeo = await api('/apoiadores/geo' + wsQuery());
+    hideLoading();
+    desenharMarcadores();
+    showToast(mensagem, 'success');
+  } catch(e){
+    hideLoading();
+    showToast(e.message || 'Não foi possível salvar a posição.', 'error');
   }
 }
 
@@ -2241,16 +2361,16 @@ async function resolverPendentesMapa(){
   if(btn){ btn.disabled = true; btn.textContent = '📍 Localizando...'; }
   try {
     let restantes = 1, voltas = 0, semProgresso = 0;
-    // Duas travas: o teto de voltas e a checagem de progresso. Sem elas, um
-    // erro que devolvesse "restantes" sempre igual deixaria o navegador
-    // chamando o servidor para sempre.
-    while(restantes > 0 && voltas < 60){
+    // Duas travas: o teto de voltas e a checagem de progresso. Sem elas, um erro
+    // que devolvesse "restantes" sempre igual deixaria o navegador chamando o
+    // servidor para sempre.
+    while(restantes > 0 && voltas < 80){
       const r = await api('/apoiadores/geo/resolver' + wsQuery(), { method:'POST', body: JSON.stringify({ as: workspaceAdmin?.id }) });
       voltas++;
       if(!r.processados){ semProgresso++; if(semProgresso >= 2) break; } else semProgresso = 0;
       restantes = r.restantes;
       if(txt) txt.textContent = restantes
-        ? `Faltam ${restantes} bairro${restantes>1?'s':''}... (pode demorar, é 1 por segundo)`
+        ? `Faltam ${restantes}... (é uma consulta por segundo, pode demorar)`
         : 'Todos os bairros foram processados.';
     }
     _mapaGeo = await api('/apoiadores/geo' + wsQuery());

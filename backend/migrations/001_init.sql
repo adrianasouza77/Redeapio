@@ -249,3 +249,32 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_geo_cidades_chave
 -- marcada como versão 1 e o app a trata como pendente — ela é sobrescrita pela
 -- busca nova na primeira vez que alguém abrir o mapa.
 ALTER TABLE geo_bairros ADD COLUMN IF NOT EXISTS versao_geo INT NOT NULL DEFAULT 1;
+
+-- De onde veio a coordenada: 'busca' (descoberta automaticamente) ou 'manual'
+-- (o candidato apontou no mapa, ou escolheu o nome certo na lista da cidade).
+-- A distinção é o que impede o automático de desfazer o trabalho manual: a
+-- posição marcada à mão nunca é sobrescrita nem invalidada por versao_geo.
+ALTER TABLE geo_bairros ADD COLUMN IF NOT EXISTS origem TEXT NOT NULL DEFAULT 'busca';
+
+-- Lista oficial de lugares de cada cidade, baixada de uma vez do OpenStreetMap
+-- (Overpass). São ~257 nomes para Dourados. Serve para duas coisas: casar o
+-- bairro do cadastro sem gastar uma consulta por bairro, e oferecer ao
+-- candidato a lista real da cidade quando o nome digitado não bate com nada
+-- ("PRQ ALVORADA" → Parque Alvorada, "Greenvile" → Green Ville).
+CREATE TABLE IF NOT EXISTS geo_lugares (
+  id            BIGSERIAL PRIMARY KEY,
+  cidade        TEXT NOT NULL,
+  estado        TEXT NOT NULL DEFAULT '',
+  nome          TEXT NOT NULL,
+  tipo          TEXT,
+  lat           DOUBLE PRECISION NOT NULL,
+  lng           DOUBLE PRECISION NOT NULL,
+  atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_geo_lugares_chave
+  ON geo_lugares (lower(cidade), lower(estado), lower(nome));
+
+-- Quando a lista daquela cidade foi baixada. NULL = ainda não foi. O Overpass
+-- bloqueia quem consulta em sequência, então isso precisa ser feito uma vez só
+-- por cidade e ficar guardado.
+ALTER TABLE geo_cidades ADD COLUMN IF NOT EXISTS lugares_em TIMESTAMPTZ;

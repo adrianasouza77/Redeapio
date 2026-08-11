@@ -123,7 +123,43 @@ estados — errado, mas com cara de certo, que é o pior defeito possível num
 relatório. Agora a cidade é localizada primeiro e a busca do bairro é presa ao
 retângulo dela (`bounded=1&viewbox=...`); o que cair fora é descartado.
 
-**Duas fontes, porque elas erram diferente** (`geocodificarBairro`):
+**Quatro tentativas, da mais confiável para a menos** (`localizarBairro`):
+
+1. **Lista da cidade** (`geo_lugares`). O município inteiro é baixado numa única
+   consulta ao Overpass e guardado — são ~257 nomes para Dourados. Casar o
+   bairro contra essa lista **não gasta consulta nenhuma**, e é o caminho que
+   resolve mais gente: 24 de 59 bairros reais de uma campanha.
+2. **Nominatim** limitado ao retângulo da cidade.
+3. **Photon**, que informa em qual bairro cada resultado fica. O resultado
+   **não é aceito de cara**: só vale se esse bairro bater com o procurado.
+4. **Pelas ruas dos apoiadores**. Bairro que ninguém conhece pelo nome ainda
+   pode ser localizado pelos endereços de quem mora nele — a cobertura de ruas
+   no OSM é muito melhor que a de bairros. Uma rua sozinha não vale: são
+   necessárias duas caindo a menos de 3 km uma da outra, e a posição fica
+   marcada como aproximada (bolha tracejada no mapa).
+
+**A comparação de nomes nunca usa distância de edição.** Só variações que são o
+mesmo nome escrito diferente: acento, caixa, palavra genérica ("Jardim",
+"PRQ"), plural, espaço a mais, numeral romano x arábico, número de casa colado
+no fim. Casar por semelhança parece esperto e recria o defeito original —
+medido: "Jardim Maracanã" casaria com *Vila Mariana* e "Vila Rosa" com *Vila
+Roma*, que existe e é outro bairro.
+
+**O teto é a base de dados, não o código.** Cerca de **um terço** dos bairros de
+uma campanha real não existe no OpenStreetMap sob nome nenhum — Guanabara,
+Pelicano, Maracanã, Vila Rosa, Monte Líbano. Nenhuma busca vai encontrá-los.
+Por isso existe `PUT /geo/bairro`: o candidato aponta no mapa (ou escolhe o
+nome certo na lista da cidade) **uma vez**, aquilo vira `origem = 'manual'` e
+nunca mais é sobrescrito nem invalidado por `versao_geo`.
+
+**Caminho que NÃO funciona, já testado:** geocodificar por CEP. A BrasilAPI
+devolve `location.coordinates`, mas é o centro da cidade disfarçado — dois CEPs
+de bairros diferentes de Dourados (79825070 e 79814490) voltam com a mesma
+coordenada. Guardar o CEP melhoraria o cadastro, mas não posiciona ninguém.
+
+_(o que segue é o detalhe das duas fontes de busca por texto)_
+
+**Nominatim e Photon erram diferente** (`localizarBairro`, passos 2 e 3):
 
 1. **Nominatim** limitado ao retângulo da cidade. Quando acha, é o resultado
    mais confiável. Mas a maioria dos bairros brasileiros não está no índice de
@@ -336,7 +372,9 @@ Todos sob `/api`. `[A]` = exige sessão.
 | GET | `/` | qualquer (a árvore muda conforme o perfil) |
 | GET | `/duplicados` | candidato, admin |
 | GET | `/geo` | qualquer (só lê o cache, nunca consulta serviço externo) |
-| POST | `/geo/resolver` | candidato, admin (lotes de 8; chama o Nominatim) |
+| POST | `/geo/resolver` | candidato, admin (lotes de 8 consultas externas) |
+| GET | `/geo/lugares` | qualquer (lista oficial de lugares da cidade) |
+| PUT | `/geo/bairro` | candidato, admin (posição marcada à mão) |
 | POST | `/` | liderança, apoiador |
 | PUT | `/:id` | quem passa em `podeGerenciar` |
 | PUT | `/:id/senha` | idem (alvo precisa ter login) |

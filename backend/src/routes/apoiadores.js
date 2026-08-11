@@ -85,21 +85,39 @@ router.get('/duplicados', requireRole('candidato', 'admin'), asyncHandler(async 
 }));
 
 // ── Mapa da rede ──────────────────────────────────────────────────────────
-// Estas duas rotas ficam ANTES de qualquer rota com ':id' de propósito: o
-// Express casa na ordem de declaração, e '/geo' seria engolido por '/:id'.
+// Estas rotas ficam ANTES de qualquer rota com ':id' de propósito: o Express
+// casa na ordem de declaração, e '/geo' seria engolido por '/:id'.
 //
-// A busca é em DOIS passos, e a ordem importa. A primeira versão procurava o
-// bairro no Brasil inteiro e pegava o primeiro resultado: numa campanha de
-// Dourados-MS, "Centro" casou com Uraí-PR e o mapa espalhou bolhas por três
-// estados — errado com cara de certo, que é o pior tipo de erro num relatório.
-// Agora a CIDADE é localizada primeiro, e o bairro só é procurado dentro do
-// retângulo dela. O que cair fora é descartado.
-const VERSAO_GEO = 2; // linha gravada por versão anterior é reprocessada
+// Descobrir onde fica um bairro brasileiro é mais difícil do que parece. A
+// primeira versão procurava o nome do bairro no Brasil inteiro e aceitava o
+// primeiro resultado: numa campanha de Dourados-MS, "Centro" casou com Uraí-PR
+// e o mapa espalhou bolhas por três estados — errado, mas com cara de certo,
+// que é o pior defeito possível num relatório de campanha.
+//
+// Hoje são quatro tentativas, da mais confiável para a menos, e o que nenhuma
+// resolver fica declaradamente sem posição (em vez de receber um chute):
+//
+//   1. LISTA DA CIDADE  — a lista de lugares do município é baixada de uma vez
+//      (Overpass) e guardada. Casar o bairro contra ela não gasta consulta
+//      nenhuma e é o caminho que resolve mais gente.
+//   2. NOMINATIM        — busca por texto, limitada ao retângulo da cidade.
+//   3. PHOTON           — outro índice do mesmo OpenStreetMap, que informa em
+//      qual bairro cada resultado fica; só aceito se esse bairro bater com o
+//      procurado. Sem a conferência, "Jardim Paulista" voltaria como uma
+//      pizzaria no Jardim América.
+//   4. PELAS RUAS       — para o bairro que ninguém conhece pelo nome, usa os
+//      endereços dos próprios apoiadores. Só vale se duas ruas diferentes
+//      caírem perto uma da outra; a posição é a média delas, e fica marcada
+//      como aproximada.
+//
+// Medido com os bairros reais de uma campanha de Dourados: cerca de um terço
+// deles não existe no OpenStreetMap sob nome nenhum (Guanabara, Pelicano,
+// Maracanã, Vila Rosa...). Para esses não há automação possível — por isso
+// existe a rota de posição manual, em que o candidato aponta no mapa uma vez e
+// fica valendo para sempre.
+const VERSAO_GEO = 3;        // linha gravada por versão anterior é reprocessada
+const RAIO_CONCORDANCIA_KM = 3;  // duas ruas do mesmo bairro têm que cair perto
 
-// Lista os bairros da rede de quem está pedindo, cada um com a coordenada que
-// já estiver no cache. Nunca chama serviço externo — é o que abre o mapa
-// rápido. Quem ainda não tem coordenada volta com pendente=true e é resolvido
-// pela rota de baixo, sob comando do usuário.
 router.get('/geo', asyncHandler(async (req, res) => {
   const bairros = await bairrosDaRede(req);
   if (!bairros.length) return res.json({ bairros: [], cidades: [] });
@@ -113,24 +131,23 @@ router.get('/geo', asyncHandler(async (req, res) => {
   res.json({
     bairros: bairros.map((b) => {
       const c = cacheBairros.get(chaveGeo(b.cidade, b.estado, b.bairro));
-      const atual = c && c.versao_geo >= VERSAO_GEO;
+      // Posição marcada à mão nunca vira pendente, mesmo quando a versão da
+      // busca automática sobe — senão o trabalho manual seria refeito do zero.
+      const atual = c && (c.origem === 'manual' || c.versao_geo >= VERSAO_GEO);
       return {
         bairro: b.bairro,
         cidade: b.cidade,
         estado: b.estado,
         lat: atual && c.encontrado ? c.lat : null,
         lng: atual && c.encontrado ? c.lng : null,
-        // Só é pendente quem nunca foi consultado (ou foi por uma versão antiga
-        // da busca). Bairro já procurado e não encontrado fica com
-        // pendente=false para não entrar em fila eterna.
+        origem: atual && c.encontrado ? c.origem : null,
         pendente: !atual,
         naoEncontrado: !!atual && !c.encontrado,
         semCidade: !b.cidade,
       };
     }),
     // O frontend usa isto para juntar num único ponto, no centro da cidade, os
-    // bairros que o OpenStreetMap não conhece — assim eles continuam contando
-    // no mapa em vez de sumir.
+    // bairros que ninguém conhece — assim eles continuam contando no mapa.
     cidades: cidades.map((c) => {
       const g = cacheCidades.get(chaveCidade(c.cidade, c.estado));
       return {
@@ -138,16 +155,68 @@ router.get('/geo', asyncHandler(async (req, res) => {
         estado: c.estado,
         lat: g && g.encontrado ? g.lat : null,
         lng: g && g.encontrado ? g.lng : null,
+        temLista: !!(g && g.lugaresEm),
         pendente: !g,
       };
     }),
   });
 }));
 
-// Descobre as coordenadas que faltam. É chamada em lotes pequenos porque o
-// serviço externo (Nominatim/OpenStreetMap) exige no máximo 1 consulta por
-// segundo — um lote de 8 já leva 8 segundos, e lote grande estouraria o tempo
-// limite do Traefik. O frontend chama de novo enquanto sobrar pendente.
+// Lista oficial de lugares da cidade, para o candidato escolher o nome certo
+// quando o que foi digitado não bate com nada ("PRQ ALVORADA" → Parque Alvorada).
+router.get('/geo/lugares', asyncHandler(async (req, res) => {
+  const cidade = String(req.query.cidade || '').trim();
+  const estado = String(req.query.estado || '').trim().toUpperCase();
+  if (!cidade) return res.json([]);
+  const { rows } = await pool.query(
+    `SELECT nome, tipo, lat, lng FROM geo_lugares
+     WHERE lower(cidade) = lower($1) AND lower(estado) = lower($2)
+     ORDER BY nome`,
+    [cidade, estado]
+  );
+  res.json(rows);
+}));
+
+// Posição definida à mão: o candidato apontou no mapa (lat/lng) ou escolheu um
+// nome da lista da cidade (nomeOficial). É a última palavra — nenhuma busca
+// automática sobrescreve isso depois.
+router.put('/geo/bairro', requireRole('candidato', 'admin'), asyncHandler(async (req, res) => {
+  const { bairro, cidade, estado, lat, lng, nomeOficial } = req.body || {};
+  if (!bairro) return res.status(400).json({ error: 'Informe o bairro.' });
+
+  let ponto = null;
+  if (nomeOficial) {
+    const { rows } = await pool.query(
+      `SELECT lat, lng FROM geo_lugares
+       WHERE lower(cidade) = lower($1) AND lower(estado) = lower($2) AND lower(nome) = lower($3)`,
+      [cidade || '', estado || '', nomeOficial]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Esse lugar não está na lista da cidade.' });
+    ponto = { lat: rows[0].lat, lng: rows[0].lng };
+  } else {
+    const latNum = Number(lat);
+    const lngNum = Number(lng);
+    if (!dentroDoBrasil(latNum, lngNum)) {
+      return res.status(400).json({ error: 'Posição inválida — o ponto precisa estar no Brasil.' });
+    }
+    ponto = { lat: latNum, lng: lngNum };
+  }
+
+  await pool.query(
+    `INSERT INTO geo_bairros (cidade, estado, bairro, lat, lng, encontrado, tentativas, versao_geo, origem)
+     VALUES ($1,$2,$3,$4,$5,true,1,$6,'manual')
+     ON CONFLICT (lower(cidade), lower(estado), lower(bairro)) DO UPDATE
+       SET lat = EXCLUDED.lat, lng = EXCLUDED.lng, encontrado = true,
+           versao_geo = EXCLUDED.versao_geo, origem = 'manual', atualizado_em = now()`,
+    [cidade || '', (estado || '').toUpperCase(), bairro, ponto.lat, ponto.lng, VERSAO_GEO]
+  );
+  res.json({ bairro, cidade, estado, ...ponto, origem: 'manual' });
+}));
+
+// Descobre as coordenadas que faltam. É chamada em lotes pequenos porque os
+// serviços externos limitam a 1 consulta por segundo — um lote de 8 já leva 8
+// segundos, e lote grande estouraria o tempo limite do Traefik. O frontend
+// chama de novo enquanto sobrar pendente.
 router.post('/geo/resolver', requireRole('candidato', 'admin'), asyncHandler(async (req, res) => {
   const LOTE = 8;
   const bairros = await bairrosDaRede(req);
@@ -155,18 +224,21 @@ router.post('/geo/resolver', requireRole('candidato', 'admin'), asyncHandler(asy
   const cacheCidades = await buscarCacheCidades(cidades);
 
   let orcamento = LOTE;      // consultas externas que este lote ainda pode gastar
-  let consultas = 0;         // consultas externas já feitas (para o 1 por segundo)
-  let resolvidos = 0;        // quantos ganharam coordenada
-  let cidadesFeitas = 0;     // itens que saíram da fila de pendentes...
-  let processadosBairros = 0; // ...contados em itens, não em consultas
+  let consultas = 0;         // já feitas (controla a espera de 1 por segundo)
+  let resolvidos = 0;
+  let itensFeitos = 0;       // a fila anda em ITENS, não em consultas
+
+  const gastar = async () => {
+    if (consultas > 0) await esperar(1100);
+    consultas++; orcamento--;
+  };
 
   // 1º as cidades: sem o retângulo da cidade não dá para procurar bairro nenhum.
   const cidadesPendentes = cidades.filter((c) => c.cidade && !cacheCidades.has(chaveCidade(c.cidade, c.estado)));
   for (const c of cidadesPendentes) {
     if (orcamento <= 0) break;
-    if (consultas > 0) await esperar(1100);
+    await gastar();
     const achada = await geocodificarCidade(c);
-    consultas++; orcamento--;
     await pool.query(
       `INSERT INTO geo_cidades (cidade, estado, lat, lng, bbox_sul, bbox_norte, bbox_oeste, bbox_leste, encontrado, tentativas)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,1)
@@ -178,56 +250,217 @@ router.post('/geo/resolver', requireRole('candidato', 'admin'), asyncHandler(asy
         achada ? achada.bbox.sul : null, achada ? achada.bbox.norte : null,
         achada ? achada.bbox.oeste : null, achada ? achada.bbox.leste : null, !!achada]
     );
-    cidadesFeitas++;
-    if (achada) { cacheCidades.set(chaveCidade(c.cidade, c.estado), { ...achada, encontrado: true }); resolvidos++; }
+    itensFeitos++;
+    if (achada) { cacheCidades.set(chaveCidade(c.cidade, c.estado), { ...achada, encontrado: true, lugaresEm: null }); resolvidos++; }
   }
 
-  // 2º os bairros, cada um limitado ao retângulo da própria cidade.
+  // 2º a lista de lugares de cada cidade: UMA consulta traz as centenas de
+  // bairros do município de uma vez. É o melhor negócio da rotina inteira.
+  const semLista = cidades.filter((c) => {
+    const g = cacheCidades.get(chaveCidade(c.cidade, c.estado));
+    return g && g.encontrado && !g.lugaresEm;
+  });
+  for (const c of semLista) {
+    if (orcamento <= 0) break;
+    await gastar();
+    const lugares = await baixarLugaresDaCidade(c);
+    if (lugares && lugares.length) {
+      for (const l of lugares) {
+        await pool.query(
+          `INSERT INTO geo_lugares (cidade, estado, nome, tipo, lat, lng)
+           VALUES ($1,$2,$3,$4,$5,$6)
+           ON CONFLICT (lower(cidade), lower(estado), lower(nome)) DO UPDATE
+             SET tipo=EXCLUDED.tipo, lat=EXCLUDED.lat, lng=EXCLUDED.lng, atualizado_em=now()`,
+          [c.cidade, c.estado, l.nome, l.tipo, l.lat, l.lng]
+        );
+      }
+    }
+    // Marca como baixada mesmo quando volta vazia: o Overpass bloqueia quem
+    // insiste, e cidade sem bairro mapeado não vai passar a ter na próxima.
+    await pool.query(
+      `UPDATE geo_cidades SET lugares_em = now() WHERE lower(cidade)=lower($1) AND lower(estado)=lower($2)`,
+      [c.cidade, c.estado]
+    );
+    const g = cacheCidades.get(chaveCidade(c.cidade, c.estado));
+    if (g) g.lugaresEm = new Date();
+    itensFeitos++;
+  }
+
+  // 3º os bairros.
   const cacheBairros = await buscarCacheBairros(bairros);
   const pendentes = bairros.filter((b) => {
     const c = cacheBairros.get(chaveGeo(b.cidade, b.estado, b.bairro));
-    return !c || c.versao_geo < VERSAO_GEO;
+    return !c || (c.origem !== 'manual' && c.versao_geo < VERSAO_GEO);
   });
 
   for (const b of pendentes) {
     if (orcamento <= 0) break;
     const cidade = b.cidade ? cacheCidades.get(chaveCidade(b.cidade, b.estado)) : null;
-    // Bairro sem cidade preenchida no cadastro, ou de cidade que o mapa não
-    // conhece, é gravado como não encontrado SEM gastar consulta: procurar só
-    // pelo nome do bairro é exatamente o que trazia a cidade errada.
+    // Bairro sem cidade no cadastro é gravado como não encontrado SEM gastar
+    // consulta: procurar só pelo nome do bairro é exatamente o que trazia a
+    // cidade errada.
     const podeProcurar = !!(cidade && cidade.encontrado && cidade.bbox);
-    let ponto = null;
-    let bairrosProcurados = 0;
+    let achado = null;
     if (podeProcurar) {
-      if (consultas > 0) await esperar(1100);
-      // Pode gastar mais de uma consulta: se o Nominatim não achar, ainda tenta
-      // o Photon. O orçamento é contado em consultas, e não em bairros, para o
-      // lote não estourar o tempo limite do Traefik quando quase tudo falha.
-      const busca = await geocodificarBairro(b, cidade.bbox);
-      ponto = busca.ponto;
-      consultas += busca.chamadas;
-      orcamento -= busca.chamadas;
-      bairrosProcurados = 1;
-      if (ponto) resolvidos++;
+      achado = await localizarBairro(b, cidade, gastar, () => orcamento);
     }
-    processadosBairros += bairrosProcurados;
     await pool.query(
-      `INSERT INTO geo_bairros (cidade, estado, bairro, lat, lng, encontrado, tentativas, versao_geo)
-       VALUES ($1, $2, $3, $4, $5, $6, 1, $7)
+      `INSERT INTO geo_bairros (cidade, estado, bairro, lat, lng, encontrado, tentativas, versao_geo, origem)
+       VALUES ($1, $2, $3, $4, $5, $6, 1, $7, $8)
        ON CONFLICT (lower(cidade), lower(estado), lower(bairro)) DO UPDATE
          SET lat = EXCLUDED.lat, lng = EXCLUDED.lng, encontrado = EXCLUDED.encontrado,
              tentativas = geo_bairros.tentativas + 1, versao_geo = EXCLUDED.versao_geo,
-             atualizado_em = now()`,
-      [b.cidade, b.estado, b.bairro, ponto ? ponto.lat : null, ponto ? ponto.lng : null, !!ponto, VERSAO_GEO]
+             origem = EXCLUDED.origem, atualizado_em = now()`,
+      [b.cidade, b.estado, b.bairro, achado ? achado.lat : null, achado ? achado.lng : null,
+        !!achado, VERSAO_GEO, achado ? achado.origem : 'busca']
     );
+    itensFeitos++;
+    if (achado) resolvidos++;
   }
 
-  // A conta é em ITENS que saíram da fila, não em consultas: bairro sem cidade
-  // no cadastro é gravado sem gastar consulta nenhuma, e contá-lo como consulta
-  // deixaria "restantes" travado num número que nunca chegava a zero.
-  const restantes = (cidadesPendentes.length - cidadesFeitas) + (pendentes.length - processadosBairros);
-  res.json({ processados: cidadesFeitas + processadosBairros, consultas, resolvidos, restantes: Math.max(0, restantes) });
+  const restantes = Math.max(0,
+    (cidadesPendentes.length + semLista.length + pendentes.length) - itensFeitos);
+  res.json({ processados: itensFeitos, consultas, resolvidos, restantes });
 }));
+
+// As quatro tentativas, em ordem. `gastar` cuida da espera de 1 por segundo e
+// do orçamento do lote; `saldo` diz quanto ainda dá para gastar.
+async function localizarBairro(b, cidade, gastar, saldo) {
+  // 1. lista da cidade — de graça, já está no banco
+  const daLista = await acharNaListaDaCidade(b);
+  if (daLista) return { ...daLista, origem: 'busca' };
+
+  const dentroDaCidade = (lat, lng) =>
+    Number.isFinite(lat) && Number.isFinite(lng) &&
+    lat >= cidade.bbox.sul && lat <= cidade.bbox.norte &&
+    lng >= cidade.bbox.oeste && lng <= cidade.bbox.leste;
+
+  // 2. Nominatim preso ao retângulo da cidade
+  if (saldo() > 0) {
+    await gastar();
+    const viewbox = [cidade.bbox.oeste, cidade.bbox.norte, cidade.bbox.leste, cidade.bbox.sul].join(',');
+    const achado = await consultarNominatim(
+      `bounded=1&viewbox=${encodeURIComponent(viewbox)}&q=`
+      + encodeURIComponent([b.bairro, b.cidade, b.estado, 'Brasil'].filter(Boolean).join(', '))
+    );
+    if (achado) {
+      const lat = parseFloat(achado.lat);
+      const lng = parseFloat(achado.lon);
+      // Confere de novo em vez de confiar no bounded=1: o Nominatim devolve
+      // resultado fora da viewbox quando não acha nada dentro dela.
+      if (dentroDaCidade(lat, lng)) return { lat, lng, origem: 'busca' };
+    }
+  }
+
+  // 3. Photon, aceitando só o resultado cujo bairro bate com o procurado
+  if (saldo() > 0) {
+    await gastar();
+    const candidatos = await consultarPhoton(b.bairro, b.cidade, cidade.bbox);
+    for (const c of candidatos) {
+      if (!dentroDaCidade(c.lat, c.lng)) continue;
+      if (b.cidade && c.cidade && !mesmoNome(c.cidade, b.cidade)) continue;
+      if (mesmoNome(c.nome, b.bairro) || mesmoNome(c.distrito, b.bairro)) {
+        return { lat: c.lat, lng: c.lng, origem: 'busca' };
+      }
+    }
+  }
+
+  // 4. pelas ruas dos próprios apoiadores do bairro
+  return localizarPelasRuas(b, cidade, dentroDaCidade, gastar, saldo);
+}
+
+// Bairro que o mapa não conhece pelo nome ainda pode ser localizado pelas ruas
+// de quem mora nele — a cobertura de RUAS no OpenStreetMap é muito melhor que a
+// de bairros. O risco é a rua repetir nome em outra parte da cidade, então uma
+// rua sozinha não vale: são necessárias duas caindo a menos de 3 km uma da
+// outra. Se discordarem, é sinal de que o nome é ambíguo e nada é aceito.
+async function localizarPelasRuas(b, cidade, dentroDaCidade, gastar, saldo) {
+  const ruas = (b.ruas || []).slice(0, 3);
+  if (ruas.length < 2) return null;
+
+  const pontos = [];
+  for (const rua of ruas) {
+    if (saldo() <= 0) break;
+    await gastar();
+    const candidatos = await consultarPhoton(rua, b.cidade, cidade.bbox);
+    const bom = candidatos.find((c) => dentroDaCidade(c.lat, c.lng) && mesmoNome(c.nome, rua));
+    if (bom) pontos.push({ lat: bom.lat, lng: bom.lng });
+    if (pontos.length >= 2) break;
+  }
+  if (pontos.length < 2) return null;
+
+  const perto = distanciaKm(pontos[0], pontos[1]) <= RAIO_CONCORDANCIA_KM;
+  if (!perto) return null;
+  return {
+    lat: (pontos[0].lat + pontos[1].lat) / 2,
+    lng: (pontos[0].lng + pontos[1].lng) / 2,
+    origem: 'rua',
+  };
+}
+
+function distanciaKm(a, b) {
+  const dLat = (a.lat - b.lat) * 111;
+  const dLng = (a.lng - b.lng) * 111 * Math.cos((a.lat * Math.PI) / 180);
+  return Math.hypot(dLat, dLng);
+}
+
+async function acharNaListaDaCidade(b) {
+  if (!b.cidade) return null;
+  const { rows } = await pool.query(
+    `SELECT nome, lat, lng FROM geo_lugares WHERE lower(cidade)=lower($1) AND lower(estado)=lower($2)`,
+    [b.cidade, b.estado]
+  );
+  for (const l of rows) if (mesmoNome(l.nome, b.bairro)) return { lat: l.lat, lng: l.lng };
+  return null;
+}
+
+// A lista de lugares do município inteiro numa consulta só. Pega tanto o bairro
+// mapeado como ponto (place=suburb) quanto o mapeado como área residencial
+// nomeada, que é como boa parte dos loteamentos aparece.
+async function baixarLugaresDaCidade({ cidade, estado }) {
+  const consulta = `[out:json][timeout:60];
+area["name"="${cidade.replace(/"/g, '')}"]["admin_level"="8"]["boundary"="administrative"]->.c;
+(
+  node(area.c)["place"~"^(suburb|neighbourhood|quarter|city_block|village|hamlet)$"];
+  way(area.c)["place"~"^(suburb|neighbourhood|quarter|city_block)$"];
+  relation(area.c)["place"~"^(suburb|neighbourhood|quarter|city_block)$"];
+  way(area.c)["landuse"="residential"]["name"];
+);
+out center tags;`;
+  const cancelar = new AbortController();
+  const relogio = setTimeout(() => cancelar.abort(), 60000);
+  try {
+    const resp = await fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      signal: cancelar.signal,
+      headers: { 'User-Agent': 'RedeApoio/1.0 (mapa de rede politica)', 'Content-Type': 'text/plain' },
+      body: consulta,
+    });
+    if (!resp.ok) return null;
+    const texto = await resp.text();
+    // Quando está sobrecarregado, o Overpass responde XML de erro com status
+    // 200 — sem esta checagem o JSON.parse derruba a requisição inteira.
+    if (!texto.trim().startsWith('{')) return null;
+    const dados = JSON.parse(texto);
+    const vistos = new Set();
+    const saida = [];
+    for (const e of (dados.elements || [])) {
+      const nome = e.tags && e.tags.name;
+      const lat = e.lat != null ? e.lat : e.center && e.center.lat;
+      const lng = e.lon != null ? e.lon : e.center && e.center.lon;
+      if (!nome || lat == null || lng == null) continue;
+      const chave = nome.toLowerCase();
+      if (vistos.has(chave)) continue;
+      vistos.add(chave);
+      saida.push({ nome, tipo: e.tags.place || (e.tags.landuse ? 'landuse=' + e.tags.landuse : null), lat, lng });
+    }
+    return saida;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(relogio);
+  }
+}
 
 function chaveGeo(cidade, estado, bairro) {
   return `${(cidade || '').trim().toLowerCase()}|${(estado || '').trim().toLowerCase()}|${(bairro || '').trim().toLowerCase()}`;
@@ -239,7 +472,7 @@ const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function buscarCacheBairros(bairros) {
   const { rows } = await pool.query(
-    `SELECT cidade, estado, bairro, lat, lng, encontrado, versao_geo FROM geo_bairros
+    `SELECT cidade, estado, bairro, lat, lng, encontrado, versao_geo, origem FROM geo_bairros
      WHERE (lower(cidade), lower(estado), lower(bairro)) IN
            (SELECT lower(c), lower(e), lower(b) FROM unnest($1::text[], $2::text[], $3::text[]) AS t(c, e, b))`,
     [bairros.map((b) => b.cidade), bairros.map((b) => b.estado), bairros.map((b) => b.bairro)]
@@ -250,13 +483,14 @@ async function buscarCacheBairros(bairros) {
 async function buscarCacheCidades(cidades) {
   if (!cidades.length) return new Map();
   const { rows } = await pool.query(
-    `SELECT cidade, estado, lat, lng, bbox_sul, bbox_norte, bbox_oeste, bbox_leste, encontrado FROM geo_cidades
+    `SELECT cidade, estado, lat, lng, bbox_sul, bbox_norte, bbox_oeste, bbox_leste, encontrado, lugares_em
+     FROM geo_cidades
      WHERE (lower(cidade), lower(estado)) IN
            (SELECT lower(c), lower(e) FROM unnest($1::text[], $2::text[]) AS t(c, e))`,
     [cidades.map((c) => c.cidade), cidades.map((c) => c.estado)]
   );
   return new Map(rows.map((r) => [chaveCidade(r.cidade, r.estado), {
-    lat: r.lat, lng: r.lng, encontrado: r.encontrado,
+    lat: r.lat, lng: r.lng, encontrado: r.encontrado, lugaresEm: r.lugares_em,
     bbox: r.bbox_sul == null ? null : { sul: r.bbox_sul, norte: r.bbox_norte, oeste: r.bbox_oeste, leste: r.bbox_leste },
   }]));
 }
@@ -276,9 +510,12 @@ function cidadesDosBairros(bairros) {
 //
 // O agrupamento é por bairro+cidade, e a UF é preenchida a partir de qualquer
 // cadastro do mesmo bairro que a tenha. Cada pessoa digita o endereço de um
-// jeito: o mesmo "Jardim Paulista" aparecia como três bairros diferentes
-// (com UF, sem UF, cidade em maiúscula) e cada um consumia uma consulta,
-// enchendo a lista de "não reconhecidos" com duplicatas do mesmo lugar.
+// jeito: o mesmo "Jardim Paulista" aparecia como três bairros diferentes (com
+// UF, sem UF, cidade em maiúscula) e cada um consumia uma consulta, enchendo a
+// lista de "não reconhecidos" com duplicatas do mesmo lugar.
+//
+// As ruas mais repetidas de cada bairro vêm junto: são a última chance de
+// localizar quem não é encontrado pelo nome.
 async function bairrosDaRede(req) {
   const ehArvoreCandidato = req.effectivePerfil === 'candidato' || req.user.perfil === 'admin';
   const { rows } = await pool.query(
@@ -292,20 +529,72 @@ async function bairrosDaRede(req) {
     const cidade = (a.cidade || '').trim();
     const estado = (a.estado || '').trim().toUpperCase();
     const chave = `${bairro.toLowerCase()}|${cidade.toLowerCase()}`;
-    const item = mapa.get(chave);
-    if (!item) { mapa.set(chave, { bairro, cidade, estado }); continue; }
+    let item = mapa.get(chave);
+    if (!item) { item = { bairro, cidade, estado, contagemRuas: new Map() }; mapa.set(chave, item); }
     if (!item.estado && estado) item.estado = estado;
+    const rua = nomeDaRua(a.endereco);
+    if (rua) item.contagemRuas.set(rua, (item.contagemRuas.get(rua) || 0) + 1);
   }
-  return [...mapa.values()];
+  return [...mapa.values()].map((item) => ({
+    bairro: item.bairro,
+    cidade: item.cidade,
+    estado: item.estado,
+    ruas: [...item.contagemRuas.entries()].sort((x, y) => y[1] - x[1]).map(([r]) => r).slice(0, 3),
+  }));
 }
 
-// Brasil inteiro em caixa retangular — última rede de segurança, usada só na
-// busca da cidade (a do bairro já é limitada ao retângulo da cidade).
+// "Rua Cuiabá, 574" e "R. Cuiabá n 574" viram "Rua Cuiabá": o número da casa
+// atrapalha a busca e nunca ajuda a achar a rua.
+function nomeDaRua(endereco) {
+  const limpo = String(endereco || '')
+    .split(',')[0]
+    .replace(/\b(n|no|nº|num|numero)\.?\s*\d+.*$/i, '')
+    .replace(/\s+\d+\s*$/, '')
+    .trim();
+  return limpo.length >= 5 ? limpo : null;
+}
+
+// Brasil inteiro em caixa retangular — última rede de segurança, usada na busca
+// da cidade e na validação do ponto marcado à mão.
 const BBOX_BRASIL = { latMin: -34.0, latMax: 5.3, lngMin: -74.1, lngMax: -34.7 };
 const dentroDoBrasil = (lat, lng) =>
   Number.isFinite(lat) && Number.isFinite(lng) &&
   lat >= BBOX_BRASIL.latMin && lat <= BBOX_BRASIL.latMax &&
   lng >= BBOX_BRASIL.lngMin && lng <= BBOX_BRASIL.lngMax;
+
+// Compara nome de bairro ignorando acento, caixa e as palavras genéricas que
+// metade dos cadastros escreve e a outra metade não ("Jardim América" x
+// "América", "PRQ ALVORADA" x "Parque Alvorada").
+const GENERICOS = /\b(jardim|jardins|jd|vila|vl|parque|pq|prq|residencial|resid|res|conjunto|cj|cjto|habitacional|loteamento|lot|chacara|chacaras|condominio|cond|distrito|bairro|nucleo|setor|aldeia|area|rua|r|avenida|av)\b/g;
+function nomeComparavel(s) {
+  return String(s || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(GENERICOS, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+// Só variações que são o MESMO nome escrito diferente: espaço a mais, plural,
+// numeral romano x arábico, número de casa colado no fim. Nada de "distância de
+// edição": "Vila Rosa" e "Vila Roma" diferem por uma letra e são bairros
+// diferentes — casar por semelhança recria o erro que essa rotina existe para
+// evitar.
+function variacoesDoNome(s) {
+  const base = nomeComparavel(s)
+    .replace(/\biii\b/g, '3').replace(/\bii\b/g, '2').replace(/\bi\b/g, '1')
+    .replace(/\s+\d{3,}$/, '')
+    .trim();
+  const semEspaco = base.replace(/\s+/g, '');
+  return new Set([base, semEspaco, base.replace(/s\b/g, '').trim(), semEspaco.replace(/s$/, '')]
+    .filter(Boolean));
+}
+function mesmoNome(a, b) {
+  if (!a || !b) return false;
+  const va = variacoesDoNome(a);
+  for (const x of variacoesDoNome(b)) if (va.has(x)) return true;
+  return false;
+}
 
 async function consultarNominatim(parametros) {
   const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=br&' + parametros;
@@ -348,73 +637,12 @@ async function geocodificarCidade({ cidade, estado }) {
   return { lat, lng, bbox };
 }
 
-// Compara nome de bairro ignorando acento, caixa e as palavras genéricas que
-// metade dos cadastros escreve e a outra metade não ("Jardim América" x
-// "América", "Vl. Cachoeirinha" x "Vila Cachoeirinha").
-const GENERICOS = /\b(jardim|jd|vila|vl|parque|pq|residencial|resid|conjunto|habitacional|loteamento|lot|chacara|distrito|bairro|nucleo|setor)\b/g;
-function nomeComparavel(s) {
-  return String(s || '')
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(GENERICOS, ' ')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
-}
-
-// Duas fontes, nesta ordem, porque elas erram de formas diferentes:
-//
-//  1. Nominatim limitado ao retângulo da cidade. Quando encontra, é o resultado
-//     mais confiável — é o bairro como lugar, não um ponto dentro dele. Mas a
-//     maioria dos bairros brasileiros não está no índice de busca dele: numa
-//     amostra de 8 bairros de Dourados, só 3 foram encontrados.
-//
-//  2. Photon (outro índice do mesmo OpenStreetMap), que devolve em qual bairro
-//     cada resultado fica. Aqui o resultado NÃO é aceito de cara: só vale se o
-//     bairro informado por ele bater com o que estamos procurando. Sem essa
-//     conferência, "Jardim Paulista" voltaria como uma pizzaria no Jardim
-//     América e "Jardim Guanabara" como uma rua no Jardim Carisma — erro
-//     pequeno no mapa e grande no relatório, porque parece certo.
-//
-// O que as duas recusarem fica sem posição e o mapa agrupa no centro da cidade,
-// declarando que é posição aproximada. Chutar uma coordenada seria pior.
-async function geocodificarBairro({ bairro, cidade, estado }, bbox) {
-  const dentroDaCidade = (lat, lng) =>
-    Number.isFinite(lat) && Number.isFinite(lng) &&
-    lat >= bbox.sul && lat <= bbox.norte && lng >= bbox.oeste && lng <= bbox.leste;
-
-  const viewbox = [bbox.oeste, bbox.norte, bbox.leste, bbox.sul].join(',');
-  const achado = await consultarNominatim(
-    `bounded=1&viewbox=${encodeURIComponent(viewbox)}&q=`
-    + encodeURIComponent([bairro, cidade, estado, 'Brasil'].filter(Boolean).join(', '))
-  );
-  let chamadas = 1;
-  if (achado) {
-    const lat = parseFloat(achado.lat);
-    const lng = parseFloat(achado.lon);
-    // Confere de novo em vez de confiar no bounded=1: o Nominatim devolve
-    // resultado fora da viewbox quando não acha nada dentro dela.
-    if (dentroDaCidade(lat, lng)) return { ponto: { lat, lng }, chamadas };
-  }
-
-  const candidatos = await consultarPhoton(bairro, cidade, bbox);
-  chamadas++;
-  const alvo = nomeComparavel(bairro);
-  for (const c of candidatos) {
-    if (!dentroDaCidade(c.lat, c.lng)) continue;
-    if (cidade && c.cidade && nomeComparavel(c.cidade) !== nomeComparavel(cidade)) continue;
-    if (nomeComparavel(c.nome) === alvo || nomeComparavel(c.distrito) === alvo) {
-      return { ponto: { lat: c.lat, lng: c.lng }, chamadas };
-    }
-  }
-  return { ponto: null, chamadas };
-}
-
-async function consultarPhoton(bairro, cidade, bbox) {
+async function consultarPhoton(termo, cidade, bbox) {
   const centroLat = (bbox.sul + bbox.norte) / 2;
   const centroLng = (bbox.oeste + bbox.leste) / 2;
   const url = 'https://photon.komoot.io/api/?limit=5'
     + `&lat=${centroLat}&lon=${centroLng}`
-    + '&q=' + encodeURIComponent([bairro, cidade].filter(Boolean).join(', '));
+    + '&q=' + encodeURIComponent([termo, cidade].filter(Boolean).join(', '));
   const cancelar = new AbortController();
   const relogio = setTimeout(() => cancelar.abort(), 8000);
   try {
@@ -425,11 +653,11 @@ async function consultarPhoton(bairro, cidade, bbox) {
     if (!resp.ok) return [];
     const dados = await resp.json();
     return (dados.features || []).map((f) => ({
-      nome: f.properties?.name,
-      distrito: f.properties?.district,
-      cidade: f.properties?.city,
-      lat: f.geometry?.coordinates?.[1],
-      lng: f.geometry?.coordinates?.[0],
+      nome: f.properties && f.properties.name,
+      distrito: f.properties && f.properties.district,
+      cidade: f.properties && f.properties.city,
+      lat: f.geometry && f.geometry.coordinates && f.geometry.coordinates[1],
+      lng: f.geometry && f.geometry.coordinates && f.geometry.coordinates[0],
     }));
   } catch {
     return []; // serviço fora do ar não pode derrubar a requisição inteira
