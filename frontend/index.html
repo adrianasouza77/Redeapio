@@ -396,7 +396,8 @@
         <button class="nav-item" onclick="showPage('apoiadores')" data-short="Apoiadores"><span>👥</span> Todos os Apoiadores</button>
         <button class="nav-item" onclick="abrirLinksCadastro()" data-short="Links" style="background:linear-gradient(135deg,#276749,#1a4a32);color:#fff;border-radius:8px;margin-top:4px"><span>🔗</span> Links de cadastro</button>
         <button class="nav-item" onclick="showPage('exportar')"><span>📥</span> Exportar Dados</button>
-        <button class="nav-item" onclick="showPage('grafico')"><span>📈</span> Gráfico por Zona</button>
+        <button class="nav-item" onclick="showPage('grafico')"><span>📈</span> Gráficos da Rede</button>
+        <button class="nav-item" onclick="showPage('mapa')" data-short="Mapa"><span>🗺️</span> Mapa da Rede</button>
         <button class="nav-item" onclick="showPage('usuarios')"><span>🔑</span> Usuários</button>
         <button class="nav-item" onclick="showPage('configuracoes')"><span>⚙️</span> Configurações</button>
         <button class="nav-item" onclick="showPage('minha-conta')"><span>👤</span> Minha Conta</button>
@@ -841,11 +842,13 @@ async function entrarNaApp(user){
   }
 
   if(currentRole === 'admin') {
-    showPage('vagas');
+    showPage(paginaInicial());
   } else {
     await carregarConfig();
     await carregarApoiadores();
-    showPage('dashboard');
+    // paginaInicial() em vez de 'dashboard' fixo: dar F5 em #/mapa volta pro
+    // mapa, e nao joga a pessoa no dashboard como antes.
+    showPage(paginaInicial());
   }
 }
 
@@ -912,11 +915,11 @@ async function confirmarPrimeiroAcesso(){
     showToast('Tudo certo! Bem-vindo(a).', 'success');
 
     if(currentRole === 'admin') {
-      showPage('vagas');
+      showPage(paginaInicial());
     } else {
       await carregarConfig();
       await carregarApoiadores();
-      showPage('dashboard');
+      showPage(paginaInicial());
     }
   } catch(e) {
     hideLoading();
@@ -956,6 +959,9 @@ async function doLogin() {
 function doLogout(){
   api('/auth/logout', { method:'POST' }).catch(()=>{});
   currentUser=null; currentRole=null; APOIADORES=[]; workspaceAdmin=null; _senhaLoginUsada=null;
+  // Limpa o endereco da tela: sem isso o proximo login abriria na ultima tela
+  // de quem saiu, o que confunde quando duas pessoas usam o mesmo aparelho.
+  _ignorarProximoHash = true; location.hash = '';
   document.getElementById('workspace-bar').style.display='none';
   document.getElementById('app').style.display='none';
   document.getElementById('auth-screen').style.display='flex';
@@ -1030,8 +1036,54 @@ function atualizarBottomNav(){
   });
 }
 
+// ══════════════════════════════════════════
+//  ENDEREÇO DE CADA TELA
+// ══════════════════════════════════════════
+// Cada tela tem seu próprio endereço (#/exportar, #/mapa...). Antes tudo vivia
+// na mesma URL: o botão "voltar" do celular saía do sistema, dar F5 jogava a
+// pessoa no dashboard e não dava para mandar "abra a tela X" pra ninguém.
+//
+// Isto NÃO é uma proteção de segurança — quem manda nisso é o servidor, que
+// exige sessão e perfil em toda rota da API. A lista abaixo existe para o
+// sistema não mostrar uma tela em branco quando alguém digita um endereço de
+// outro perfil na barra do navegador.
+const PAGINAS_POR_PAPEL = {
+  candidato: ['dashboard','rede','apoiadores','exportar','grafico','mapa','usuarios','configuracoes','minha-conta'],
+  lideranca: ['dashboard','minha-rede','cadastrar','minha-conta'],
+  apoiador:  ['dashboard','minha-rede','cadastrar','minha-conta'],
+  admin:     ['vagas','minha-conta'],
+};
+function paginasPermitidas(){
+  // O admin dentro de um workspace navega exatamente como o candidato dono dele.
+  if(workspaceAdmin) return PAGINAS_POR_PAPEL.candidato;
+  return PAGINAS_POR_PAPEL[currentRole] || [];
+}
+function paginaPadrao(){ return currentRole === 'admin' && !workspaceAdmin ? 'vagas' : 'dashboard'; }
+function paginaDoEndereco(){
+  const p = (location.hash || '').replace(/^#\/?/, '').trim();
+  return paginasPermitidas().includes(p) ? p : null;
+}
+// Depois do login, respeita o endereço que a pessoa abriu/atualizou.
+function paginaInicial(){ return paginaDoEndereco() || paginaPadrao(); }
+
+let _ignorarProximoHash = false;
+window.addEventListener('hashchange', () => {
+  if(_ignorarProximoHash){ _ignorarProximoHash = false; return; }
+  if(!currentUser) return;
+  const p = paginaDoEndereco();
+  if(p && p !== paginaAtual) showPage(p);
+});
+
 function showPage(page) {
+  // Endereço inventado (link velho, erro de digitação) cai na tela inicial do
+  // perfil em vez de deixar o conteúdo em branco.
+  if(!paginasPermitidas().includes(page)) page = paginaPadrao();
   paginaAtual = page;
+  const endereco = '#/' + page;
+  if(location.hash !== endereco){
+    _ignorarProximoHash = true;
+    location.hash = endereco;
+  }
   toggleSidebar(false); // fecha o drawer do celular ao navegar
   atualizarBottomNav();
   document.querySelectorAll('.nav-item').forEach(el=>{
@@ -1045,6 +1097,7 @@ function showPage(page) {
     case 'apoiadores':    c.innerHTML=renderApoiadores(); break;
     case 'exportar':      c.innerHTML=renderExportar(); break;
     case 'grafico':       c.innerHTML=renderGrafico(); setTimeout(desenharGrafico,50); break;
+    case 'mapa':          c.innerHTML=renderMapa(); setTimeout(carregarMapa,50); break;
     case 'minha-rede':    c.innerHTML=renderMinhaRede(); break;
     case 'cadastrar':     c.innerHTML=renderCadastrar(); break;
     case 'minha-conta':   c.innerHTML=renderMinhaConta(); break;
@@ -1064,8 +1117,6 @@ function renderDashboard(){
     const n2=APOIADORES.filter(a=>a.nivel===2).length;
     const n3=APOIADORES.filter(a=>a.nivel===3).length;
     const n4=APOIADORES.filter(a=>a.nivel===4).length;
-    const regioes={};
-    APOIADORES.forEach(a=>{regioes[a.regiao]=(regioes[a.regiao]||0)+1;});
     return `
     <div class="page-header"><h1>Dashboard Geral</h1><p>Rede de ${CONFIG.candidatoNome} — dados em tempo real</p></div>
     <div class="stats-grid">
@@ -1076,9 +1127,20 @@ function renderDashboard(){
       <div class="stat-card"><div class="stat-label">Nível 4 — Base</div><div class="stat-value">${n4}</div><div class="stat-sub">limite: ${CONFIG.limiteNivel4} cada</div></div>
     </div>
     <div class="card">
-      <div class="card-header"><div class="card-title">Por Região</div><button class="btn-sm btn-navy" onclick="carregarApoiadores().then(()=>showPage('dashboard'))">🔄 Atualizar</button></div>
+      <div class="card-header"><div class="card-title">Por Zona Eleitoral</div>
+        <button class="btn-sm btn-outline" onclick="showPage('grafico')">📈 Ver gráficos</button></div>
       <div style="display:flex;flex-wrap:wrap;gap:12px">
-        ${Object.entries(regioes).map(([r,n])=>`
+        ${contarPor(APOIADORES,zonaDe).map(([z,n])=>`
+          <div style="background:${z===ZONA_VAZIA?'#fdf5e0':'var(--bg)'};border:1px solid ${z===ZONA_VAZIA?'var(--gold)':'var(--border)'};border-radius:8px;padding:12px 20px;text-align:center">
+            <div style="font-size:22px;font-family:'Montserrat',sans-serif;font-weight:800;color:var(--navy)">${n}</div>
+            <div style="font-size:11px;color:var(--slate-light);margin-top:2px">${z===ZONA_VAZIA?'⚠️ Sem zona':'Zona '+z}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Por Região (bairro)</div><button class="btn-sm btn-navy" onclick="carregarApoiadores().then(()=>showPage('dashboard'))">🔄 Atualizar</button></div>
+      <div style="display:flex;flex-wrap:wrap;gap:12px">
+        ${contarPor(APOIADORES,bairroDe).map(([r,n])=>`
           <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 20px;text-align:center">
             <div style="font-size:22px;font-family:'Montserrat',sans-serif;font-weight:800;color:var(--navy)">${n}</div>
             <div style="font-size:11px;color:var(--slate-light);margin-top:2px">${r}</div>
@@ -1279,29 +1341,81 @@ function filterTable(){
   });
 }
 
+// O formato escolhido aqui vale para TODOS os botões da tela. Antes cada grupo
+// (nível, bairro) tinha um botão só de CSV; com Excel e PDF entrando seriam
+// três botões por bairro — numa campanha com 90 bairros a tela viraria uma
+// parede de 270 botões.
+let formatoExport = 'xlsx';
+function setFormatoExport(f){ formatoExport = f; showPage('exportar'); }
+
 function renderExportar(){
+  const porBairro = contarPor(APOIADORES, bairroDe);
+  const porZona = contarPor(APOIADORES, zonaDe);
+  const semZona = APOIADORES.filter(a=>!(a.zona||'').trim()).length;
+  const fmt = [
+    ['xlsx','📗 Excel','.xlsx — abre no Excel, com abas de resumo'],
+    ['pdf','📕 PDF','.pdf — relatório pronto para imprimir'],
+    ['csv','📄 CSV','.csv — texto puro, para importar em outro sistema'],
+  ];
   return `
   <div class="page-header"><h1>Exportar Dados</h1><p>Gere relatórios da sua rede</p></div>
   <div class="card">
-    <div class="card-header"><div class="card-title">Exportação Completa</div></div>
-    <p style="font-size:13px;color:var(--slate-light);margin-bottom:16px">Todos os ${APOIADORES.length} apoiadores.</p>
+    <div class="card-header"><div class="card-title">Formato do arquivo</div></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
-      <button class="btn-sm btn-export" onclick="exportCSV(APOIADORES,'rede-completa.csv')">📥 Exportar CSV</button>
+      ${fmt.map(([id,rot,desc])=>`
+        <button class="btn-sm ${formatoExport===id?'btn-navy':'btn-outline'}" onclick="setFormatoExport('${id}')" style="text-align:left;padding:10px 14px">
+          <div style="font-weight:600">${rot}</div>
+          <div style="font-size:11px;opacity:.75;font-weight:400;margin-top:2px">${desc}</div>
+        </button>`).join('')}
+    </div>
+    <p style="font-size:12px;color:var(--slate-light);margin-top:12px">Escolha o formato e depois clique no recorte que você quer baixar. Excel e PDF já vêm com os resumos por bairro e por zona eleitoral.</p>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="card-title">Exportação Completa</div></div>
+    <p style="font-size:13px;color:var(--slate-light);margin-bottom:16px">Todos os ${APOIADORES.length} apoiadores, em ${porBairro.length} bairros e ${porZona.length} zonas eleitorais.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn-sm btn-export" onclick="exportar(APOIADORES,'rede-completa','Rede completa')">📥 Baixar rede completa</button>
       <button class="btn-sm btn-navy" onclick="exportJSON()">📄 Exportar JSON</button>
     </div>
   </div>
   <div class="card">
     <div class="card-header"><div class="card-title">Por Nível</div></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
-      ${[1,2,3,4].map(n=>`<button class="btn-sm btn-outline" onclick="exportCSV(APOIADORES.filter(a=>a.nivel===${n}),'nivel-${n}.csv')">Nível ${n} (${APOIADORES.filter(a=>a.nivel===n).length})</button>`).join('')}
+      ${[1,2,3,4].map(n=>{
+        const qtd = APOIADORES.filter(a=>a.nivel===n).length;
+        return `<button class="btn-sm btn-outline" ${qtd?'':'disabled style="opacity:.45"'} onclick="exportar(APOIADORES.filter(a=>a.nivel===${n}),'nivel-${n}','Nível ${n}')">Nível ${n} (${qtd})</button>`;
+      }).join('')}
     </div>
   </div>
   <div class="card">
-    <div class="card-header"><div class="card-title">Por Região</div></div>
+    <div class="card-header"><div class="card-title">Por Zona Eleitoral</div></div>
+    ${semZona ? `<p style="font-size:12px;color:#8a6a10;background:#fdf5e0;border:1px solid var(--gold);border-radius:8px;padding:8px 12px;margin-bottom:14px">⚠️ ${semZona} apoiador${semZona>1?'es estão':' está'} sem zona eleitoral preenchida — aparece${semZona>1?'m':''} agrupado${semZona>1?'s':''} como "${ZONA_VAZIA}".</p>` : ''}
     <div style="display:flex;gap:10px;flex-wrap:wrap">
-      ${[...new Set(APOIADORES.map(a=>a.regiao))].map(r=>`<button class="btn-sm btn-outline" onclick="exportCSV(APOIADORES.filter(a=>a.regiao==='${r}'),'${r.replace(/\s/g,'-')}.csv')">${r} (${APOIADORES.filter(a=>a.regiao===r).length})</button>`).join('')}
+      ${porZona.map(([z,n])=>`<button class="btn-sm btn-outline" onclick="exportarPorChave('zona',${JSON.stringify(z).replace(/"/g,'&quot;')})">Zona ${z} (${n})</button>`).join('')}
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="card-title">Por Região (bairro)</div></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      ${porBairro.map(([b,n])=>`<button class="btn-sm btn-outline" onclick="exportarPorChave('bairro',${JSON.stringify(b).replace(/"/g,'&quot;')})">${b} (${n})</button>`).join('')}
     </div>
   </div>`;
+}
+
+// Filtra pelo valor exato do agrupamento. Recebe a chave por parâmetro (e não
+// interpolada dentro de um filter) porque bairro com apóstrofo — "Vila D'Oeste"
+// — quebrava o onclick e o botão simplesmente não fazia nada.
+function exportarPorChave(campo, valor){
+  const fn = campo==='zona' ? zonaDe : bairroDe;
+  const rotulo = campo==='zona' ? `Zona eleitoral ${valor}` : `Bairro ${valor}`;
+  exportar(APOIADORES.filter(a=>fn(a)===valor), `${campo}-${slug(valor)}`, rotulo);
+}
+
+function exportar(dados, nomeArquivo, rotulo){
+  if(!dados.length){ showToast('Nada para exportar nesse recorte.','error'); return; }
+  if(formatoExport==='csv') return exportCSV(dados, nomeArquivo + '.csv');
+  if(formatoExport==='xlsx') return exportXLSX(dados, nomeArquivo, rotulo);
+  return exportPDF(dados, nomeArquivo, rotulo);
 }
 
 // A rede INTEIRA abaixo de quem está logado, separada por nível. Antes esta tela
@@ -1434,7 +1548,7 @@ function renderUsuarios(){
       </div>
       <div class="field"><label>Confirmar Senha *</label><input type="password" id="nu-senha2" placeholder="Repita a senha"></div>
       <div class="field"><label>Perfil *</label>
-        <select id="nu-role"><option value="">Selecione...</option><option value="lideranca">Liderança (Nível 1)</option><option value="apoiador">Apoiador (Nível 2)</option></select>
+        <select id="nu-role"><option value="">Selecione...</option><option value="lideranca">Liderança (Nível 1)</option><option value="apoiador-2">Apoiador (Nível 2)</option><option value="apoiador-3">Apoiador (Nível 3)</option></select>
       </div>
       <div class="field"><label>Telefone</label><input type="tel" id="nu-tel" placeholder="(67) 00000-0000"></div>
       <div class="field"><label>E-mail</label><input type="email" id="nu-email" placeholder="para recuperação de senha"></div>
@@ -1702,90 +1816,401 @@ async function salvarMeuLogin(){
   } catch(e){ hideLoading(); mostrarResultado('mc-login-result', e.message || 'Erro ao trocar login.', false); }
 }
 
+// ══════════════════════════════════════════
+//  GRÁFICOS (bairro e zona eleitoral)
+// ══════════════════════════════════════════
+// Com 90 bairros, pizza e barra viram um borrão ilegível. O gráfico mostra os
+// maiores e junta a cauda em "Outros" — o ranking logo abaixo continua trazendo
+// todo mundo, então nada fica escondido.
+const TOP_GRAFICO = 12;
+let grupoGrafico = 'zona';
+let chartType = 'pie';
+const CORES_GRAFICO = ['#c8a84b','#0f1f3d','#6b8ed6','#276749','#c53030','#e8c96a','#1a3460','#8b5cf6',
+  '#0891b2','#ea580c','#65a30d','#be185d','#a0aec0'];
+
+function setGrupoGrafico(g){ grupoGrafico=g; showPage('grafico'); }
+function setChartType(t){ chartType=t; showPage('grafico'); }
+
+function chaveGrupo(){ return grupoGrafico==='zona' ? zonaDe : bairroDe; }
+function rotuloGrupo(){ return grupoGrafico==='zona' ? 'zona eleitoral' : 'bairro'; }
+
+function dadosGrafico(){
+  const todos = contarPor(APOIADORES, chaveGrupo());
+  if(todos.length <= TOP_GRAFICO) return { itens: todos, resto: 0 };
+  const topo = todos.slice(0, TOP_GRAFICO);
+  const cauda = todos.slice(TOP_GRAFICO);
+  return { itens:[...topo, ['Outros (' + cauda.length + ')', cauda.reduce((s,[,n])=>s+n,0)]], resto: cauda.length };
+}
+
 function renderGrafico(){
-  const regioes={};
-  APOIADORES.forEach(a=>{regioes[a.regiao]=(regioes[a.regiao]||0)+1;});
-  const total=APOIADORES.length;
-  const sorted=Object.entries(regioes).sort((a,b)=>b[1]-a[1]);
+  const total = APOIADORES.length;
+  if(!total) return `
+    <div class="page-header"><h1>Gráficos da Rede</h1><p>Distribuição por bairro e por zona eleitoral</p></div>
+    <div class="card"><div class="empty-state"><div class="icon">📈</div><p>Nenhum apoiador cadastrado ainda.</p></div></div>`;
+  const completo = contarPor(APOIADORES, chaveGrupo());
+  const { itens, resto } = dadosGrafico();
+  const semZona = APOIADORES.filter(a=>!String(a.zona||'').trim()).length;
+  const qtdZonas = contarPor(APOIADORES,zonaDe).filter(([z])=>z!==ZONA_VAZIA).length;
+  const aba = (id,rot,ativo,fn)=>`<button class="btn-sm ${ativo===id?'btn-navy':'btn-outline'}" style="font-size:11px" onclick="${fn}('${id}')">${rot}</button>`;
   return `
-  <div class="page-header"><h1>Gráfico por Zona Eleitoral</h1><p>${total} apoiadores em ${sorted.length} regiões</p></div>
+  <div class="page-header"><h1>Gráficos da Rede</h1><p>${total} apoiadores · ${contarPor(APOIADORES,bairroDe).length} bairros · ${qtdZonas} zona${qtdZonas===1?'':'s'} eleitoral${qtdZonas===1?'':'is'}</p></div>
+
   <div class="card">
-    <div class="card-header"><div class="card-title">Distribuição</div>
+    <div class="card-header">
+      <div class="card-title">Agrupar por</div>
       <div style="display:flex;gap:6px">
-        <button class="btn-sm btn-outline" style="font-size:11px" onclick="setChartType('bar')">Barras</button>
-        <button class="btn-sm btn-outline" style="font-size:11px" onclick="setChartType('pie')">Pizza</button>
-        <button class="btn-sm btn-outline" style="font-size:11px" onclick="setChartType('horizontal')">Horizontal</button>
+        ${aba('bairro','🏘️ Bairro',grupoGrafico,'setGrupoGrafico')}
+        ${aba('zona','🗳️ Zona Eleitoral',grupoGrafico,'setGrupoGrafico')}
       </div>
     </div>
-    <canvas id="grafico-canvas" style="width:100%;max-height:380px"></canvas>
+    ${grupoGrafico==='zona' && semZona ? `<p style="font-size:12px;color:#8a6a10;background:#fdf5e0;border:1px solid var(--gold);border-radius:8px;padding:8px 12px">⚠️ ${semZona} de ${total} apoiadores estão sem zona eleitoral preenchida e aparecem como "${ZONA_VAZIA}".</p>` : ''}
   </div>
+
   <div class="card">
-    <div class="card-header"><div class="card-title">Ranking por Região</div></div>
-    <table><thead><tr><th>#</th><th>Região</th><th>Apoiadores</th><th>%</th><th>Barra</th></tr></thead>
-    <tbody>${sorted.map(([r,n],i)=>{
+    <div class="card-header"><div class="card-title">Distribuição por ${rotuloGrupo()}</div>
+      <div style="display:flex;gap:6px">
+        ${aba('pie','Pizza',chartType,'setChartType')}
+        ${aba('bar','Barras',chartType,'setChartType')}
+        ${aba('horizontal','Horizontal',chartType,'setChartType')}
+      </div>
+    </div>
+    <canvas id="grafico-canvas" style="width:100%;max-height:400px"></canvas>
+    <div style="display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:16px">
+      ${itens.map(([r,n],i)=>`
+        <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--slate)">
+          <span style="width:11px;height:11px;border-radius:3px;background:${CORES_GRAFICO[i%CORES_GRAFICO.length]};flex-shrink:0"></span>
+          <span>${r} — <strong>${n}</strong> (${((n/total)*100).toFixed(1)}%)</span>
+        </div>`).join('')}
+    </div>
+    ${resto ? `<p style="font-size:11px;color:var(--slate-light);margin-top:12px">O gráfico mostra os ${TOP_GRAFICO} maiores; os outros ${resto} entram somados em "Outros" e aparecem inteiros no ranking abaixo.</p>` : ''}
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">Ranking completo por ${rotuloGrupo()}</div></div>
+    <table><thead><tr><th>#</th><th>${grupoGrafico==='zona'?'Zona Eleitoral':'Bairro'}</th><th>Apoiadores</th><th>%</th><th>Barra</th></tr></thead>
+    <tbody>${completo.map(([r,n],i)=>{
       const pct=((n/total)*100).toFixed(1);
-      const bar=Math.round((n/sorted[0][1])*100);
-      const cores=['#c8a84b','#0f1f3d','#6b8ed6','#276749','#c53030','#718096'];
+      const bar=Math.round((n/completo[0][1])*100);
       return `<tr><td><strong style="color:var(--gold)">${i+1}º</strong></td><td><span class="region-tag">${r}</span></td><td><strong>${n}</strong></td><td>${pct}%</td>
-        <td style="min-width:120px"><div class="progress-bar" style="margin-top:0"><div class="progress-fill" style="width:${bar}%;background:${cores[i%cores.length]}"></div></div></td></tr>`;
+        <td style="min-width:120px"><div class="progress-bar" style="margin-top:0"><div class="progress-fill" style="width:${bar}%;background:${CORES_GRAFICO[i%CORES_GRAFICO.length]}"></div></div></td></tr>`;
     }).join('')}</tbody></table>
+  </div>
+
+  ${renderCruzamento()}`;
+}
+
+// Matriz bairro × zona: é o que a campanha usa para montar roteiro de rua —
+// mostra, dentro de um bairro, quantos apoiadores votam em cada zona (bairro
+// grande costuma ser cortado por mais de uma zona eleitoral).
+function renderCruzamento(){
+  const total = APOIADORES.length;
+  const zonas = contarPor(APOIADORES, zonaDe).map(([z])=>z);
+  const bairros = contarPor(APOIADORES, bairroDe);
+  if(zonas.length < 2 || bairros.length < 2) return '';
+  const MAX_COL = 8;
+  const colunas = zonas.slice(0, MAX_COL);
+  const sobra = zonas.slice(MAX_COL);
+  const cabecalhos = [...colunas, ...(sobra.length?['Outras zonas']:[])];
+  const matriz = new Map();
+  APOIADORES.forEach(a=>{
+    const z = colunas.includes(zonaDe(a)) ? zonaDe(a) : 'Outras zonas';
+    const k = bairroDe(a) + SEP_CHAVE + z;
+    matriz.set(k, (matriz.get(k)||0) + 1);
+  });
+  const maior = Math.max(...matriz.values());
+  return `
+  <div class="card">
+    <div class="card-header"><div class="card-title">Cruzamento — Bairro × Zona Eleitoral</div></div>
+    <p style="font-size:12px;color:var(--slate-light);margin-bottom:14px">Quantos apoiadores de cada bairro pertencem a cada zona. Célula mais escura = mais gente.</p>
+    <div style="overflow-x:auto">
+      <table style="min-width:${180+cabecalhos.length*84}px">
+        <thead><tr><th style="position:sticky;left:0;background:var(--white)">Bairro</th>
+          ${cabecalhos.map(z=>`<th style="text-align:center;white-space:nowrap">${z===ZONA_VAZIA?'Sem zona':(z==='Outras zonas'?z:'Zona '+z)}</th>`).join('')}
+          <th style="text-align:center">Total</th></tr></thead>
+        <tbody>${bairros.map(([b,tot])=>`
+          <tr><td style="position:sticky;left:0;background:var(--white)"><span class="region-tag">${b}</span></td>
+            ${cabecalhos.map(z=>{
+              const n = matriz.get(b+SEP_CHAVE+z) || 0;
+              const forca = n ? 0.12 + (n/maior)*0.68 : 0;
+              return `<td style="text-align:center;background:${n?'rgba(15,31,61,'+forca.toFixed(3)+')':'transparent'};color:${forca>0.45?'#fff':'var(--navy)'};font-weight:${n?600:400}">${n||'—'}</td>`;
+            }).join('')}
+            <td style="text-align:center;font-weight:700">${tot}</td></tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    ${sobra.length?`<p style="font-size:11px;color:var(--slate-light);margin-top:10px">As ${sobra.length} zonas com menos apoiadores foram somadas em "Outras zonas" para a tabela caber na tela.</p>`:''}
+    <p style="font-size:11px;color:var(--slate-light);margin-top:6px">Total geral: ${total} apoiadores.</p>
   </div>`;
 }
 
-let chartType='bar';
-function setChartType(t){chartType=t;desenharGrafico();}
 function desenharGrafico(){
   const canvas=document.getElementById('grafico-canvas');
-  if(!canvas)return;
-  const regioes={};
-  APOIADORES.forEach(a=>{regioes[a.regiao]=(regioes[a.regiao]||0)+1;});
-  const sorted=Object.entries(regioes).sort((a,b)=>b[1]-a[1]);
-  const labels=sorted.map(([r])=>r);
-  const values=sorted.map(([,n])=>n);
+  if(!canvas) return;
+  const { itens } = dadosGrafico();
+  const labels=itens.map(([r])=>r);
+  const values=itens.map(([,n])=>n);
   const total=values.reduce((s,v)=>s+v,0);
-  const CORES=['#c8a84b','#0f1f3d','#6b8ed6','#276749','#c53030','#e8c96a','#a0aec0'];
+  if(!total) return;
   const ctx=canvas.getContext('2d');
-  const W=canvas.parentElement.clientWidth-48, H=360;
-  canvas.width=W; canvas.height=H;
+  // O canvas é montado na resolução real da tela: sem isso, no celular o
+  // gráfico saía borrado (o navegador estica um bitmap de 1x para 2x/3x).
+  const escala=window.devicePixelRatio||1;
+  const W=Math.max(280,(canvas.parentElement.clientWidth||600)-48), H=380;
+  canvas.width=W*escala; canvas.height=H*escala;
+  canvas.style.width=W+'px'; canvas.style.height=H+'px';
+  ctx.setTransform(escala,0,0,escala,0,0);
   ctx.clearRect(0,0,W,H);
-  const pad={top:24,right:20,bottom:60,left:50};
+  const pad={top:24,right:20,bottom:70,left:52};
+
   if(chartType==='pie'){
-    const cx=W/2,cy=H/2-10,r=Math.min(W,H)/2-60;
-    let angle=-Math.PI/2;
+    const cx=W/2, cy=H/2, r=Math.min(W,H)/2-30;
+    let angulo=-Math.PI/2;
     values.forEach((v,i)=>{
-      const slice=(v/total)*Math.PI*2;
-      ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,angle,angle+slice);ctx.closePath();
-      ctx.fillStyle=CORES[i%CORES.length];ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
-      if(slice>0.15){const mid=angle+slice/2;ctx.fillStyle='#fff';ctx.font="bold 12px 'Inter',sans-serif";ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(v,cx+Math.cos(mid)*r*0.65,cy+Math.sin(mid)*r*0.65);}
-      angle+=slice;
+      const fatia=(v/total)*Math.PI*2;
+      ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,r,angulo,angulo+fatia); ctx.closePath();
+      ctx.fillStyle=CORES_GRAFICO[i%CORES_GRAFICO.length]; ctx.fill();
+      ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.stroke();
+      // Só rotula a fatia que tem espaço; o resto se lê na legenda em HTML
+      // abaixo do gráfico (a legenda desenhada dentro do canvas se sobrepunha).
+      if(fatia>0.28){
+        const meio=angulo+fatia/2;
+        ctx.fillStyle='#fff'; ctx.font="bold 12px 'Inter',sans-serif";
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(((v/total)*100).toFixed(0)+'%', cx+Math.cos(meio)*r*0.68, cy+Math.sin(meio)*r*0.68);
+      }
+      angulo+=fatia;
     });
-    labels.forEach((l,i)=>{const x=16+i*(W/labels.length);ctx.fillStyle=CORES[i%CORES.length];ctx.fillRect(x,H-14,10,10);ctx.fillStyle='#4a5568';ctx.font="11px 'Inter',sans-serif";ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(l.length>8?l.slice(0,8)+'…':l,x+13,H-9);});
   } else if(chartType==='horizontal'){
-    const barH=Math.min(36,(H-pad.top-pad.bottom)/values.length-6);
+    const alturaBarra=Math.max(10,Math.min(30,(H-pad.top-24)/values.length-6));
     const maxV=Math.max(...values);
-    const chartW=W-pad.left-pad.right-100;
+    const rotuloW=118;
+    const chartW=W-pad.left-pad.right-rotuloW;
     values.forEach((v,i)=>{
-      const y=pad.top+i*(barH+8);
-      ctx.fillStyle=CORES[i%CORES.length];roundRect(ctx,pad.left+100,y,(v/maxV)*chartW,barH,4);ctx.fill();
-      ctx.fillStyle='#4a5568';ctx.font="12px 'Inter',sans-serif";ctx.textAlign='right';ctx.textBaseline='middle';ctx.fillText(labels[i],pad.left+95,y+barH/2);
-      ctx.fillStyle='#0f1f3d';ctx.font="bold 12px 'Inter',sans-serif";ctx.textAlign='left';ctx.fillText(v+' ('+((v/total)*100).toFixed(0)+'%)',pad.left+100+(v/maxV)*chartW+6,y+barH/2);
+      const y=pad.top+i*(alturaBarra+6);
+      const comprimento=Math.max(2,(v/maxV)*chartW);
+      ctx.fillStyle=CORES_GRAFICO[i%CORES_GRAFICO.length];
+      roundRect(ctx,pad.left+rotuloW,y,comprimento,alturaBarra,4); ctx.fill();
+      ctx.fillStyle='#4a5568'; ctx.font="12px 'Inter',sans-serif"; ctx.textAlign='right'; ctx.textBaseline='middle';
+      ctx.fillText(cortarCanvas(ctx,labels[i],rotuloW-8),pad.left+rotuloW-8,y+alturaBarra/2);
+      ctx.fillStyle='#0f1f3d'; ctx.font="bold 11px 'Inter',sans-serif"; ctx.textAlign='left';
+      ctx.fillText(v+' ('+((v/total)*100).toFixed(0)+'%)',pad.left+rotuloW+comprimento+6,y+alturaBarra/2);
     });
   } else {
     const maxV=Math.max(...values,1);
-    const n=values.length;
-    const barW=Math.min(60,(W-pad.left-pad.right)/n-10);
     const chartH=H-pad.top-pad.bottom;
-    for(let i=0;i<=5;i++){const y=pad.top+i*(chartH/5);ctx.strokeStyle='#e8edf7';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(W-pad.right,y);ctx.stroke();ctx.fillStyle='#a0aec0';ctx.font="11px 'Inter',sans-serif";ctx.textAlign='right';ctx.textBaseline='middle';ctx.fillText(Math.round(maxV*(1-i/5)),pad.left-6,y);}
+    const passo=(W-pad.left-pad.right)/values.length;
+    const barW=Math.max(6,Math.min(56,passo-10));
+    for(let i=0;i<=5;i++){
+      const y=pad.top+i*(chartH/5);
+      ctx.strokeStyle='#e8edf7'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(pad.left,y); ctx.lineTo(W-pad.right,y); ctx.stroke();
+      ctx.fillStyle='#a0aec0'; ctx.font="11px 'Inter',sans-serif"; ctx.textAlign='right'; ctx.textBaseline='middle';
+      ctx.fillText(Math.round(maxV*(1-i/5)),pad.left-6,y);
+    }
     values.forEach((v,i)=>{
-      const x=pad.left+i*(barW+10)+5;
+      const x=pad.left+i*passo+(passo-barW)/2;
       const bh=(v/maxV)*chartH;
       const y=pad.top+chartH-bh;
-      ctx.fillStyle=CORES[i%CORES.length];roundRect(ctx,x,y,barW,bh,4);ctx.fill();
-      ctx.fillStyle='#0f1f3d';ctx.font="bold 12px 'Inter',sans-serif";ctx.textAlign='center';ctx.textBaseline='bottom';ctx.fillText(v,x+barW/2,y-4);
-      ctx.fillStyle='#4a5568';ctx.font="11px 'Inter',sans-serif";ctx.textBaseline='top';ctx.fillText(labels[i].length>9?labels[i].slice(0,9)+'…':labels[i],x+barW/2,H-pad.bottom+6);
+      ctx.fillStyle=CORES_GRAFICO[i%CORES_GRAFICO.length];
+      roundRect(ctx,x,y,barW,bh,4); ctx.fill();
+      ctx.fillStyle='#0f1f3d'; ctx.font="bold 11px 'Inter',sans-serif"; ctx.textAlign='center'; ctx.textBaseline='bottom';
+      ctx.fillText(v,x+barW/2,y-4);
+      // Nome na diagonal: com 12 colunas, na horizontal um nome cobria o outro.
+      ctx.save();
+      ctx.translate(x+barW/2,H-pad.bottom+8);
+      ctx.rotate(-Math.PI/4);
+      ctx.fillStyle='#4a5568'; ctx.font="10px 'Inter',sans-serif"; ctx.textAlign='right'; ctx.textBaseline='middle';
+      ctx.fillText(cortarCanvas(ctx,labels[i],62),0,0);
+      ctx.restore();
     });
   }
 }
+function cortarCanvas(ctx,txt,largura){
+  let s=String(txt);
+  if(ctx.measureText(s).width<=largura) return s;
+  while(s.length>1 && ctx.measureText(s+'…').width>largura) s=s.slice(0,-1);
+  return s+'…';
+}
+// ══════════════════════════════════════════
+//  MAPA DA REDE
+// ══════════════════════════════════════════
+// O mapa usa Leaflet + OpenStreetMap, carregados só quando a pessoa abre esta
+// tela. Carregar sempre significaria ~150KB extras em TODA visita, inclusive no
+// celular da liderança que só vai cadastrar apoiador — e o sistema inteiro
+// pararia de abrir se o CDN caísse.
+const LEAFLET_JS  = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+const LEAFLET_CSS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+let _leafletPromessa = null;
+let _mapa = null, _mapaCamada = null;
+let _mapaFiltroZona = '';
+let _mapaGeo = null;
+
+function carregarLeaflet(){
+  if(window.L) return Promise.resolve();
+  if(_leafletPromessa) return _leafletPromessa;
+  _leafletPromessa = new Promise((ok, falhou)=>{
+    const css = document.createElement('link');
+    css.rel = 'stylesheet'; css.href = LEAFLET_CSS;
+    document.head.appendChild(css);
+    const js = document.createElement('script');
+    js.src = LEAFLET_JS; js.async = true;
+    js.onload = ()=>ok();
+    js.onerror = ()=>{ _leafletPromessa = null; falhou(new Error('Não foi possível carregar o mapa. Verifique a conexão com a internet.')); };
+    document.head.appendChild(js);
+  });
+  return _leafletPromessa;
+}
+
+function renderMapa(){
+  const zonas = contarPor(APOIADORES, zonaDe);
+  return `
+  <div class="page-header"><h1>Mapa da Rede</h1><p>Onde estão seus apoiadores, bairro a bairro</p></div>
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Filtrar por zona eleitoral</div>
+      <button class="btn-sm btn-outline" onclick="carregarMapa(true)">🔄 Atualizar</button>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <select class="search-input" id="mapa-zona" style="max-width:280px" onchange="filtrarMapa(this.value)">
+        <option value="">Todas as zonas (${APOIADORES.length} apoiadores)</option>
+        ${zonas.map(([z,n])=>`<option value="${escapeAttr(z)}" ${_mapaFiltroZona===z?'selected':''}>${z===ZONA_VAZIA?z:'Zona '+z} — ${n} apoiador${n>1?'es':''}</option>`).join('')}
+      </select>
+      <div id="mapa-status" style="font-size:12px;color:var(--slate-light)">Carregando o mapa...</div>
+    </div>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <div id="mapa-canvas" style="width:100%;height:520px;background:var(--bg)"></div>
+  </div>
+  <div class="card" id="mapa-pendentes-card" style="display:none">
+    <div class="card-header"><div class="card-title">Bairros ainda sem posição no mapa</div></div>
+    <p style="font-size:13px;color:var(--slate-light);margin-bottom:14px" id="mapa-pendentes-texto"></p>
+    <button class="btn-sm btn-navy" id="mapa-btn-resolver" onclick="resolverPendentesMapa()">📍 Localizar bairros no mapa</button>
+    <p style="font-size:11px;color:var(--slate-light);margin-top:10px">A busca é feita de 8 em 8 bairros porque o serviço de mapas do OpenStreetMap só aceita uma consulta por segundo. O resultado fica guardado — da próxima vez o mapa abre na hora.</p>
+  </div>
+  <div class="card" id="mapa-nao-encontrados-card" style="display:none">
+    <div class="card-header"><div class="card-title">Bairros que o mapa não reconheceu</div></div>
+    <p style="font-size:13px;color:var(--slate-light);margin-bottom:12px">Quase sempre é erro de digitação no cadastro ou bairro sem cidade preenchida. Corrija em “Todos os Apoiadores” e clique em Atualizar.</p>
+    <div id="mapa-nao-encontrados" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+  </div>`;
+}
+
+function filtrarMapa(z){ _mapaFiltroZona = z; desenharMarcadores(); }
+
+async function carregarMapa(recarregar){
+  const alvo = document.getElementById('mapa-canvas');
+  if(!alvo) return;
+  const status = document.getElementById('mapa-status');
+  try {
+    await carregarLeaflet();
+  } catch(e){
+    alvo.innerHTML = `<div class="empty-state" style="padding:60px 20px"><div class="icon">🌐</div><p>${e.message}</p></div>`;
+    if(status) status.textContent = '';
+    return;
+  }
+  if(recarregar || !_mapaGeo){
+    try { _mapaGeo = await api('/apoiadores/geo' + wsQuery()); }
+    catch(e){ if(status) status.textContent = e.message; return; }
+  }
+  // O mapa precisa ser recriado a cada entrada na tela: o showPage troca o HTML
+  // inteiro do conteúdo, então a instância antiga fica apontando para uma div
+  // que não existe mais e o Leaflet passa a dar erro em todo clique.
+  if(_mapa){ _mapa.remove(); _mapa = null; }
+  _mapa = L.map('mapa-canvas', { scrollWheelZoom:false });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18,
+    attribution: '&copy; OpenStreetMap',
+  }).addTo(_mapa);
+  // Sem centro definido o Leaflet nem desenha. Brasil inteiro é o ponto de
+  // partida; assim que houver marcador o mapa se ajusta neles.
+  _mapa.setView([-15.78, -47.93], 4);
+  desenharMarcadores();
+}
+
+function desenharMarcadores(){
+  if(!_mapa || !_mapaGeo) return;
+  if(_mapaCamada){ _mapa.removeLayer(_mapaCamada); }
+  _mapaCamada = L.layerGroup().addTo(_mapa);
+
+  const filtrados = _mapaFiltroZona ? APOIADORES.filter(a=>zonaDe(a)===_mapaFiltroZona) : APOIADORES;
+  const contagem = new Map(contarPor(filtrados, bairroDe));
+  const comPonto = _mapaGeo.filter(g=>g.lat!=null && g.lng!=null && contagem.get(g.bairro));
+  const maior = Math.max(1, ...comPonto.map(g=>contagem.get(g.bairro)||0));
+  const pontos = [];
+
+  comPonto.forEach(g=>{
+    const n = contagem.get(g.bairro) || 0;
+    // Raio pela RAIZ da contagem: a área do círculo é que fica proporcional ao
+    // número de apoiadores. Usando o número direto no raio, um bairro com 106
+    // apoiadores viraria uma mancha cobrindo metade da cidade.
+    const raio = 9 + Math.sqrt(n/maior) * 26;
+    const cor = n/maior > 0.6 ? '#0f1f3d' : (n/maior > 0.25 ? '#c8a84b' : '#6b8ed6');
+    const circulo = L.circleMarker([g.lat, g.lng], {
+      radius: raio, color:'#fff', weight:2, fillColor:cor, fillOpacity:0.78,
+    });
+    const zonasDoBairro = contarPor(filtrados.filter(a=>bairroDe(a)===g.bairro), zonaDe);
+    circulo.bindPopup(
+      `<strong style="font-size:14px">${g.bairro}</strong><br>`+
+      `<span style="font-size:13px">${n} apoiador${n>1?'es':''}</span><br>`+
+      `<span style="font-size:12px;color:#4a5568">`+
+      zonasDoBairro.map(([z,q])=>`${z===ZONA_VAZIA?'Sem zona':'Zona '+z}: ${q}`).join('<br>')+
+      `</span>`
+    );
+    circulo.bindTooltip(`${g.bairro} (${n})`, { direction:'top' });
+    circulo.addTo(_mapaCamada);
+    pontos.push([g.lat, g.lng]);
+  });
+
+  if(pontos.length) _mapa.fitBounds(pontos, { padding:[40,40], maxZoom:14 });
+
+  const pendentes = _mapaGeo.filter(g=>g.pendente);
+  const naoEncontrados = _mapaGeo.filter(g=>g.naoEncontrado);
+  const status = document.getElementById('mapa-status');
+  if(status){
+    status.textContent = pontos.length
+      ? `${pontos.length} bairro${pontos.length>1?'s':''} no mapa · ${filtrados.length} apoiadores${_mapaFiltroZona?' nesta zona':''}.`
+      : 'Nenhum bairro posicionado ainda — use o botão abaixo para localizar os bairros.';
+  }
+  const cardPend = document.getElementById('mapa-pendentes-card');
+  if(cardPend){
+    cardPend.style.display = pendentes.length ? 'block' : 'none';
+    const txt = document.getElementById('mapa-pendentes-texto');
+    if(txt) txt.textContent = `${pendentes.length} bairro${pendentes.length>1?'s ainda não foram localizados':' ainda não foi localizado'} no mapa.`;
+  }
+  const cardNao = document.getElementById('mapa-nao-encontrados-card');
+  if(cardNao){
+    cardNao.style.display = naoEncontrados.length ? 'block' : 'none';
+    const lista = document.getElementById('mapa-nao-encontrados');
+    if(lista) lista.innerHTML = naoEncontrados.map(g=>
+      `<span class="region-tag">${g.bairro}${g.cidade?` · ${g.cidade}`:' · sem cidade'}</span>`).join('');
+  }
+}
+
+async function resolverPendentesMapa(){
+  const btn = document.getElementById('mapa-btn-resolver');
+  const txt = document.getElementById('mapa-pendentes-texto');
+  if(btn){ btn.disabled = true; btn.textContent = '📍 Localizando...'; }
+  try {
+    let restantes = 1, voltas = 0;
+    // Trava de segurança: sem ela, um erro que devolvesse "restantes" sempre
+    // igual deixaria o navegador chamando o servidor para sempre.
+    while(restantes > 0 && voltas < 40){
+      const r = await api('/apoiadores/geo/resolver' + wsQuery(), { method:'POST', body: JSON.stringify({ as: workspaceAdmin?.id }) });
+      restantes = r.restantes;
+      voltas++;
+      if(txt) txt.textContent = restantes
+        ? `Faltam ${restantes} bairro${restantes>1?'s':''}... (pode demorar, é 1 por segundo)`
+        : 'Todos os bairros foram processados.';
+    }
+    _mapaGeo = await api('/apoiadores/geo' + wsQuery());
+    desenharMarcadores();
+    showToast('Mapa atualizado!','success');
+  } catch(e){
+    showToast(e.message || 'Não foi possível localizar os bairros.','error');
+  } finally {
+    if(btn){ btn.disabled = false; btn.textContent = '📍 Localizar bairros no mapa'; }
+  }
+}
+
 function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();}
 
 // ══════════════════════════════════════════
@@ -2160,7 +2585,12 @@ async function criarUsuario(){
   const login=document.getElementById('nu-login').value.trim().toLowerCase();
   const senha=document.getElementById('nu-senha').value;
   const senha2=document.getElementById('nu-senha2').value;
-  const perfil=document.getElementById('nu-role').value;
+  // O select passou a carregar o nível junto ("apoiador-3") porque o candidato
+  // não conseguia criar um nível 3 por aqui: todo apoiador nascia nível 2, e o
+  // link dessa pessoa acabava cadastrando no nível 3 em vez do 4.
+  const escolha=document.getElementById('nu-role').value;
+  const perfil=escolha.startsWith('apoiador') ? 'apoiador' : escolha;
+  const nivelEscolhido=escolha==='apoiador-3' ? 3 : (escolha==='apoiador-2' ? 2 : null);
   const tel=document.getElementById('nu-tel').value.trim();
   const email=document.getElementById('nu-email').value.trim();
   const endereco=document.getElementById('nu-endereco').value.trim();
@@ -2177,7 +2607,7 @@ async function criarUsuario(){
   let result;
   try {
     result = await api('/usuarios', { method:'POST', body: JSON.stringify({
-      nome, login, senha, perfil, telefone: tel || null, email: email || null,
+      nome, login, senha, perfil, nivel: nivelEscolhido, telefone: tel || null, email: email || null,
       endereco: endereco || null, regiao: regiao || null, cidade: cidade || null, estado: uf || null,
       titulo: titulo || null, zona: zona || null, secao: secao || null,
       as: workspaceAdmin?.id,
@@ -2293,11 +2723,423 @@ function showDetail(id){
 
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 
+// ══════════════════════════════════════════
+//  AGRUPAMENTOS (bairro e zona eleitoral)
+// ══════════════════════════════════════════
+// Zona vazia vira um grupo com nome próprio em vez de sumir: o candidato precisa
+// enxergar o tamanho do buraco de preenchimento para poder cobrar a correção.
+const ZONA_VAZIA = 'Não informada';
+function zonaDe(a){ const z=String(a.zona||'').trim(); return z || ZONA_VAZIA; }
+function bairroDe(a){ const b=String(a.regiao||'').trim(); return b || 'Não informado'; }
+function contarPor(lista, fn){
+  const m = new Map();
+  lista.forEach(a=>{ const k=fn(a); m.set(k,(m.get(k)||0)+1); });
+  return [...m.entries()].sort((x,y)=> y[1]-x[1] || x[0].localeCompare(y[0],'pt-BR'));
+}
+function slug(s){
+  return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-zA-Z0-9]+/g,'-').replace(/^-|-$/g,'').toLowerCase() || 'arquivo';
+}
+function baixarArquivo(bytes, nome, mime){
+  const el = document.createElement('a');
+  el.href = URL.createObjectURL(new Blob([bytes], {type:mime}));
+  el.download = nome;
+  el.click();
+  // Sem revogar, o navegador segura o arquivo inteiro na memória até fechar a
+  // aba — com 1000 apoiadores e várias exportações seguidas isso trava o celular.
+  setTimeout(()=>URL.revokeObjectURL(el.href), 30000);
+}
+
+// ══════════════════════════════════════════
+//  GERADOR DE EXCEL (.xlsx)
+// ══════════════════════════════════════════
+// O .xlsx é um ZIP de XMLs. Como o projeto não tem bundler nem biblioteca
+// externa, o ZIP é montado aqui na mão (método "store", sem compressão). Vale o
+// trabalho: renomear CSV para .xls faz o Excel abrir com aviso de "formato não
+// corresponde" e a campanha achar que o arquivo veio corrompido.
+let _crcTabela = null;
+function _crc32(bytes){
+  if(!_crcTabela){
+    _crcTabela = new Uint32Array(256);
+    for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1); _crcTabela[n]=c>>>0; }
+  }
+  let crc=0xFFFFFFFF;
+  for(let i=0;i<bytes.length;i++) crc=(_crcTabela[(crc^bytes[i])&0xFF]^(crc>>>8))>>>0;
+  return (crc^0xFFFFFFFF)>>>0;
+}
+function _zipar(arquivos){
+  const enc=new TextEncoder(), partes=[], central=[];
+  let offset=0;
+  const push=(arr)=>{ partes.push(arr); offset+=arr.length; };
+  const u16=(v)=>[v&0xFF,(v>>>8)&0xFF];
+  const u32=(v)=>[v&0xFF,(v>>>8)&0xFF,(v>>>16)&0xFF,(v>>>24)&0xFF];
+  for(const arq of arquivos){
+    const nome=enc.encode(arq.nome);
+    const dados=typeof arq.dados==='string'?enc.encode(arq.dados):arq.dados;
+    const crc=_crc32(dados), inicio=offset;
+    push(Uint8Array.from([...u32(0x04034b50),...u16(20),...u16(0x0800),...u16(0),...u16(0),...u16(0),
+      ...u32(crc),...u32(dados.length),...u32(dados.length),...u16(nome.length),...u16(0)]));
+    push(nome); push(dados);
+    central.push(Uint8Array.from([...u32(0x02014b50),...u16(20),...u16(20),...u16(0x0800),...u16(0),...u16(0),...u16(0),
+      ...u32(crc),...u32(dados.length),...u32(dados.length),...u16(nome.length),...u16(0),...u16(0),...u16(0),...u16(0),
+      ...u32(0),...u32(inicio),...nome]));
+  }
+  const inicioCentral=offset;
+  central.forEach(push);
+  const tamCentral=offset-inicioCentral;
+  push(Uint8Array.from([...u32(0x06054b50),...u16(0),...u16(0),...u16(central.length),...u16(central.length),
+    ...u32(tamCentral),...u32(inicioCentral),...u16(0)]));
+  const saida=new Uint8Array(partes.reduce((s,p)=>s+p.length,0));
+  let p=0; for(const parte of partes){ saida.set(parte,p); p+=parte.length; }
+  return saida;
+}
+function _xmlEsc(v){
+  return String(v==null?'':v).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,'')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
+}
+function _colunaLetra(i){ let s=''; i++; while(i>0){ const r=(i-1)%26; s=String.fromCharCode(65+r)+s; i=Math.floor((i-1)/26);} return s; }
+// O Excel recusa aba com mais de 31 caracteres ou com : \ / ? * [ ]
+function _nomeAba(nome){ return String(nome||'Planilha').replace(/[:\\\/\?\*\[\]]/g,'-').slice(0,31); }
+
+// abas: [{ nome, colunas:[{titulo,largura}], linhas:[[valor,...]] }]
+// Valor numérico sai como número de verdade (dá para somar na planilha).
+function criarXLSX(abas){
+  const folhas = abas.map((aba,idx)=>{
+    const cols = aba.colunas.map((c,i)=>`<col min="${i+1}" max="${i+1}" width="${c.largura||18}" customWidth="1"/>`).join('');
+    const cabecalho = `<row r="1" ht="22" customHeight="1">${aba.colunas.map((c,i)=>
+      `<c r="${_colunaLetra(i)}1" s="1" t="inlineStr"><is><t>${_xmlEsc(c.titulo)}</t></is></c>`).join('')}</row>`;
+    const linhas = aba.linhas.map((linha,li)=>{
+      const celulas = linha.map((v,ci)=>{
+        const ref = `${_colunaLetra(ci)}${li+2}`;
+        if(typeof v==='number' && Number.isFinite(v)) return `<c r="${ref}"><v>${v}</v></c>`;
+        return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${_xmlEsc(v)}</t></is></c>`;
+      }).join('');
+      return `<row r="${li+2}">${celulas}</row>`;
+    }).join('');
+    const ultima = `${_colunaLetra(aba.colunas.length-1)}${aba.linhas.length+1}`;
+    return { nome:`xl/worksheets/sheet${idx+1}.xml`, dados:
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`+
+      `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">`+
+      `<sheetViews><sheetView workbookViewId="0"${idx===0?' tabSelected="1"':''}>`+
+      `<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>`+
+      `<cols>${cols}</cols><sheetData>${cabecalho}${linhas}</sheetData><autoFilter ref="A1:${ultima}"/></worksheet>` };
+  });
+  return _zipar([
+    { nome:'[Content_Types].xml', dados:
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`+
+      `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">`+
+      `<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>`+
+      `<Default Extension="xml" ContentType="application/xml"/>`+
+      `<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>`+
+      `<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>`+
+      abas.map((_,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')+
+      `</Types>` },
+    { nome:'_rels/.rels', dados:
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`+
+      `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`+
+      `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>` },
+    { nome:'xl/workbook.xml', dados:
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`+
+      `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">`+
+      `<sheets>${abas.map((a,i)=>`<sheet name="${_xmlEsc(_nomeAba(a.nome))}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join('')}</sheets></workbook>` },
+    { nome:'xl/_rels/workbook.xml.rels', dados:
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`+
+      `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`+
+      abas.map((_,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join('')+
+      `<Relationship Id="rId${abas.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>` },
+    { nome:'xl/styles.xml', dados:
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`+
+      `<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">`+
+      `<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font>`+
+      `<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts>`+
+      `<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>`+
+      `<fill><patternFill patternType="solid"><fgColor rgb="FF0F1F3D"/><bgColor indexed="64"/></patternFill></fill></fills>`+
+      `<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>`+
+      `<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>`+
+      `<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>`+
+      `<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="center"/></xf>`+
+      `</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>` },
+    ...folhas,
+  ]);
+}
+
+// ══════════════════════════════════════════
+//  GERADOR DE PDF
+// ══════════════════════════════════════════
+// PDF 1.4 escrito na mão, usando Helvetica (fonte que todo leitor de PDF já
+// tem embutida). Assim o relatório sai com poucos KB e sem depender de baixar
+// biblioteca nenhuma — o sistema continua abrindo mesmo sem internet.
+const _LARG_HELV = {32:278,33:278,34:355,35:556,36:556,37:889,38:667,39:191,40:333,41:333,42:389,43:584,44:278,
+  45:333,46:278,47:278,58:278,59:278,60:584,61:584,62:584,63:556,64:1015,91:278,92:278,93:278,94:469,95:556,
+  96:333,123:334,124:260,125:334,126:584};
+'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach((c,i)=>{_LARG_HELV[c.charCodeAt(0)]=
+  [667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611][i];});
+'abcdefghijklmnopqrstuvwxyz'.split('').forEach((c,i)=>{_LARG_HELV[c.charCodeAt(0)]=
+  [556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500][i];});
+for(let d=48;d<=57;d++) _LARG_HELV[d]=556;
+// No Helvetica a acentuada tem a mesma largura da letra-base.
+const _BASE_ACENTO = {'á':'a','à':'a','ã':'a','â':'a','ä':'a','é':'e','ê':'e','è':'e','í':'i','î':'i','ó':'o',
+  'ô':'o','õ':'o','ò':'o','ú':'u','ü':'u','ù':'u','ç':'c','ñ':'n','Á':'A','À':'A','Ã':'A','Â':'A','É':'E',
+  'Ê':'E','Í':'I','Ó':'O','Ô':'O','Õ':'O','Ú':'U','Ç':'C','Ñ':'N'};
+function _larguraTexto(txt,tam,negrito){
+  let soma=0;
+  for(const ch of String(txt)) soma += _LARG_HELV[(_BASE_ACENTO[ch]||ch).charCodeAt(0)] || 556;
+  return (soma/1000)*tam*(negrito?1.06:1);
+}
+function _cortar(txt,largura,tam,negrito){
+  const s=String(txt==null?'':txt);
+  if(_larguraTexto(s,tam,negrito)<=largura) return s;
+  let corte=s;
+  while(corte.length>1 && _larguraTexto(corte+'...',tam,negrito)>largura) corte=corte.slice(0,-1);
+  return corte+'...';
+}
+// WinAnsiEncoding cobre o português inteiro (á, ç, ã, õ). O que ficar fora vira
+// "?" — melhor que um byte inválido, que corrompe o arquivo todo.
+const _WINANSI_EXTRA = {'–':150,'—':151,'‘':145,'’':146,'“':147,'”':148,'…':133,'€':128,'•':149};
+function _pdfTexto(txt){
+  let saida='';
+  for(const ch of String(txt==null?'':txt)){
+    const cp=ch.codePointAt(0);
+    let byte;
+    if(cp<128) byte=cp;
+    else if(_WINANSI_EXTRA[ch]!=null) byte=_WINANSI_EXTRA[ch];
+    else if(cp<=255) byte=cp;
+    else byte=63;
+    const c=String.fromCharCode(byte);
+    saida += (c==='('||c===')'||c==='\\') ? '\\'+c : c;
+  }
+  return saida;
+}
+const _A4 = {largura:595.28, altura:841.89};
+
+// doc = { titulo, subtitulo, rodape, blocos:[
+//   {tipo:'secao',texto} | {tipo:'texto',texto} | {tipo:'kpis',itens:[{rotulo,valor}]} |
+//   {tipo:'tabela',colunas:[{titulo,largura,alinha}],linhas:[[...]]} ] }
+function criarPDF(doc){
+  const M=40, TOPO=96, BASE=_A4.altura-46, UTIL=_A4.largura-M*2;
+  const paginas=[];
+  let ops=null, y=0;
+  const emY=(d)=>_A4.altura-d;
+  const op=(s)=>ops.push(s);
+  const texto=(t,x,dist,tam,negrito,cor,alinha,caixa)=>{
+    let px=x;
+    if(alinha==='right') px=x+caixa-_larguraTexto(t,tam,negrito);
+    else if(alinha==='center') px=x+(caixa-_larguraTexto(t,tam,negrito))/2;
+    op(`BT ${cor||'0.18 0.22 0.30'} rg /${negrito?'F2':'F1'} ${tam} Tf ${px.toFixed(2)} ${emY(dist).toFixed(2)} Td (${_pdfTexto(t)}) Tj ET`);
+  };
+  const retangulo=(x,dist,w,h,cor)=>op(`${cor} rg ${x.toFixed(2)} ${emY(dist+h).toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)} re f`);
+  const risco=(x1,dist,x2,cor)=>op(`${cor||'0.87 0.89 0.93'} RG 0.6 w ${x1.toFixed(2)} ${emY(dist).toFixed(2)} m ${x2.toFixed(2)} ${emY(dist).toFixed(2)} l S`);
+  const novaPagina=()=>{
+    ops=[]; paginas.push(ops);
+    retangulo(0,0,_A4.largura,58,'0.059 0.122 0.239');
+    texto(_cortar(doc.titulo||'Relatório',UTIL,15,true),M,30,15,true,'1 1 1');
+    texto(_cortar(doc.subtitulo||'',UTIL,9,false),M,47,9,false,'0.78 0.66 0.29');
+    y=TOPO;
+  };
+  const garantir=(alt)=>{ if(y+alt>BASE) novaPagina(); };
+  novaPagina();
+
+  for(const bloco of (doc.blocos||[])){
+    if(bloco.tipo==='secao'){
+      garantir(46); y+=8;
+      texto(bloco.texto,M,y+11,12,true,'0.059 0.122 0.239');
+      y+=17; risco(M,y,_A4.largura-M,'0.78 0.66 0.29'); y+=14;
+    } else if(bloco.tipo==='texto'){
+      const palavras=String(bloco.texto).split(' ');
+      let atual=''; const linhas=[];
+      for(const p of palavras){
+        const tentativa = atual ? atual+' '+p : p;
+        if(_larguraTexto(tentativa,9.5,false)>UTIL){ linhas.push(atual); atual=p; } else atual=tentativa;
+      }
+      if(atual) linhas.push(atual);
+      for(const l of linhas){ garantir(14); texto(l,M,y+9,9.5,false,'0.29 0.33 0.40'); y+=14; }
+      y+=4;
+    } else if(bloco.tipo==='kpis'){
+      const itens=bloco.itens||[];
+      const porLinha=Math.min(4,Math.max(1,itens.length));
+      const larg=(UTIL-(porLinha-1)*10)/porLinha;
+      for(let i=0;i<itens.length;i+=porLinha){
+        garantir(58);
+        itens.slice(i,i+porLinha).forEach((kpi,j)=>{
+          const x=M+j*(larg+10);
+          retangulo(x,y,larg,50,'0.965 0.972 0.988');
+          texto(_cortar(kpi.rotulo,larg-16,8,false),x+8,y+18,8,false,'0.44 0.50 0.59');
+          texto(_cortar(String(kpi.valor),larg-16,18,true),x+8,y+40,18,true,'0.059 0.122 0.239');
+        });
+        y+=58;
+      }
+    } else if(bloco.tipo==='tabela'){
+      const colunas=bloco.colunas;
+      const soma=colunas.reduce((s,c)=>s+(c.largura||1),0);
+      const larguras=colunas.map(c=>((c.largura||1)/soma)*UTIL);
+      const ALT=16;
+      const cabecalho=()=>{
+        garantir(ALT*3);
+        retangulo(M,y,UTIL,20,'0.059 0.122 0.239');
+        let x=M;
+        colunas.forEach((c,i)=>{
+          texto(_cortar(c.titulo,larguras[i]-10,8.5,true),x+5,y+13.5,8.5,true,'1 1 1',c.alinha,larguras[i]-10);
+          x+=larguras[i];
+        });
+        y+=20;
+      };
+      cabecalho();
+      bloco.linhas.forEach((linha,idx)=>{
+        // Tabela que passa da folha continua na próxima COM o cabeçalho
+        // repetido — sem isso as páginas 2+ viram colunas de números sem nome.
+        if(y+ALT>BASE){ novaPagina(); cabecalho(); }
+        if(idx%2===1) retangulo(M,y,UTIL,ALT,'0.969 0.973 0.988');
+        let x=M;
+        colunas.forEach((c,i)=>{
+          const v=linha[i];
+          texto(_cortar(v==null?'—':String(v),larguras[i]-10,9,false),x+5,y+11,9,!!c.negrito,'0.20 0.25 0.33',c.alinha,larguras[i]-10);
+          x+=larguras[i];
+        });
+        y+=ALT;
+        risco(M,y,_A4.largura-M);
+      });
+      y+=10;
+    }
+  }
+
+  // A numeração só pode ser escrita depois de fechar a última página (é preciso
+  // saber o total). Por isso o rodapé entra aqui no fim, e não em novaPagina().
+  paginas.forEach((pag,i)=>{
+    ops=pag;
+    risco(M,_A4.altura-40,_A4.largura-M);
+    texto(doc.rodape||'',M,_A4.altura-28,8,false,'0.63 0.67 0.75');
+    texto(`Página ${i+1} de ${paginas.length}`,M,_A4.altura-28,8,false,'0.63 0.67 0.75','right',UTIL);
+  });
+
+  const bytes=[];
+  const escrever=(s)=>{ for(let i=0;i<s.length;i++) bytes.push(s.charCodeAt(i)&0xFF); };
+  const objetos=[];
+  const novoObjeto=(c)=>{ objetos.push(c); return objetos.length; };
+  const idCatalogo=novoObjeto(null), idPaginas=novoObjeto(null);
+  const idF1=novoObjeto('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
+  const idF2=novoObjeto('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
+  const idsPagina=[];
+  for(const pag of paginas){
+    const corpo=pag.join('\n');
+    const idStream=novoObjeto(`<< /Length ${corpo.length} >>\nstream\n${corpo}\nendstream`);
+    idsPagina.push(novoObjeto(`<< /Type /Page /Parent ${idPaginas} 0 R /MediaBox [0 0 ${_A4.largura} ${_A4.altura}] `+
+      `/Resources << /Font << /F1 ${idF1} 0 R /F2 ${idF2} 0 R >> >> /Contents ${idStream} 0 R >>`));
+  }
+  objetos[idCatalogo-1]=`<< /Type /Catalog /Pages ${idPaginas} 0 R >>`;
+  objetos[idPaginas-1]=`<< /Type /Pages /Kids [${idsPagina.map(n=>`${n} 0 R`).join(' ')}] /Count ${idsPagina.length} >>`;
+  escrever('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
+  const posicoes=[];
+  objetos.forEach((corpo,i)=>{ posicoes.push(bytes.length); escrever(`${i+1} 0 obj\n${corpo}\nendobj\n`); });
+  const inicioXref=bytes.length;
+  escrever(`xref\n0 ${objetos.length+1}\n0000000000 65535 f \n`);
+  posicoes.forEach(p=>escrever(`${String(p).padStart(10,'0')} 00000 n \n`));
+  escrever(`trailer\n<< /Size ${objetos.length+1} /Root ${idCatalogo} 0 R >>\nstartxref\n${inicioXref}\n%%EOF\n`);
+  return Uint8Array.from(bytes);
+}
+
+// ══════════════════════════════════════════
+//  RELATÓRIOS PRONTOS
+// ══════════════════════════════════════════
+const SEP_CHAVE='\u001f';
+function _cruzamentoBairroZona(dados){
+  const m=new Map();
+  dados.forEach(a=>{
+    // O separador da chave e o caractere de controle 0x1F porque nome de bairro
+    // tem espaco ("Vila Vargas"), hifen ("Centro-Oeste") e barra: qualquer
+    // separador comum partiria o nome no meio na hora de desmontar a chave.
+    const k=bairroDe(a)+SEP_CHAVE+zonaDe(a);
+    m.set(k,(m.get(k)||0)+1);
+  });
+  return [...m.entries()].map(([k,n])=>{ const [b,z]=k.split(SEP_CHAVE); return [b,z,n]; })
+    .sort((x,y)=> y[2]-x[2] || x[0].localeCompare(y[0],'pt-BR'));
+}
+function _carimbo(){
+  const d=new Date();
+  const p=(n)=>String(n).padStart(2,'0');
+  return `${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()} às ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function exportXLSX(dados, nomeArquivo, rotulo){
+  const total=dados.length;
+  const porBairro=contarPor(dados,bairroDe), porZona=contarPor(dados,zonaDe);
+  const pct=(n)=>Number(((n/total)*100).toFixed(2));
+  const abas=[
+    { nome:'Apoiadores',
+      colunas:[{titulo:'Nome',largura:32},{titulo:'Telefone',largura:18},{titulo:'Bairro',largura:24},
+        {titulo:'Zona Eleitoral',largura:14},{titulo:'Seção',largura:10},{titulo:'Título de Eleitor',largura:20},
+        {titulo:'Endereço',largura:30},{titulo:'Cidade',largura:18},{titulo:'UF',largura:6},
+        {titulo:'Nascimento',largura:14},{titulo:'Nível',largura:8},{titulo:'Cadastrado em',largura:14}],
+      linhas: dados.map(a=>[a.nome,a.telefone||'',bairroDe(a),zonaDe(a),a.secao||'',a.titulo||'',
+        a.endereco||'',a.cidade||'',a.estado||'',formatDate(a.nascimento),a.nivel,formatDate(a.created_at)]) },
+    { nome:'Por Bairro',
+      colunas:[{titulo:'Bairro',largura:32},{titulo:'Apoiadores',largura:14},{titulo:'% da rede',largura:12}],
+      linhas: porBairro.map(([b,n])=>[b,n,pct(n)]) },
+    { nome:'Por Zona Eleitoral',
+      colunas:[{titulo:'Zona Eleitoral',largura:20},{titulo:'Apoiadores',largura:14},{titulo:'% da rede',largura:12}],
+      linhas: porZona.map(([z,n])=>[z,n,pct(n)]) },
+    { nome:'Bairro x Zona',
+      colunas:[{titulo:'Bairro',largura:32},{titulo:'Zona Eleitoral',largura:16},{titulo:'Apoiadores',largura:14}],
+      linhas: _cruzamentoBairroZona(dados) },
+  ];
+  baixarArquivo(criarXLSX(abas), nomeArquivo+'.xlsx',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  showToast(`Excel gerado — ${total} apoiadores em 4 abas.`,'success');
+}
+
+function exportPDF(dados, nomeArquivo, rotulo){
+  const total=dados.length;
+  const porBairro=contarPor(dados,bairroDe), porZona=contarPor(dados,zonaDe);
+  const semZona=dados.filter(a=>!String(a.zona||'').trim()).length;
+  const pct=(n)=>((n/total)*100).toFixed(1)+'%';
+  const bytes=criarPDF({
+    titulo:`${rotulo} — ${CONFIG.candidatoNome||'RedeApoio'}`,
+    subtitulo:`Gerado em ${_carimbo()} · ${total} apoiador${total>1?'es':''}`,
+    rodape:'RedeApoio · documento confidencial (LGPD) · uso restrito à campanha',
+    blocos:[
+      { tipo:'kpis', itens:[
+        {rotulo:'Apoiadores',valor:total},
+        {rotulo:'Bairros',valor:porBairro.length},
+        {rotulo:'Zonas eleitorais',valor:porZona.filter(([z])=>z!==ZONA_VAZIA).length},
+        {rotulo:'Sem zona informada',valor:semZona},
+      ]},
+      { tipo:'secao', texto:'Distribuição por zona eleitoral' },
+      { tipo:'tabela',
+        colunas:[{titulo:'#',largura:0.7,alinha:'right'},{titulo:'Zona eleitoral',largura:5},
+          {titulo:'Apoiadores',largura:2,alinha:'right'},{titulo:'% da rede',largura:2,alinha:'right'}],
+        linhas: porZona.map(([z,n],i)=>[`${i+1}º`,z,n,pct(n)]) },
+      { tipo:'secao', texto:'Distribuição por bairro' },
+      { tipo:'tabela',
+        colunas:[{titulo:'#',largura:0.7,alinha:'right'},{titulo:'Bairro',largura:5},
+          {titulo:'Apoiadores',largura:2,alinha:'right'},{titulo:'% da rede',largura:2,alinha:'right'}],
+        linhas: porBairro.map(([b,n],i)=>[`${i+1}º`,b,n,pct(n)]) },
+      { tipo:'secao', texto:'Bairro por zona eleitoral' },
+      { tipo:'texto', texto:'Cruzamento usado para planejar a rua: mostra, dentro de cada bairro, a que zona eleitoral os apoiadores pertencem.' },
+      { tipo:'tabela',
+        colunas:[{titulo:'Bairro',largura:5},{titulo:'Zona eleitoral',largura:2.5,alinha:'center'},
+          {titulo:'Apoiadores',largura:2,alinha:'right'}],
+        linhas: _cruzamentoBairroZona(dados) },
+      { tipo:'secao', texto:'Lista de apoiadores' },
+      { tipo:'tabela',
+        colunas:[{titulo:'Nome',largura:4.2},{titulo:'Telefone',largura:2.2},{titulo:'Bairro',largura:2.8},
+          {titulo:'Zona',largura:1,alinha:'center'},{titulo:'Seção',largura:1,alinha:'center'},{titulo:'Nível',largura:0.9,alinha:'center'}],
+        linhas: dados.map(a=>[a.nome,a.telefone||'—',bairroDe(a),(a.zona||'—'),(a.secao||'—'),a.nivel]) },
+    ],
+  });
+  baixarArquivo(bytes, nomeArquivo+'.pdf', 'application/pdf');
+  showToast(`PDF gerado — ${total} apoiadores.`,'success');
+}
+
 function exportCSV(data,filename){
-  const h=['Nome','Telefone','Endereço','Cidade','Nascimento','Regiao','Titulo','Zona','Secao','Nivel'];
-  const rows=data.map(a=>[a.nome,a.telefone,a.endereco||'—',a.cidade||'—',formatDate(a.nascimento),a.regiao,a.titulo||'—',a.zona||'—',a.secao||'—',a.nivel]);
-  const blob=new Blob(['﻿'+[h,...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n')],{type:'text/csv;charset=utf-8;'});
+  const h=['Nome','Telefone','Endereço','Cidade','UF','Nascimento','Bairro','Titulo','Zona Eleitoral','Secao','Nivel'];
+  const rows=data.map(a=>[a.nome,a.telefone,a.endereco||'—',a.cidade||'—',a.estado||'—',formatDate(a.nascimento),
+    bairroDe(a),a.titulo||'—',zonaDe(a),a.secao||'—',a.nivel]);
+  // Aspas dentro do valor viram aspas duplicadas, que é como o CSV escapa. Sem
+  // isso um nome com aspas (ou o Excel do cliente com separador ponto-e-vírgula)
+  // deslocava todas as colunas seguintes daquela linha.
+  const celula=(v)=>`"${String(v==null?'':v).replace(/"/g,'""')}"`;
+  const blob=new Blob(['﻿'+[h,...rows].map(r=>r.map(celula).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8;'});
   const el=document.createElement('a');el.href=URL.createObjectURL(blob);el.download=filename;el.click();
+  setTimeout(()=>URL.revokeObjectURL(el.href),30000);
   showToast('CSV exportado!','success');
 }
 function exportJSON(){

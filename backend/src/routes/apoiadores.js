@@ -84,6 +84,133 @@ router.get('/duplicados', requireRole('candidato', 'admin'), asyncHandler(async 
   res.json(duplicados);
 }));
 
+// ── Mapa da rede ──────────────────────────────────────────────────────────
+// Estas duas rotas ficam ANTES de qualquer rota com ':id' de propósito: o
+// Express casa na ordem de declaração, e '/geo' seria engolido por '/:id'.
+
+// Lista os bairros da rede de quem está pedindo, cada um com a coordenada que
+// já estiver no cache. Nunca chama serviço externo — é o que abre o mapa
+// rápido. Quem ainda não tem coordenada volta com pendente=true e é resolvido
+// pela rota de baixo, sob comando do usuário.
+router.get('/geo', asyncHandler(async (req, res) => {
+  const bairros = await bairrosDaRede(req);
+  if (!bairros.length) return res.json([]);
+
+  const { rows: cache } = await pool.query(
+    `SELECT cidade, estado, bairro, lat, lng, encontrado FROM geo_bairros
+     WHERE (lower(cidade), lower(estado), lower(bairro)) IN
+           (SELECT lower(c), lower(e), lower(b) FROM unnest($1::text[], $2::text[], $3::text[]) AS t(c, e, b))`,
+    [bairros.map((b) => b.cidade), bairros.map((b) => b.estado), bairros.map((b) => b.bairro)]
+  );
+  const porChave = new Map(cache.map((c) => [chaveGeo(c.cidade, c.estado, c.bairro), c]));
+
+  res.json(bairros.map((b) => {
+    const c = porChave.get(chaveGeo(b.cidade, b.estado, b.bairro));
+    return {
+      bairro: b.bairro,
+      cidade: b.cidade,
+      estado: b.estado,
+      lat: c && c.encontrado ? c.lat : null,
+      lng: c && c.encontrado ? c.lng : null,
+      // Só é pendente quem nunca foi consultado. Bairro já procurado e não
+      // encontrado fica com pendente=false para não entrar em fila eterna.
+      pendente: !c,
+      naoEncontrado: !!c && !c.encontrado,
+    };
+  }));
+}));
+
+// Descobre a coordenada dos bairros pendentes. É chamada em lotes pequenos
+// porque o serviço externo (Nominatim/OpenStreetMap) exige no máximo 1 consulta
+// por segundo — um lote de 8 já leva 8 segundos, e lote grande estouraria o
+// tempo limite do Traefik. O frontend chama de novo enquanto sobrar pendente.
+router.post('/geo/resolver', requireRole('candidato', 'admin'), asyncHandler(async (req, res) => {
+  const LOTE = 8;
+  const bairros = await bairrosDaRede(req);
+  const { rows: jaTem } = await pool.query(
+    `SELECT lower(cidade) c, lower(estado) e, lower(bairro) b FROM geo_bairros`
+  );
+  const conhecidos = new Set(jaTem.map((r) => chaveGeo(r.c, r.e, r.b)));
+  const pendentes = bairros.filter((b) => !conhecidos.has(chaveGeo(b.cidade, b.estado, b.bairro))).slice(0, LOTE);
+
+  let resolvidos = 0;
+  for (let i = 0; i < pendentes.length; i++) {
+    const b = pendentes[i];
+    if (i > 0) await esperar(1100); // limite de uso do serviço: 1 consulta/segundo
+    const ponto = await geocodificar(b);
+    if (ponto) resolvidos++;
+    await pool.query(
+      `INSERT INTO geo_bairros (cidade, estado, bairro, lat, lng, encontrado, tentativas)
+       VALUES ($1, $2, $3, $4, $5, $6, 1)
+       ON CONFLICT (lower(cidade), lower(estado), lower(bairro)) DO UPDATE
+         SET lat = EXCLUDED.lat, lng = EXCLUDED.lng, encontrado = EXCLUDED.encontrado,
+             tentativas = geo_bairros.tentativas + 1, atualizado_em = now()`,
+      [b.cidade, b.estado, b.bairro, ponto ? ponto.lat : null, ponto ? ponto.lng : null, !!ponto]
+    );
+  }
+
+  const totalPendentes = bairros.filter((b) => !conhecidos.has(chaveGeo(b.cidade, b.estado, b.bairro))).length;
+  res.json({ processados: pendentes.length, resolvidos, restantes: Math.max(0, totalPendentes - pendentes.length) });
+}));
+
+function chaveGeo(cidade, estado, bairro) {
+  return `${(cidade || '').trim().toLowerCase()}|${(estado || '').trim().toLowerCase()}|${(bairro || '').trim().toLowerCase()}`;
+}
+const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Bairros distintos da rede de quem está logado, respeitando exatamente a mesma
+// visibilidade da listagem de apoiadores (candidato vê a rede toda; liderança vê
+// só a subárvore dela) — o mapa não pode mostrar bairro que a pessoa não veria.
+async function bairrosDaRede(req) {
+  const ehArvoreCandidato = req.effectivePerfil === 'candidato' || req.user.perfil === 'admin';
+  const { rows } = await pool.query(
+    ehArvoreCandidato ? SQL_ARVORE_CANDIDATO : SQL_ARVORE_LIDERANCA,
+    [ehArvoreCandidato ? req.effectiveId : req.user.id]
+  );
+  const mapa = new Map();
+  for (const a of rows) {
+    const bairro = (a.regiao || '').trim();
+    if (!bairro) continue;
+    const item = { bairro, cidade: (a.cidade || '').trim(), estado: (a.estado || '').trim() };
+    mapa.set(chaveGeo(item.cidade, item.estado, item.bairro), item);
+  }
+  return [...mapa.values()];
+}
+
+// Brasil inteiro em caixa retangular. Serve de rede de segurança: "Centro" sem
+// cidade preenchida casa com meio mundo, e um ponto em Portugal no meio do mapa
+// da campanha destrói a leitura do gráfico.
+const BBOX_BRASIL = { latMin: -34.0, latMax: 5.3, lngMin: -74.1, lngMax: -34.7 };
+
+async function geocodificar({ bairro, cidade, estado }) {
+  const partes = [bairro, cidade, estado, 'Brasil'].filter(Boolean);
+  const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=br&q='
+    + encodeURIComponent(partes.join(', '));
+  const cancelar = new AbortController();
+  const relogio = setTimeout(() => cancelar.abort(), 8000);
+  try {
+    const resp = await fetch(url, {
+      signal: cancelar.signal,
+      // O Nominatim bloqueia quem não se identifica. Sem isto o mapa para de
+      // funcionar sem nenhum erro visível — só volta lista vazia.
+      headers: { 'User-Agent': 'RedeApoio/1.0 (mapa de rede politica)', 'Accept-Language': 'pt-BR' },
+    });
+    if (!resp.ok) return null;
+    const dados = await resp.json();
+    if (!Array.isArray(dados) || !dados[0]) return null;
+    const lat = parseFloat(dados[0].lat);
+    const lng = parseFloat(dados[0].lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    if (lat < BBOX_BRASIL.latMin || lat > BBOX_BRASIL.latMax) return null;
+    if (lng < BBOX_BRASIL.lngMin || lng > BBOX_BRASIL.lngMax) return null;
+    return { lat, lng };
+  } catch {
+    return null; // rede fora do ar não pode derrubar a requisição inteira
+  } finally {
+    clearTimeout(relogio);
+  }
+}
+
 router.post('/', requireRole('lideranca', 'apoiador'), asyncHandler(async (req, res) => {
   const { nome, telefone, nascimento, regiao, endereco, cidade, estado, titulo, zona, secao } = req.body || {};
   if (!nome || !telefone || !nascimento || !regiao) {

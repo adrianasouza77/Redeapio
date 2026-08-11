@@ -89,6 +89,24 @@ dados de contato e eleitorais, `ativo`, `senha_temporaria`,
 `id` (UUID), dados pessoais, `nivel` (1 a 4), `parent_id` (quem é o
 responsável), `cadastrado_por`, `lgpd_aceite`/`_em`/`_versao`.
 
+### `geo_bairros` — cache de coordenadas do mapa
+
+Uma linha por `cidade + estado + bairro` (chave única em minúsculas, porque o
+mesmo bairro é digitado de formas diferentes por quem cadastra): `lat`, `lng`,
+`encontrado`, `tentativas`, `atualizado_em`.
+
+É **só cache**. Apagar a tabela inteira não perde dado de campanha — o mapa
+volta a descobrir as coordenadas na primeira vez que alguém abrir a tela.
+
+Existe porque descobrir a posição de um bairro custa uma consulta ao Nominatim
+(OpenStreetMap), que aceita **1 consulta por segundo**. Sem o cache, abrir o
+mapa de uma campanha com 90 bairros levaria um minuto e meio *toda vez*, e o
+serviço acabaria bloqueando o IP do servidor.
+
+`encontrado = false` grava a tentativa que falhou (bairro digitado errado, ou
+sem cidade preenchida). Sem isso o sistema tentaria de novo para sempre uma
+busca que nunca vai dar certo.
+
 ### `termos_aceite` — trilha de auditoria da LGPD
 
 Uma linha por aceite, **nunca sobrescrita**: `usuario_id` **ou** `apoiador_id`
@@ -284,6 +302,8 @@ Todos sob `/api`. `[A]` = exige sessão.
 |---|---|---|
 | GET | `/` | qualquer (a árvore muda conforme o perfil) |
 | GET | `/duplicados` | candidato, admin |
+| GET | `/geo` | qualquer (só lê o cache, nunca consulta serviço externo) |
+| POST | `/geo/resolver` | candidato, admin (lotes de 8; chama o Nominatim) |
 | POST | `/` | liderança, apoiador |
 | PUT | `/:id` | quem passa em `podeGerenciar` |
 | PUT | `/:id/senha` | idem (alvo precisa ter login) |
@@ -333,6 +353,37 @@ papelEfetivo()   // 'candidato' quando o admin abre um workspace
 idEfetivo()      // id do candidato do workspace, ou do usuário logado
 wsQuery()        // '?as=<id>' para anexar à URL da API
 ```
+
+### Endereço por tela (`#/exportar`, `#/mapa`)
+
+`showPage()` grava a tela atual no `location.hash` e um listener de
+`hashchange` faz o caminho de volta. `PAGINAS_POR_PAPEL` diz quais telas cada
+perfil enxerga; endereço fora da lista cai na tela inicial do perfil em vez de
+deixar a área de conteúdo em branco.
+
+Isso resolve botão "voltar" do celular, F5 e link direto para uma tela — **não
+é controle de acesso**. Quem impede alguém de ver dado alheio é o servidor,
+que exige sessão (`authRequired`) e perfil (`requireRole`) em toda rota da API.
+A lista do frontend é conveniência de navegação, e ponto.
+
+### Excel e PDF gerados no navegador, sem biblioteca
+
+Não há bundler nem CDN para bibliotecas, então os dois formatos são escritos à
+mão em `frontend/index.html`:
+
+- **`criarXLSX(abas)`** monta o ZIP do `.xlsx` (método *store*, sem compressão)
+  com CRC32 próprio. Vale o trabalho: renomear CSV para `.xls` faz o Excel
+  abrir com aviso de "o formato não corresponde à extensão" e a campanha achar
+  que o arquivo veio corrompido. Número sai como número (dá para somar).
+- **`criarPDF(doc)`** escreve um PDF 1.4 usando Helvetica, fonte que todo
+  leitor já traz embutida — por isso o arquivo sai pequeno e o sistema continua
+  funcionando sem internet. Texto vai em `WinAnsiEncoding`, que cobre o
+  português inteiro; a tabela de larguras do Helvetica está embutida para
+  alinhar números à direita e cortar nome comprido no lugar certo.
+
+Ao mexer nesses dois, rode o teste de mesa: gere um arquivo, abra no Excel e
+num leitor de PDF de verdade. Erro de offset no `xref` (PDF) ou no diretório
+central (ZIP) produz arquivo que *parece* certo e não abre.
 
 ### Armadilha de celular: nunca reescreva `input.value` a cada tecla
 
