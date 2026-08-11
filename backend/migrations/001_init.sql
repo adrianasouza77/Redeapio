@@ -83,10 +83,29 @@ WHERE u.perfil IN ('lideranca','apoiador')
 -- painel do Supabase) e nunca ganharam a linha-espelho em "apoiadores" —
 -- a tela de Usuários não é afetada, pois lista direto da tabela "usuarios".
 -- Idempotente: roda em todo boot, mas só insere quem realmente está faltando.
+--
+-- O nível da ficha criada aqui era SEMPRE 2 para quem não é liderança. Isso
+-- tinha uma consequência que ninguém ligava ao reparo: o link pessoal de um
+-- apoiador cadastra "o nível dele + 1", lido desta ficha. Um nível 3 que
+-- ganhasse a ficha por aqui virava nível 2, e o link dele passava a cadastrar
+-- gente no nível 3 em vez do 4 — os indicados apareciam no MESMO nível de quem
+-- os indicou, e a tela de reorganização depois recusava arrumar ("o responsável
+-- precisa estar exatamente um nível acima").
+--
+-- Agora o nível é deduzido de quem já está pendurado na pessoa: se os indicados
+-- dela são nível 4, ela é nível 3. Quem ainda não indicou ninguém continua no
+-- palpite antigo (2), que é o melhor disponível — mas aí o próprio app recusa
+-- o link em vez de chutar, e o candidato corrige o nível pela tela da pirâmide.
 INSERT INTO apoiadores (id, nome, telefone, regiao, endereco, cidade, titulo, zona, secao, nivel, parent_id, cadastrado_por)
 SELECT u.id, u.nome, COALESCE(u.telefone, '—'), COALESCE(u.regiao, '—'), u.endereco, u.cidade,
        u.titulo, u.zona, u.secao,
-       CASE WHEN u.perfil = 'lideranca' THEN 1 ELSE 2 END, NULL, u.criado_por
+       CASE
+         WHEN u.perfil = 'lideranca' THEN 1
+         ELSE LEAST(4, GREATEST(2, COALESCE(
+           (SELECT MIN(f.nivel) - 1 FROM apoiadores f WHERE f.parent_id = u.id),
+           2)))
+       END,
+       NULL, u.criado_por
 FROM usuarios u
 WHERE u.perfil IN ('lideranca','apoiador')
   AND u.criado_por IS NOT NULL
@@ -177,3 +196,27 @@ ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS limite_nivel1 INT CHECK (limite_ni
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS limite_nivel2 INT CHECK (limite_nivel2 IS NULL OR limite_nivel2 BETWEEN 1 AND 100000);
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS limite_nivel3 INT CHECK (limite_nivel3 IS NULL OR limite_nivel3 BETWEEN 1 AND 100000);
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS limite_nivel4 INT CHECK (limite_nivel4 IS NULL OR limite_nivel4 BETWEEN 1 AND 100000);
+
+-- Coordenada de cada bairro, para o mapa da rede. É cache: descobrir a posição
+-- de um bairro custa uma consulta ao serviço externo de geocodificação, que
+-- limita a 1 chamada por segundo — sem guardar aqui, abrir o mapa com 90
+-- bairros levaria um minuto e meio TODA vez, e o serviço acabaria bloqueando o
+-- servidor. A chave é cidade+estado+bairro em minúsculas porque o mesmo bairro
+-- é digitado de formas diferentes ("Canaã I", "canaa i") por quem cadastra.
+--
+-- encontrado=false grava a tentativa que falhou (bairro inexistente ou escrito
+-- errado): sem isso o sistema tentaria de novo, para sempre, o que nunca vai dar
+-- certo. tentativas serve para o candidato saber o que precisa ser corrigido.
+CREATE TABLE IF NOT EXISTS geo_bairros (
+  id            BIGSERIAL PRIMARY KEY,
+  cidade        TEXT NOT NULL DEFAULT '',
+  estado        TEXT NOT NULL DEFAULT '',
+  bairro        TEXT NOT NULL,
+  lat           DOUBLE PRECISION,
+  lng           DOUBLE PRECISION,
+  encontrado    BOOLEAN NOT NULL DEFAULT false,
+  tentativas    INT NOT NULL DEFAULT 0,
+  atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_geo_bairros_chave
+  ON geo_bairros (lower(cidade), lower(estado), lower(bairro));

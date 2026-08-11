@@ -30,8 +30,24 @@ async function contextoConvitePessoal(emissorId) {
   );
   const conv = rows[0];
   if (!conv) return null;
-  const nivelConvite = conv.perfil === 'lideranca' ? 1 : (conv.nivel ?? 2);
+
+  // O nível de quem convida sai da ficha dele em "apoiadores" (a linha com o
+  // MESMO id do usuário). Aqui existia um "?? 2": quando a ficha não existia, o
+  // sistema chutava nível 2 e cadastrava todo mundo no nível 3 — inclusive pelo
+  // link de quem era nível 3, que deveria gerar nível 4. O chute era invisível
+  // (nenhum erro, nenhum aviso) e enchia a pirâmide de gente pendurada num
+  // responsável do mesmo nível, o que a própria tela de reorganização recusa
+  // depois ("o responsável precisa estar exatamente um nível acima").
+  //
+  // Sem a ficha não há como saber a posição da pessoa na pirâmide, então o link
+  // é recusado com uma mensagem clara em vez de adivinhar. Para descobrir quem
+  // está nessa situação: bash scripts/diagnostico-nivel.sh <id>
+  const nivelConvite = conv.perfil === 'lideranca' ? 1 : conv.nivel;
+  if (!nivelConvite) return { erroFicha: true, nomeRede: conv.nome };
+
   const novoNivel = nivelConvite + 1;
+  if (novoNivel > 4) return { erroNivelMaximo: true, nomeRede: conv.nome };
+
   return {
     nomeRede: conv.nome,
     candidatoId: conv.criado_por,
@@ -78,9 +94,25 @@ async function resolverContexto({ candidatoId, nivel, emissorId }) {
   return null;
 }
 
+// Mensagem única para os dois pontos em que o link pessoal pode estar quebrado,
+// escrita para quem vai lê-la no celular: diz o que fazer, não o que houve.
+function erroDoContexto(ctx) {
+  if (ctx.erroFicha) {
+    return `O link de ${ctx.nomeRede} está com um problema de cadastro e não pode ser usado agora `
+      + '— quem se cadastrasse por ele entraria no nível errado da rede. '
+      + 'Peça o link a outra pessoa da campanha ou avise a coordenação.';
+  }
+  if (ctx.erroNivelMaximo) {
+    return `${ctx.nomeRede} já está no último nível da rede e não pode indicar mais ninguém por link.`;
+  }
+  return null;
+}
+
 router.get('/lideranca/:id', asyncHandler(async (req, res) => {
   const ctx = await contextoConvitePessoal(req.params.id);
   if (!ctx) return res.status(404).json({ error: 'Link inválido.' });
+  const erro = erroDoContexto(ctx);
+  if (erro) return res.status(409).json({ error: erro });
   res.json({ nome: ctx.nomeRede, versaoTermo: termoVersaoAtual, criaLogin: ctx.criaLogin, novoNivel: ctx.novoNivel });
 }));
 
@@ -109,6 +141,10 @@ router.post('/autocadastro', asyncHandler(async (req, res) => {
 
   const ctx = await resolverContexto({ candidatoId: candidato_id, nivel, emissorId: lideranca_id });
   if (!ctx) return res.status(400).json({ error: 'Link de cadastro inválido.' });
+  // Trava aqui também, e não só na abertura do formulário: quem já estava com a
+  // página aberta quando o problema apareceu não pode conseguir gravar.
+  const erroCtx = erroDoContexto(ctx);
+  if (erroCtx) return res.status(409).json({ error: erroCtx });
   const { candidatoId, parentId, emissorId, nivelConvite, novoNivel, perfilNovo, cadastradoPor, criaLogin } = ctx;
 
   // Impede a mesma pessoa se autocadastrar duas vezes na rede desse candidato

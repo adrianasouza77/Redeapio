@@ -203,6 +203,45 @@ Se retornar linhas, reiniciar o app já resolve — `001_init.sql` tem o reparo
 docker service update --force redeapoio_redeapoio-app
 ```
 
+### Quem se cadastra pelo link entra no nível errado
+
+Sintoma típico: o link de uma pessoa de **nível 3** cadastra os indicados dela
+como **nível 3** também, em vez de nível 4 — e depois a tela de reorganização
+recusa arrumar, porque "o responsável precisa estar exatamente um nível acima".
+
+O nível de quem entra é sempre **o nível de quem enviou o link + 1**, e o nível
+de quem enviou é lido da **ficha dele em `apoiadores`** (a linha cujo `id` é
+igual ao `id` do usuário). Se essa ficha disser 2, o link cadastra no 3 — não
+importa o que a coordenação da campanha considere que a pessoa seja.
+
+Rode o diagnóstico com o id que aparece depois de `lideranca=` na URL do link:
+
+```bash
+bash scripts/diagnostico-nivel.sh c57080f7-83ea-489d-b781-9a8d5de3b6bd
+```
+
+Ele mostra a ficha, o nível que o link está dando hoje e — nas duas últimas
+consultas — se o problema é geral: usuários sem ficha e fichas com nível
+incoerente com o responsável.
+
+**As duas origens conhecidas, ambas já corrigidas no código:**
+
+1. A tela *Usuários* criava todo apoiador com ficha de **nível 2 fixo** — não
+   dava para criar um nível 3 de verdade por lá. O select agora carrega o nível
+   junto (`apoiador-2` / `apoiador-3`).
+2. O reparo de fichas ausentes em `001_init.sql` também gravava **nível 2 fixo**.
+   Agora deduz o nível de quem já está pendurado na pessoa (se os indicados dela
+   são nível 4, ela é nível 3).
+
+Além disso, `contextoConvitePessoal` (em `routes/public.js`) tinha um `?? 2` que
+**chutava** o nível quando a ficha não existia — em silêncio, sem erro nenhum.
+Hoje o link é recusado com mensagem clara em vez de adivinhar.
+
+**Corrigir quem já entrou errado:** ajuste o nível e o responsável de cada um
+pela tela *Todos os Apoiadores* (o candidato consegue mexer na rede inteira).
+Comece de cima para baixo — o responsável precisa já estar no nível certo antes
+de você acertar o nível de quem está abaixo dele.
+
 ### Requisição fica "carregando" para sempre
 
 Rota async sem `asyncHandler`. Procure:

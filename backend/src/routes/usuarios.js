@@ -72,7 +72,13 @@ router.post('/', requireRole('candidato', 'admin'), asyncHandler(async (req, res
     // parent_id. Se fossem ids diferentes (como um gen_random_uuid() default),
     // a pirâmide nunca conseguiria achar os indicados de ninguém.
     if (perfil === 'lideranca' || perfil === 'apoiador') {
-      const nivelFicha = perfil === 'lideranca' ? 1 : 2;
+      // Liderança é sempre nível 1. Para apoiador o nível vinha fixo em 2, então
+      // o candidato não tinha como criar alguém de nível 3 por esta tela: a
+      // pessoa nascia como nível 2 e, pior, o link dela passava a cadastrar no
+      // nível 3 em vez do 4. Agora aceita 2 ou 3 (o padrão continua 2, para
+      // quem já usa a tela não mudar de comportamento).
+      const nivelPedido = Number(req.body?.nivel);
+      const nivelFicha = perfil === 'lideranca' ? 1 : ([2, 3].includes(nivelPedido) ? nivelPedido : 2);
       await client.query(
         `INSERT INTO apoiadores (id, nome, telefone, regiao, endereco, cidade, estado, titulo, zona, secao, nivel, parent_id, cadastrado_por)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NULL,$12)`,
