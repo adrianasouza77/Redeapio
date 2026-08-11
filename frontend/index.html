@@ -2466,6 +2466,7 @@ const MM_ESCALA_MIN = 0.25, MM_ESCALA_MAX = 2.5;
 let MM = {
   lista: [], mapaId: null, titulo: '', raiz: null,
   selecionado: null, escala: 1, panX: 40, panY: 40,
+  tipo: 'livre', vista: 'mental', foco: null,
   sujo: false, salvando: false, medidas: new Map(), posicoes: [],
 };
 let _mmTimerSalvar = null;
@@ -2484,6 +2485,21 @@ function renderMapaMental(){
       <span id="mm-estado" style="font-size:12px;color:var(--slate-light);margin-left:auto"></span>
     </div>
     <div id="mm-lugar" style="margin-top:10px;font-size:13px;font-weight:600;color:var(--navy)"></div>
+  </div>
+
+  <div class="card" id="mm-caixa-brasil" style="display:none;padding:0;overflow:hidden">
+    <div class="mm-barra">
+      <div style="font-weight:600;font-size:14px;color:var(--navy)">🗺️ Onde está a sua rede</div>
+      <div id="mm-brasil-resumo" style="font-size:12px;color:var(--slate-light);margin-left:auto"></div>
+    </div>
+    <div id="mm-brasil" style="width:100%;height:520px;background:var(--bg)"></div>
+  </div>
+
+  <div class="card" id="mm-trilha" style="display:none;padding:12px 16px">
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <button class="btn-sm btn-outline" onclick="mmVoltarBrasil()">← Voltar ao mapa do Brasil</button>
+      <div id="mm-trilha-texto" style="font-size:14px;color:var(--navy)"></div>
+    </div>
   </div>
 
   <div class="card" id="mm-area" style="padding:0;overflow:hidden">
@@ -2520,6 +2536,20 @@ function renderMapaMental(){
       <div class="field"><label>Nome do mapa</label>
         <input id="mm-f-nome" maxlength="120" autocomplete="off" placeholder="Deixe em branco para usar o nome do lugar"></div>
 
+      <div class="field" id="mm-escolha-tipo"><label>Tipo do mapa</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button type="button" class="btn-sm btn-outline" id="mm-tipo-geo" onclick="mmSetTipo('geo')" style="text-align:left">
+            <div style="font-weight:600">🗺️ Por localização</div>
+            <div style="font-size:11px;opacity:.75;font-weight:400">Entra pelo mapa do Brasil</div>
+          </button>
+          <button type="button" class="btn-sm btn-outline" id="mm-tipo-livre" onclick="mmSetTipo('livre')" style="text-align:left">
+            <div style="font-weight:600">🧠 Comum</div>
+            <div style="font-size:11px;opacity:.75;font-weight:400">Quadro de ideias livre</div>
+          </button>
+        </div>
+      </div>
+
+      <div id="mm-bloco-lugar">
       <div class="field"><label>Este mapa é de</label>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <button type="button" class="btn-sm btn-outline" id="mm-abr-estado" onclick="mmSetAbrangencia('estado')">Um estado</button>
@@ -2542,6 +2572,7 @@ function renderMapaMental(){
       <div class="field" id="mm-campo-bairro"><label>Bairro</label>
         <input id="mm-f-bairro" list="mm-lista-bairros" maxlength="120" autocomplete="off" placeholder="Digite ou escolha">
         <datalist id="mm-lista-bairros"></datalist></div>
+      </div>
 
       <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:6px">
         <button class="btn-sm btn-outline" onclick="mmFecharModalMapa()">Cancelar</button>
@@ -2579,6 +2610,19 @@ const MM_UFS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG'
 // null = criando um mapa novo; um id = editando aquele mapa
 let _mmEditando = null;
 let _mmAbrangencia = 'cidade';
+let _mmTipoForm = 'geo';
+
+// No mapa por localização o alcance é o Brasil inteiro (os estados viram
+// galhos), então os campos de estado/cidade/bairro só fazem sentido no comum.
+function mmSetTipo(t){
+  _mmTipoForm = t;
+  ['geo','livre'].forEach(x=>{
+    const b = document.getElementById('mm-tipo-' + x);
+    if(b){ b.classList.toggle('btn-navy', x===t); b.classList.toggle('btn-outline', x!==t); }
+  });
+  const bloco = document.getElementById('mm-bloco-lugar');
+  if(bloco) bloco.style.display = t === 'geo' ? 'none' : '';
+}
 
 function mmRotuloLugar(m){
   if(!m || !m.estado) return 'Sem lugar definido';
@@ -2602,10 +2646,18 @@ async function mmAbrir(id){
     // lugar e o agrupamento do seletor são montados.
     const i = MM.lista.findIndex(m=>m.id===mapa.id);
     if(i >= 0) MM.lista[i] = { ...MM.lista[i], titulo: mapa.titulo, estado: mapa.estado, cidade: mapa.cidade, bairro: mapa.bairro };
+    MM.tipo = mapa.tipo || 'livre';
+    MM.foco = null;
     mmPreencherSeletor();
-    mmDesenhar();
-    mmAjustar();
     mmEstado('salvo');
+    if(MM.tipo === 'geo'){
+      await mmMostrarBrasil();   // no mapa por localizacao a porta de entrada e o Brasil
+    } else {
+      MM.vista = 'mental';
+      mmAtualizarVista();
+      mmDesenhar();
+      mmAjustar();
+    }
   } catch(e){ showToast(e.message,'error'); }
 }
 
@@ -2651,6 +2703,11 @@ function mmAbrirModalMapa(id){
   _mmAbrangencia = !atual ? 'cidade'
     : (atual.bairro ? 'bairro' : (atual.cidade ? 'cidade' : (atual.estado ? 'estado' : 'nenhum')));
   mmSetAbrangencia(_mmAbrangencia, true);
+  // Tipo de mapa ja criado nao muda: a arvore de um mapa por localizacao e
+  // organizada por estado, e virar "comum" deixaria os galhos orfaos de sentido.
+  mmSetTipo(atual ? (atual.tipo || 'livre') : 'geo');
+  const escolhaTipo = document.getElementById('mm-escolha-tipo');
+  if(escolhaTipo) escolhaTipo.style.display = atual ? 'none' : '';
   document.getElementById('mm-modal-mapa').classList.add('aberto');
   setTimeout(()=>document.getElementById('mm-f-nome').focus(), 60);
 }
@@ -2705,9 +2762,11 @@ async function mmSalvarMapa(){
   const cidade = document.getElementById('mm-f-cidade').value.trim();
   const bairro = document.getElementById('mm-f-bairro').value.trim();
 
-  if(_mmAbrangencia !== 'nenhum' && !uf) return showToast('Escolha o estado.','error');
-  if((_mmAbrangencia === 'cidade' || _mmAbrangencia === 'bairro') && !cidade) return showToast('Escolha a cidade.','error');
-  if(_mmAbrangencia === 'bairro' && !bairro) return showToast('Escolha o bairro.','error');
+  if(_mmTipoForm !== 'geo'){
+    if(_mmAbrangencia !== 'nenhum' && !uf) return showToast('Escolha o estado.','error');
+    if((_mmAbrangencia === 'cidade' || _mmAbrangencia === 'bairro') && !cidade) return showToast('Escolha a cidade.','error');
+    if(_mmAbrangencia === 'bairro' && !bairro) return showToast('Escolha o bairro.','error');
+  }
 
   // Nome em branco vira o próprio lugar: "Dourados — Centro" é um nome melhor
   // do que "Novo mapa" e poupa uma digitação.
@@ -2715,6 +2774,7 @@ async function mmSalvarMapa(){
   const titulo = nome || lugarTxt || 'Novo mapa';
   const corpo = {
     titulo,
+    tipo: _mmTipoForm,
     estado: _mmAbrangencia === 'nenhum' ? '' : uf,
     cidade: (_mmAbrangencia === 'cidade' || _mmAbrangencia === 'bairro') ? cidade : '',
     bairro: _mmAbrangencia === 'bairro' ? bairro : '',
@@ -2833,7 +2893,7 @@ function mmAdicionarFilho(){
 
 function mmAdicionarIrmao(){
   const alvo = mmAchar(MM.selecionado);
-  if(!alvo || alvo === MM.raiz) return mmAdicionarFilho();
+  if(!alvo || alvo === MM.raiz || alvo === mmRaizVisivel()) return mmAdicionarFilho();
   const pai = mmAcharPai(alvo.id);
   if(!pai) return;
   const novo = { id: mmNovoId(), texto:'', cor: alvo.cor, fechado:false, filhos:[] };
@@ -2854,6 +2914,9 @@ function mmExcluirNo(){
   pai.filhos.splice(pai.filhos.indexOf(alvo), 1);
   MM.selecionado = pai.id;
   mmMarcarSujo();
+  // Excluir o proprio estado em que se entrou deixaria a tela desenhando um
+  // galho que nao existe mais: volta para o mapa do Brasil.
+  if(MM.foco === alvo.id){ mmVoltarBrasil(); return; }
   mmDesenhar();
 }
 function mmContar(no){
@@ -2918,6 +2981,152 @@ function mmConfirmarModal(){
   mmFecharModal();
 }
 
+// ── mapa do Brasil: porta de entrada do mapa por localização ──────────────
+// A ideia é a mesma do Mapa da Rede, mas aqui o clique NAVEGA em vez de só
+// informar: estado cinza é estado sem ninguém; assim que houver contato ele
+// ganha cor, e clicar abre a árvore daquele estado (MS › Dourados › Fulano).
+// É o formato que serve disputa de governador e senador, onde a rede é
+// estadual e olhar 27 galhos abertos ao mesmo tempo não ajuda ninguém.
+const MM_GEOJSON = '/br-estados.json';
+let _mmBrasil = null, _mmCamadaBr = null, _mmGeoJson = null;
+
+function mmRaizVisivel(){
+  if(MM.foco){
+    const no = mmAchar(MM.foco);
+    if(no) return no;
+    MM.foco = null; // o galho focado foi excluído: volta para a raiz
+  }
+  return MM.raiz;
+}
+
+// Quantos itens existem abaixo de cada estado. É o que decide a cor no mapa.
+function mmContagemPorUF(){
+  const contagem = new Map();
+  if(!MM.raiz) return contagem;
+  (MM.raiz.filhos||[]).forEach(no=>{
+    if(!no.uf) return;
+    // Estado aberto mas ainda vazio fica de fora: ele continua cinza no mapa, e
+    // contá-lo faria o resumo dizer "3 itens em 5 estados" quando dois estados
+    // não têm ninguém.
+    const quantos = mmContar(no) - 1;
+    if(quantos > 0) contagem.set(no.uf, (contagem.get(no.uf) || 0) + quantos);
+  });
+  return contagem;
+}
+
+function mmNoDoEstado(uf){
+  return (MM.raiz.filhos||[]).find(no=>no.uf===uf) || null;
+}
+
+async function mmMostrarBrasil(){
+  MM.vista = 'brasil';
+  mmAtualizarVista();
+  const alvo = document.getElementById('mm-brasil');
+  if(!alvo) return;
+  try { await carregarLeaflet(); }
+  catch(e){
+    alvo.innerHTML = `<div class="empty-state" style="padding:60px 20px"><div class="icon">🌐</div><p>${escapeHtml(e.message)}</p></div>`;
+    return;
+  }
+  if(!_mmGeoJson){
+    try {
+      const resp = await fetch(MM_GEOJSON, { credentials:'include' });
+      if(!resp.ok) throw new Error('Não foi possível carregar o mapa do Brasil.');
+      _mmGeoJson = await resp.json();
+    } catch(e){
+      alvo.innerHTML = `<div class="empty-state" style="padding:60px 20px"><div class="icon">🗺️</div><p>${escapeHtml(e.message)}</p></div>`;
+      return;
+    }
+  }
+  // Recria a cada entrada: o showPage troca o HTML inteiro do conteúdo, e a
+  // instância antiga do Leaflet fica apontando para uma div que não existe mais.
+  if(_mmBrasil){ _mmBrasil.remove(); _mmBrasil = null; }
+  _mmBrasil = L.map('mm-brasil', { scrollWheelZoom:false, attributionControl:false });
+  _mmBrasil.setView([-14.6, -52.5], 3);
+  mmPintarBrasil();
+}
+
+function mmPintarBrasil(){
+  if(!_mmBrasil || !_mmGeoJson) return;
+  if(_mmCamadaBr) _mmBrasil.removeLayer(_mmCamadaBr);
+  const contagem = mmContagemPorUF();
+  const maior = Math.max(1, ...contagem.values());
+
+  _mmCamadaBr = L.geoJSON(_mmGeoJson, {
+    style: (f)=>{
+      const n = contagem.get(f.properties.uf) || 0;
+      // Cinza = ninguém ali. Com gente, o azul escurece conforme a quantidade,
+      // então dá para ver de relance onde a campanha está forte.
+      const forca = n ? 0.25 + (n/maior) * 0.75 : 0;
+      return {
+        color: '#ffffff', weight: 1,
+        fillColor: n ? '#1a3460' : '#cbd5e0',
+        fillOpacity: n ? forca : 0.55,
+      };
+    },
+    onEachFeature: (f, camada)=>{
+      const uf = f.properties.uf;
+      const n = contagem.get(uf) || 0;
+      camada.bindTooltip(
+        `<strong>${escapeHtml(f.properties.nome)}</strong><br>`
+        + (n ? `${n} ite${n>1?'ns':'m'} no mapa` : 'sem ninguém ainda — clique para começar'),
+        { sticky:true });
+      camada.on('mouseover', ()=>camada.setStyle({ weight:2.5, color:'#c8a84b' }));
+      camada.on('mouseout', ()=>_mmCamadaBr.resetStyle(camada));
+      camada.on('click', ()=>mmEntrarEstado(uf, f.properties.nome));
+    },
+  }).addTo(_mmBrasil);
+
+  const total = [...contagem.values()].reduce((s,v)=>s+v,0);
+  const resumo = document.getElementById('mm-brasil-resumo');
+  if(resumo) resumo.textContent = total
+    ? `${total} ite${total>1?'ns':'m'} em ${contagem.size} estado${contagem.size>1?'s':''}. Clique num estado para abrir.`
+    : 'Clique num estado para começar a montar a rede dele.';
+}
+
+// Entrar num estado cria o galho dele na hora, se ainda não existir. É o que
+// faz o mapa nascer do clique em vez de exigir que o candidato monte a
+// estrutura de 27 estados na mão antes de usar.
+function mmEntrarEstado(uf, nome){
+  let no = mmNoDoEstado(uf);
+  if(!no){
+    no = { id: mmNovoId(), texto: nome || uf, cor: MM_CORES[1], fechado:false, filhos:[], uf };
+    MM.raiz.filhos = MM.raiz.filhos || [];
+    MM.raiz.filhos.push(no);
+    MM.raiz.filhos.sort((a,b)=>String(a.texto).localeCompare(String(b.texto),'pt-BR'));
+    mmMarcarSujo();
+  }
+  MM.foco = no.id;
+  MM.selecionado = no.id;
+  MM.vista = 'mental';
+  mmAtualizarVista();
+  mmDesenhar();
+  mmAjustar();
+}
+
+function mmVoltarBrasil(){
+  MM.foco = null;
+  mmMostrarBrasil();
+}
+
+// Alterna as duas telas do mapa por localização. No mapa comum só existe a
+// árvore, então nem a barra de navegação aparece.
+function mmAtualizarVista(){
+  const ehGeo = MM.tipo === 'geo';
+  const mostrar = (id, sim)=>{ const el = document.getElementById(id); if(el) el.style.display = sim ? '' : 'none'; };
+  mostrar('mm-caixa-brasil', ehGeo && MM.vista === 'brasil');
+  mostrar('mm-area', !ehGeo || MM.vista === 'mental');
+  mostrar('mm-trilha', ehGeo && MM.vista === 'mental');
+
+  const trilha = document.getElementById('mm-trilha-texto');
+  if(trilha && ehGeo){
+    const foco = MM.foco ? mmAchar(MM.foco) : null;
+    trilha.innerHTML = foco
+      ? `🗺️ Brasil <span style="color:var(--slate-light)">›</span> <strong>${escapeHtml(foco.texto)}</strong>`
+      : '🗺️ Brasil';
+  }
+}
+
 // ── desenho ───────────────────────────────────────────────────────────────
 // Calcula a posição de cada nó. Fica separada do DOM de propósito: é a única
 // parte com regra de verdade aqui, e assim dá para testar sem navegador.
@@ -2960,6 +3169,10 @@ function mmDesenhar(){
   const caixaNos = document.getElementById('mm-nos');
   const svg = document.getElementById('mm-links');
   if(!caixaNos || !svg || !MM.raiz) return;
+  // No mapa por localização a árvore é desenhada A PARTIR do estado em que o
+  // candidato entrou. Sem isso ele veria os 27 estados abertos ao mesmo tempo,
+  // que é justamente o que o mapa do Brasil existe para evitar.
+  const raiz = mmRaizVisivel();
 
   // 1) cria os nós escondidos só para o navegador medir a largura do texto.
   //    Sem medir, todo nó teria largura fixa e ou cortaria nome comprido ou
@@ -2972,10 +3185,10 @@ function mmDesenhar(){
     visiveis.push(no);
     if(no.fechado) return;
     (no.filhos||[]).forEach(coletar);
-  })(MM.raiz);
+  })(raiz);
   caixaNos.innerHTML = visiveis.map(no=>{
     const qtd = (no.filhos||[]).length;
-    const ehRaiz = no === MM.raiz;
+    const ehRaiz = no === raiz;
     return `<div class="mm-no${ehRaiz?' mm-no-raiz':''}${no.id===MM.selecionado?' mm-no-sel':''}" data-id="${no.id}"
       style="border-color:${no.cor};${ehRaiz?`background:${no.cor};`:''}"
       onclick="mmSelecionar('${no.id}',event)" ondblclick="mmSelecionar('${no.id}',event);mmEditarNo()">
@@ -2990,7 +3203,7 @@ function mmDesenhar(){
   els.forEach((el, id)=>medidas.set(id, { w: el.offsetWidth || 120, h: el.offsetHeight || 34 }));
 
   // 2) posiciona
-  const pos = mmCalcularLayout(MM.raiz, (no)=>medidas.get(no.id) || { w:120, h:34 });
+  const pos = mmCalcularLayout(raiz, (no)=>medidas.get(no.id) || { w:120, h:34 });
   MM.posicoes = pos;
   const minY = Math.min(...pos.map(p=>p.y - p.h/2));
   const maxY = Math.max(...pos.map(p=>p.y + p.h/2));

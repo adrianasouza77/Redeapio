@@ -52,6 +52,12 @@ function limparArvore(entrada, contador, profundidade) {
     filhos: [],
   };
 
+  // Nó de estado no mapa por localização. É o que liga o galho ao mapa do
+  // Brasil: a UF pinta o estado e leva o clique até a árvore certa. Guardado
+  // só quando é uma UF de verdade, para não sobrar "XX" pintando nada.
+  const uf = String(entrada.uf || '').trim().toUpperCase();
+  if (UFS.includes(uf)) no.uf = uf;
+
   if (Array.isArray(entrada.filhos) && profundidade < MAX_PROFUNDIDADE) {
     for (const filho of entrada.filhos) {
       const limpo = limparArvore(filho, contador, profundidade + 1);
@@ -88,19 +94,17 @@ function limparLugar(corpo) {
   return { estado, cidade, bairro };
 }
 
-function mapaPadrao(titulo) {
+function mapaPadrao(titulo, tipo) {
+  // No mapa por localização os galhos são os estados, e eles nascem quando o
+  // candidato clica no mapa do Brasil — começar com galhos de exemplo aqui só
+  // atrapalharia, porque teriam de ser apagados um a um.
+  const filhos = tipo === 'geo' ? [] : [
+    { id: 'n1', texto: 'Lideranças', cor: CORES[1], fechado: false, filhos: [] },
+    { id: 'n2', texto: 'Grupos e entidades', cor: CORES[2], fechado: false, filhos: [] },
+    { id: 'n3', texto: 'Compromissos', cor: CORES[4], fechado: false, filhos: [] },
+  ];
   return {
-    raiz: {
-      id: 'raiz',
-      texto: titulo || 'Minha campanha',
-      cor: CORES[0],
-      fechado: false,
-      filhos: [
-        { id: 'n1', texto: 'Lideranças', cor: CORES[1], fechado: false, filhos: [] },
-        { id: 'n2', texto: 'Grupos e entidades', cor: CORES[2], fechado: false, filhos: [] },
-        { id: 'n3', texto: 'Compromissos', cor: CORES[4], fechado: false, filhos: [] },
-      ],
-    },
+    raiz: { id: 'raiz', texto: titulo || 'Minha campanha', cor: CORES[0], fechado: false, filhos },
   };
 }
 
@@ -108,7 +112,7 @@ function mapaPadrao(titulo) {
 // trafegados só para desenhar um seletor de nomes.
 router.get('/', asyncHandler(async (req, res) => {
   const { rows } = await pool.query(
-    `SELECT id, titulo, estado, cidade, bairro, atualizado_em,
+    `SELECT id, titulo, tipo, estado, cidade, bairro, atualizado_em,
             jsonb_array_length(COALESCE(dados->'raiz'->'filhos', '[]'::jsonb)) AS ramos
      FROM mapas_mentais WHERE candidato_id = $1
      ORDER BY COALESCE(estado,'zz'), COALESCE(cidade,'zz'), COALESCE(bairro,'zz'), titulo`,
@@ -127,19 +131,22 @@ router.post('/', asyncHandler(async (req, res) => {
   }
 
   const titulo = String(req.body?.titulo || '').trim().slice(0, 120) || 'Novo mapa';
-  const lugar = limparLugar(req.body || {});
+  const tipo = req.body?.tipo === 'geo' ? 'geo' : 'livre';
+  // No mapa por localizacao o alcance e o Brasil inteiro; guardar um lugar fixo
+  // aqui brigaria com os estados que viram galhos da arvore.
+  const lugar = tipo === 'geo' ? { estado: null, cidade: null, bairro: null } : limparLugar(req.body || {});
   const { rows } = await pool.query(
-    `INSERT INTO mapas_mentais (candidato_id, titulo, dados, estado, cidade, bairro)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING id, titulo, dados, estado, cidade, bairro, atualizado_em`,
-    [donoDoMapa(req), titulo, mapaPadrao(lugar.bairro || lugar.cidade || titulo), lugar.estado, lugar.cidade, lugar.bairro]
+    `INSERT INTO mapas_mentais (candidato_id, titulo, dados, tipo, estado, cidade, bairro)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     RETURNING id, titulo, dados, tipo, estado, cidade, bairro, atualizado_em`,
+    [donoDoMapa(req), titulo, mapaPadrao(lugar.bairro || lugar.cidade || titulo, tipo), tipo, lugar.estado, lugar.cidade, lugar.bairro]
   );
   res.status(201).json(rows[0]);
 }));
 
 router.get('/:id', asyncHandler(async (req, res) => {
   const { rows } = await pool.query(
-    'SELECT id, titulo, dados, estado, cidade, bairro, atualizado_em FROM mapas_mentais WHERE id = $1 AND candidato_id = $2',
+    'SELECT id, titulo, dados, tipo, estado, cidade, bairro, atualizado_em FROM mapas_mentais WHERE id = $1 AND candidato_id = $2',
     [req.params.id, donoDoMapa(req)]
   );
   if (!rows[0]) return res.status(404).json({ error: 'Mapa não encontrado.' });
@@ -188,7 +195,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
   const { rows } = await pool.query(
     `UPDATE mapas_mentais SET ${campos.join(', ')}, atualizado_em = now()
      WHERE id = $${vals.length - 1} AND candidato_id = $${vals.length}
-     RETURNING id, titulo, estado, cidade, bairro, atualizado_em`,
+     RETURNING id, titulo, tipo, estado, cidade, bairro, atualizado_em`,
     vals
   );
   res.json(rows[0]);

@@ -303,3 +303,15 @@ ALTER TABLE mapas_mentais ADD COLUMN IF NOT EXISTS cidade TEXT;
 ALTER TABLE mapas_mentais ADD COLUMN IF NOT EXISTS bairro TEXT;
 CREATE INDEX IF NOT EXISTS idx_mapas_mentais_lugar
   ON mapas_mentais (candidato_id, lower(COALESCE(estado,'')), lower(COALESCE(cidade,'')));
+
+-- Dois jeitos de usar o mapa mental, porque a campanha tem os dois:
+--   'livre' — quadro de ideias solto (o que já existia)
+--   'geo'   — entra pelo mapa do Brasil: o candidato clica no estado e cai na
+--             árvore daquele estado (MS › Dourados › Fulano). Pensado para
+--             disputa de governador/senador, em que a rede é estadual.
+-- O padrão é 'livre' para nenhum mapa já criado mudar de comportamento.
+ALTER TABLE mapas_mentais ADD COLUMN IF NOT EXISTS tipo TEXT NOT NULL DEFAULT 'livre';
+DO $$ BEGIN
+  ALTER TABLE mapas_mentais ADD CONSTRAINT mapas_mentais_tipo_check CHECK (tipo IN ('livre','geo'));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;

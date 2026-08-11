@@ -94,8 +94,24 @@ responsável), `cadastrado_por`, `lgpd_aceite`/`_em`/`_versao`.
 Ferramenta de gestão do candidato (estrutura política, grupos, compromissos).
 **Não tem relação com a pirâmide**: aqui não existe nível, limite nem LGPD.
 
-`id`, `candidato_id`, `titulo`, `dados` (JSONB), `estado`, `cidade`, `bairro`,
+`id`, `candidato_id`, `titulo`, `tipo`, `dados` (JSONB), `estado`, `cidade`, `bairro`,
 `atualizado_em`.
+
+**Dois tipos de mapa** (`tipo`), porque a campanha usa os dois:
+
+- **`geo`** — entra pelo mapa do Brasil. Estado cinza é estado sem ninguém;
+  com contatos ele ganha azul, e o azul escurece conforme a quantidade.
+  Clicar abre a árvore daquele estado (MS › Dourados › Fulano). Os galhos de
+  primeiro nível são os estados, cada um com um campo `uf` no nó — é ele que
+  liga o galho ao mapa. O galho nasce do clique: não existe montar 27 estados
+  na mão antes de usar. Pensado para governador e senador, onde a rede é
+  estadual e ver 27 galhos abertos ao mesmo tempo não ajuda.
+- **`livre`** — quadro de ideias solto, sem mapa geográfico.
+
+O desenho respeita `MM.foco`: no mapa `geo` a árvore é renderizada **a partir**
+do estado em que o candidato entrou (`mmRaizVisivel()`), não da raiz. As
+fronteiras vêm de `frontend/br-estados.json` (87 KB, malha do IBGE com a
+precisão reduzida a 3 casas — é mapa de país inteiro), carregado só nessa tela.
 
 **O lugar do mapa é uma cascata, e o alcance é escolha do candidato.** Ele
 decide se o mapa é de um estado inteiro ("DF"), de uma cidade ("MS › Dourados")
