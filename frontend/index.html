@@ -69,8 +69,12 @@
      a tela cheia mais faz falta. */
   .mm-cheio{position:fixed;inset:0;z-index:9500;margin:0;border-radius:0;}
   .mm-cheio .mm-viewport{height:calc(100vh - 58px);}
-  #mm-area:fullscreen{background:var(--white);}
-  #mm-area:fullscreen .mm-viewport{height:calc(100vh - 58px);}
+  /* Vale para QUALQUER janela em tela cheia (mapa mental e organograma). Antes
+     isto mirava só #mm-area, então o organograma entrava em tela cheia mas o
+     quadro continuava com os 560px de sempre — sobrava uma faixa branca embaixo
+     e o "Ajustar" calculava o zoom pela altura errada. */
+  :fullscreen{background:var(--white);}
+  :fullscreen .mm-viewport{height:calc(100vh - 58px);}
   /* ORGANOGRAMA — mesma janelinha do mapa mental (.mm-viewport/.mm-mundo),
      cartão próprio porque aqui cada caixa tem nome, nível e bairro. */
   .org-no{position:absolute;background:var(--white);border:2px solid var(--navy);border-left-width:5px;border-radius:9px;
@@ -2187,12 +2191,36 @@ function orgMontarArvore(){
   const raiz = { id:'__candidato__', nome: CONFIG.candidatoNome || 'Candidato', regiao:'', nivel:0, filhos:[] };
   APOIADORES.forEach(a=>{
     const no = porId.get(String(a.id));
-    const pai = porId.get(String(a.parent_id));
-    // Quem entra pelos links por nível do candidato fica sem responsável
-    // (parent_id nulo). Em vez de sumir do organograma, pendura no candidato —
-    // é lá que ele está de fato até alguém reorganizar.
+    // MESMA regra do backend (RECURSAO_SUBARVORE): vale o parent_id e, quando
+    // ele é nulo, quem cadastrou a pessoa. Sem o segundo caminho, todo mundo
+    // que entrou por um link pessoal antes da hierarquia ser reorganizada caía
+    // direto no candidato — o organograma mostrava uma coluna gigante pendurada
+    // na raiz em vez de cada um sob a sua liderança.
+    const pai = porId.get(String(a.parent_id))
+      || (a.parent_id == null ? porId.get(String(a.cadastrado_por)) : null);
     (pai || raiz).filhos.push(no);
   });
+
+  // Rede de segurança contra ciclo (A é pai de B que é pai de A), que um
+  // remanejamento malfeito no banco pode criar: sem isto a contagem e o desenho
+  // entram em recursão infinita e a tela fica em branco, sem erro visível.
+  const alcancados = new Set();
+  (function marcar(no){
+    if(alcancados.has(no.id)) return;
+    alcancados.add(no.id);
+    no.filhos.forEach(marcar);
+  })(raiz);
+  const soltos = [...porId.values()].filter(no=>!alcancados.has(no.id));
+  if(soltos.length){
+    // Desfaz os vínculos ENTRE os soltos antes de pendurar todos no candidato.
+    // Sem essa parte, num ciclo A↔B cada um continuaria filho do outro E filho
+    // da raiz — o mesmo nó em dois lugares, e a recursão voltaria a não terminar.
+    const idsSoltos = new Set(soltos.map(no=>no.id));
+    soltos.forEach(no=>{ no.filhos = no.filhos.filter(f=>!idsSoltos.has(f.id)); });
+    soltos.forEach(no=>raiz.filhos.push(no));
+    console.warn(`Organograma: ${soltos.length} cadastro(s) com vínculo circular foram pendurados no candidato.`);
+  }
+
   const ordenar=(no)=>{ no.filhos.sort((x,y)=> (x.nivel-y.nivel) || String(x.nome).localeCompare(String(y.nome),'pt-BR')); no.filhos.forEach(ordenar); };
   ordenar(raiz);
   const contar=(no)=>{ no.total = no.filhos.reduce((s,f)=>s+contar(f),0) + no.filhos.length; return no.total; };
@@ -3616,7 +3644,10 @@ function mmTelaCheia(){
 // Sair da tela cheia pelo Esc não avisa ninguém — sem isto o mapa ficava com o
 // zoom calculado para a tela grande depois de voltar ao tamanho normal.
 document.addEventListener('fullscreenchange', ()=>{
+  // Sair pelo Esc não avisa ninguém: sem reencaixar, o desenho fica com o zoom
+  // calculado para a tela grande depois de voltar ao tamanho normal.
   if(paginaAtual === 'mapa-mental') setTimeout(mmAjustar, 200);
+  if(paginaAtual === 'grafico' && vistaGrafico === 'organograma') setTimeout(orgAjustar, 200);
 });
 
 function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();}
