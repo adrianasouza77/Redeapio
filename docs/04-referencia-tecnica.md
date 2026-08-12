@@ -487,6 +487,36 @@ idEfetivo()      // id do candidato do workspace, ou do usuário logado
 wsQuery()        // '?as=<id>' para anexar à URL da API
 ```
 
+### Organograma e mapa mental compartilham o motor
+
+Duas telas desenham uma árvore grande dentro de uma janelinha e precisam do
+mesmo comportamento. Em vez de duas cópias que divergem com o tempo, três
+peças são compartilhadas:
+
+- **`mmCalcularLayout(raiz, medir)`** — posição de cada nó.
+- **`mmCaminho(x1,y1,x2,y2)`** — a ligação em ângulo reto entre pai e filho.
+- **`pzAplicar` / `pzZoom` / `pzAjustar` / `pzLigarGestos`** — mover, aproximar,
+  encaixar na tela e os gestos. Recebem o estado por parâmetro (`MM` ou `ORG`),
+  então a mesma função serve as duas telas.
+
+O **organograma** (`ORG`, dentro de Gráficos da Rede) monta a árvore a partir de
+`APOIADORES` seguindo `parent_id`, com o candidato na raiz. Quem está sem
+responsável — o caso de quem entra pelos links por nível do candidato — é
+pendurado no candidato em vez de sumir do desenho.
+
+Ele abre **recolhido do nível 2 para baixo** (`ORG_PROFUNDIDADE_ABERTA`): numa
+rede de mil pessoas, abrir tudo desenha mil cartões medidos um a um pelo
+navegador, e no celular isso trava. "Abrir tudo" acima de
+`ORG_AVISO_ACIMA_DE` pede confirmação.
+
+### Gráficos: agrupamento e detalhamento
+
+`grupoGrafico` é `cidade`, `bairro` ou `zona`. Quando é `cidade`, clicar numa
+linha do ranking define `cidadeFoco` e **todos os cards passam a olhar só
+aquela cidade**, detalhando por bairro — `baseGrafico()` filtra e `chaveGrupo()`
+troca para bairro. Sem isso, "Centro" de Dourados e "Centro" de Juti apareciam
+somados na mesma fatia.
+
 ### Mapa mental: onde está a regra
 
 Quase tudo é DOM e gesto, mas duas funções concentram a lógica e podem ser

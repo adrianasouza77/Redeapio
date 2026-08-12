@@ -71,6 +71,23 @@
   .mm-cheio .mm-viewport{height:calc(100vh - 58px);}
   #mm-area:fullscreen{background:var(--white);}
   #mm-area:fullscreen .mm-viewport{height:calc(100vh - 58px);}
+  /* ORGANOGRAMA — mesma janelinha do mapa mental (.mm-viewport/.mm-mundo),
+     cartão próprio porque aqui cada caixa tem nome, nível e bairro. */
+  .org-no{position:absolute;background:var(--white);border:2px solid var(--navy);border-left-width:5px;border-radius:9px;
+    padding:8px 34px 8px 12px;min-width:150px;max-width:230px;cursor:pointer;user-select:none;
+    box-shadow:0 1px 4px rgba(15,31,61,.10);}
+  .org-no:hover{box-shadow:0 3px 10px rgba(15,31,61,.18);}
+  .org-raiz{color:var(--white);}
+  .org-raiz .org-sub{color:rgba(255,255,255,.75);}
+  .org-nome{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .org-sub{font-size:11px;color:var(--slate-light);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .org-tag{position:absolute;top:-8px;right:8px;color:var(--white);font-size:10px;font-weight:700;
+    padding:2px 7px;border-radius:10px;border:2px solid var(--white);}
+  .org-info{position:absolute;bottom:6px;right:6px;width:22px;height:22px;padding:0;border-radius:50%;
+    border:1px solid var(--border);background:var(--bg);color:var(--slate-light);font-size:12px;font-weight:700;
+    font-style:italic;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    font-family:'Inter',sans-serif;}
+  .org-info:hover{background:var(--navy);color:var(--white);border-color:var(--navy);}
   .mm-modal{display:none;position:fixed;inset:0;background:rgba(15,31,61,.8);z-index:9999;align-items:center;justify-content:center;padding:20px;}
   .mm-modal.aberto{display:flex;}
   .mm-modal-caixa{background:var(--white);border-radius:14px;padding:22px;width:100%;max-width:440px;box-shadow:0 20px 60px rgba(0,0,0,.3);}
@@ -1150,7 +1167,8 @@ function showPage(page) {
     case 'rede':          c.innerHTML=renderRede(); break;
     case 'apoiadores':    c.innerHTML=renderApoiadores(); break;
     case 'exportar':      c.innerHTML=renderExportar(); break;
-    case 'grafico':       c.innerHTML=renderGrafico(); setTimeout(desenharGrafico,50); break;
+    case 'grafico':       c.innerHTML=renderGrafico();
+                          setTimeout(()=>{ if(vistaGrafico==='organograma') orgIniciar(); else desenharGrafico(); },50); break;
     case 'mapa':          c.innerHTML=renderMapa(); setTimeout(carregarMapa,50); break;
     case 'mapa-mental':   c.innerHTML=renderMapaMental(); setTimeout(()=>{ mmLigarGestos(); mmIniciar(); },50); break;
     case 'minha-rede':    c.innerHTML=renderMinhaRede(); break;
@@ -1882,25 +1900,51 @@ async function salvarMeuLogin(){
 }
 
 // ══════════════════════════════════════════
-//  GRÁFICOS (bairro e zona eleitoral)
+//  GRÁFICOS (distribuição e organograma)
 // ══════════════════════════════════════════
 // Com 90 bairros, pizza e barra viram um borrão ilegível. O gráfico mostra os
 // maiores e junta a cauda em "Outros" — o ranking logo abaixo continua trazendo
 // todo mundo, então nada fica escondido.
 const TOP_GRAFICO = 12;
-let grupoGrafico = 'zona';
+let vistaGrafico = 'distribuicao';   // 'distribuicao' | 'organograma'
+let grupoGrafico = 'zona';           // 'cidade' | 'bairro' | 'zona'
+let cidadeFoco = null;               // cidade aberta para detalhar por bairro
 let chartType = 'pie';
 const CORES_GRAFICO = ['#c8a84b','#0f1f3d','#6b8ed6','#276749','#c53030','#e8c96a','#1a3460','#8b5cf6',
   '#0891b2','#ea580c','#65a30d','#be185d','#a0aec0'];
 
-function setGrupoGrafico(g){ grupoGrafico=g; showPage('grafico'); }
-function setChartType(t){ chartType=t; showPage('grafico'); }
+function cidadeDe(a){ const c=String(a.cidade||'').trim(); return c || 'Não informada'; }
 
-function chaveGrupo(){ return grupoGrafico==='zona' ? zonaDe : bairroDe; }
-function rotuloGrupo(){ return grupoGrafico==='zona' ? 'zona eleitoral' : 'bairro'; }
+function setVistaGrafico(v){ vistaGrafico=v; showPage('grafico'); }
+function setGrupoGrafico(g){ grupoGrafico=g; cidadeFoco=null; showPage('grafico'); }
+function setChartType(t){ chartType=t; showPage('grafico'); }
+// Entrar numa cidade detalha os bairros DELA. É o pedido de "por cidade, e
+// dentro da cidade por bairro" — sem isso, "Centro" de Dourados e "Centro" de
+// Juti apareciam somados na mesma fatia.
+function abrirCidade(c){ cidadeFoco=c; showPage('grafico'); }
+function fecharCidade(){ cidadeFoco=null; showPage('grafico'); }
+
+// Base de dados dos gráficos: a rede toda, ou só a cidade aberta.
+function baseGrafico(){
+  return cidadeFoco ? APOIADORES.filter(a=>cidadeDe(a)===cidadeFoco) : APOIADORES;
+}
+function chaveGrupo(){
+  if(cidadeFoco) return bairroDe;   // dentro de uma cidade, o detalhe é o bairro
+  if(grupoGrafico==='zona') return zonaDe;
+  if(grupoGrafico==='cidade') return cidadeDe;
+  return bairroDe;
+}
+function rotuloGrupo(){
+  if(cidadeFoco) return 'bairro';
+  return grupoGrafico==='zona' ? 'zona eleitoral' : (grupoGrafico==='cidade' ? 'cidade' : 'bairro');
+}
+function tituloColuna(){
+  if(cidadeFoco) return 'Bairro';
+  return grupoGrafico==='zona' ? 'Zona Eleitoral' : (grupoGrafico==='cidade' ? 'Cidade' : 'Bairro');
+}
 
 function dadosGrafico(){
-  const todos = contarPor(APOIADORES, chaveGrupo());
+  const todos = contarPor(baseGrafico(), chaveGrupo());
   if(todos.length <= TOP_GRAFICO) return { itens: todos, resto: 0 };
   const topo = todos.slice(0, TOP_GRAFICO);
   const cauda = todos.slice(TOP_GRAFICO);
@@ -1908,31 +1952,50 @@ function dadosGrafico(){
 }
 
 function renderGrafico(){
-  const total = APOIADORES.length;
-  if(!total) return `
-    <div class="page-header"><h1>Gráficos da Rede</h1><p>Distribuição por bairro e por zona eleitoral</p></div>
+  if(!APOIADORES.length) return `
+    <div class="page-header"><h1>Gráficos da Rede</h1><p>Distribuição e organograma da sua rede</p></div>
     <div class="card"><div class="empty-state"><div class="icon">📈</div><p>Nenhum apoiador cadastrado ainda.</p></div></div>`;
-  const completo = contarPor(APOIADORES, chaveGrupo());
-  const { itens, resto } = dadosGrafico();
-  const semZona = APOIADORES.filter(a=>!String(a.zona||'').trim()).length;
-  const qtdZonas = contarPor(APOIADORES,zonaDe).filter(([z])=>z!==ZONA_VAZIA).length;
-  const aba = (id,rot,ativo,fn)=>`<button class="btn-sm ${ativo===id?'btn-navy':'btn-outline'}" style="font-size:11px" onclick="${fn}('${id}')">${rot}</button>`;
-  return `
-  <div class="page-header"><h1>Gráficos da Rede</h1><p>${total} apoiadores · ${contarPor(APOIADORES,bairroDe).length} bairros · ${qtdZonas} zona${qtdZonas===1?'':'s'} eleitoral${qtdZonas===1?'':'is'}</p></div>
 
+  const aba = (id,rot,ativo,fn)=>`<button class="btn-sm ${ativo===id?'btn-navy':'btn-outline'}" style="font-size:11px" onclick="${fn}('${id}')">${rot}</button>`;
+  const cabecalho = `
+  <div class="page-header"><h1>Gráficos da Rede</h1><p>${APOIADORES.length} apoiadores · ${contarPor(APOIADORES,cidadeDe).length} cidades · ${contarPor(APOIADORES,bairroDe).length} bairros</p></div>
+  <div class="card">
+    <div class="card-header"><div class="card-title">Visualização</div>
+      <div style="display:flex;gap:6px">
+        ${aba('distribuicao','📊 Distribuição',vistaGrafico,'setVistaGrafico')}
+        ${aba('organograma','🌳 Organograma',vistaGrafico,'setVistaGrafico')}
+      </div>
+    </div>
+  </div>`;
+
+  if(vistaGrafico === 'organograma') return cabecalho + renderOrganograma();
+
+  const base = baseGrafico();
+  const total = base.length;
+  const completo = contarPor(base, chaveGrupo());
+  const { itens, resto } = dadosGrafico();
+  const semZona = base.filter(a=>!String(a.zona||'').trim()).length;
+
+  return cabecalho + `
   <div class="card">
     <div class="card-header">
       <div class="card-title">Agrupar por</div>
       <div style="display:flex;gap:6px">
+        ${aba('cidade','🏙️ Cidade',grupoGrafico,'setGrupoGrafico')}
         ${aba('bairro','🏘️ Bairro',grupoGrafico,'setGrupoGrafico')}
         ${aba('zona','🗳️ Zona Eleitoral',grupoGrafico,'setGrupoGrafico')}
       </div>
     </div>
-    ${grupoGrafico==='zona' && semZona ? `<p style="font-size:12px;color:#8a6a10;background:#fdf5e0;border:1px solid var(--gold);border-radius:8px;padding:8px 12px">⚠️ ${semZona} de ${total} apoiadores estão sem zona eleitoral preenchida e aparecem como "${ZONA_VAZIA}".</p>` : ''}
+    ${cidadeFoco ? `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px">
+        <span style="font-size:13px">🏙️ Detalhando <strong>${escapeHtml(cidadeFoco)}</strong> — ${total} apoiador${total>1?'es':''} em ${completo.length} bairro${completo.length>1?'s':''}</span>
+        <button class="btn-sm btn-outline" style="font-size:11px;margin-left:auto" onclick="fecharCidade()">← Ver todas as cidades</button>
+      </div>` : ''}
+    ${grupoGrafico==='cidade' && !cidadeFoco ? `<p style="font-size:12px;color:var(--slate-light);margin-top:10px">Clique numa cidade no ranking abaixo para ver os bairros dela.</p>` : ''}
+    ${(grupoGrafico==='zona' || cidadeFoco) && semZona ? `<p style="font-size:12px;color:#8a6a10;background:#fdf5e0;border:1px solid var(--gold);border-radius:8px;padding:8px 12px;margin-top:10px">⚠️ ${semZona} de ${total} apoiadores estão sem zona eleitoral preenchida e aparecem como "${ZONA_VAZIA}".</p>` : ''}
   </div>
 
   <div class="card">
-    <div class="card-header"><div class="card-title">Distribuição por ${rotuloGrupo()}</div>
+    <div class="card-header"><div class="card-title">Distribuição por ${rotuloGrupo()}${cidadeFoco?` em ${escapeHtml(cidadeFoco)}`:''}</div>
       <div style="display:flex;gap:6px">
         ${aba('pie','Pizza',chartType,'setChartType')}
         ${aba('bar','Barras',chartType,'setChartType')}
@@ -1944,7 +2007,7 @@ function renderGrafico(){
       ${itens.map(([r,n],i)=>`
         <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--slate)">
           <span style="width:11px;height:11px;border-radius:3px;background:${CORES_GRAFICO[i%CORES_GRAFICO.length]};flex-shrink:0"></span>
-          <span>${r} — <strong>${n}</strong> (${((n/total)*100).toFixed(1)}%)</span>
+          <span>${escapeHtml(r)} — <strong>${n}</strong> (${((n/total)*100).toFixed(1)}%)</span>
         </div>`).join('')}
     </div>
     ${resto ? `<p style="font-size:11px;color:var(--slate-light);margin-top:12px">O gráfico mostra os ${TOP_GRAFICO} maiores; os outros ${resto} entram somados em "Outros" e aparecem inteiros no ranking abaixo.</p>` : ''}
@@ -1952,11 +2015,15 @@ function renderGrafico(){
 
   <div class="card">
     <div class="card-header"><div class="card-title">Ranking completo por ${rotuloGrupo()}</div></div>
-    <table><thead><tr><th>#</th><th>${grupoGrafico==='zona'?'Zona Eleitoral':'Bairro'}</th><th>Apoiadores</th><th>%</th><th>Barra</th></tr></thead>
+    <table><thead><tr><th>#</th><th>${tituloColuna()}</th><th>Apoiadores</th><th>%</th><th>Barra</th></tr></thead>
     <tbody>${completo.map(([r,n],i)=>{
       const pct=((n/total)*100).toFixed(1);
       const bar=Math.round((n/completo[0][1])*100);
-      return `<tr><td><strong style="color:var(--gold)">${i+1}º</strong></td><td><span class="region-tag">${r}</span></td><td><strong>${n}</strong></td><td>${pct}%</td>
+      const clicavel = grupoGrafico==='cidade' && !cidadeFoco && r!=='Não informada';
+      const celula = clicavel
+        ? `<td style="cursor:pointer" onclick="abrirCidade(${JSON.stringify(r).replace(/"/g,'&quot;')})"><span class="region-tag">${escapeHtml(r)}</span> <span style="font-size:11px;color:var(--gold)">ver bairros ›</span></td>`
+        : `<td><span class="region-tag">${escapeHtml(r)}</span></td>`;
+      return `<tr><td><strong style="color:var(--gold)">${i+1}º</strong></td>${celula}<td><strong>${n}</strong></td><td>${pct}%</td>
         <td style="min-width:120px"><div class="progress-bar" style="margin-top:0"><div class="progress-fill" style="width:${bar}%;background:${CORES_GRAFICO[i%CORES_GRAFICO.length]}"></div></div></td></tr>`;
     }).join('')}</tbody></table>
   </div>
@@ -1968,16 +2035,17 @@ function renderGrafico(){
 // mostra, dentro de um bairro, quantos apoiadores votam em cada zona (bairro
 // grande costuma ser cortado por mais de uma zona eleitoral).
 function renderCruzamento(){
-  const total = APOIADORES.length;
-  const zonas = contarPor(APOIADORES, zonaDe).map(([z])=>z);
-  const bairros = contarPor(APOIADORES, bairroDe);
+  const base = baseGrafico();
+  const total = base.length;
+  const zonas = contarPor(base, zonaDe).map(([z])=>z);
+  const bairros = contarPor(base, bairroDe);
   if(zonas.length < 2 || bairros.length < 2) return '';
   const MAX_COL = 8;
   const colunas = zonas.slice(0, MAX_COL);
   const sobra = zonas.slice(MAX_COL);
   const cabecalhos = [...colunas, ...(sobra.length?['Outras zonas']:[])];
   const matriz = new Map();
-  APOIADORES.forEach(a=>{
+  base.forEach(a=>{
     const z = colunas.includes(zonaDe(a)) ? zonaDe(a) : 'Outras zonas';
     const k = bairroDe(a) + SEP_CHAVE + z;
     matriz.set(k, (matriz.get(k)||0) + 1);
@@ -1985,7 +2053,7 @@ function renderCruzamento(){
   const maior = Math.max(...matriz.values());
   return `
   <div class="card">
-    <div class="card-header"><div class="card-title">Cruzamento — Bairro × Zona Eleitoral</div></div>
+    <div class="card-header"><div class="card-title">Cruzamento — Bairro × Zona Eleitoral${cidadeFoco?` em ${escapeHtml(cidadeFoco)}`:''}</div></div>
     <p style="font-size:12px;color:var(--slate-light);margin-bottom:14px">Quantos apoiadores de cada bairro pertencem a cada zona. Célula mais escura = mais gente.</p>
     <div style="overflow-x:auto">
       <table style="min-width:${180+cabecalhos.length*84}px">
@@ -1993,7 +2061,7 @@ function renderCruzamento(){
           ${cabecalhos.map(z=>`<th style="text-align:center;white-space:nowrap">${z===ZONA_VAZIA?'Sem zona':(z==='Outras zonas'?z:'Zona '+z)}</th>`).join('')}
           <th style="text-align:center">Total</th></tr></thead>
         <tbody>${bairros.map(([b,tot])=>`
-          <tr><td style="position:sticky;left:0;background:var(--white)"><span class="region-tag">${b}</span></td>
+          <tr><td style="position:sticky;left:0;background:var(--white)"><span class="region-tag">${escapeHtml(b)}</span></td>
             ${cabecalhos.map(z=>{
               const n = matriz.get(b+SEP_CHAVE+z) || 0;
               const forca = n ? 0.12 + (n/maior)*0.68 : 0;
@@ -2096,6 +2164,185 @@ function cortarCanvas(ctx,txt,largura){
   while(s.length>1 && ctx.measureText(s+'…').width>largura) s=s.slice(0,-1);
   return s+'…';
 }
+
+// ══════════════════════════════════════════
+//  ORGANOGRAMA DA REDE
+// ══════════════════════════════════════════
+// A pirâmide desenhada como árvore genealógica: candidato → lideranças →
+// apoiadores. A tela "Rede de Apoio" mostra um nível por vez em faixas; aqui a
+// hierarquia inteira aparece de uma vez, com o vínculo desenhado. É o formato
+// que a campanha pediu para enxergar de quem cada pessoa veio.
+//
+// Reaproveita o motor do mapa mental (mmCalcularLayout, mmCaminho, pan/zoom):
+// é o mesmo problema de desenhar árvore grande dentro de uma janelinha.
+const ORG = { escala:1, panX:40, panY:40, recolhidos:new Set(), tamanho:null, raiz:null };
+const ORG_PROFUNDIDADE_ABERTA = 2;  // até que nível o organograma já abre expandido
+
+function orgMontarArvore(){
+  const porId = new Map();
+  APOIADORES.forEach(a=>{
+    porId.set(String(a.id), { id:String(a.id), nome:a.nome, regiao:bairroDe(a), cidade:a.cidade,
+      nivel:a.nivel, temLogin:!!a.tem_login, filhos:[] });
+  });
+  const raiz = { id:'__candidato__', nome: CONFIG.candidatoNome || 'Candidato', regiao:'', nivel:0, filhos:[] };
+  APOIADORES.forEach(a=>{
+    const no = porId.get(String(a.id));
+    const pai = porId.get(String(a.parent_id));
+    // Quem entra pelos links por nível do candidato fica sem responsável
+    // (parent_id nulo). Em vez de sumir do organograma, pendura no candidato —
+    // é lá que ele está de fato até alguém reorganizar.
+    (pai || raiz).filhos.push(no);
+  });
+  const ordenar=(no)=>{ no.filhos.sort((x,y)=> (x.nivel-y.nivel) || String(x.nome).localeCompare(String(y.nome),'pt-BR')); no.filhos.forEach(ordenar); };
+  ordenar(raiz);
+  const contar=(no)=>{ no.total = no.filhos.reduce((s,f)=>s+contar(f),0) + no.filhos.length; return no.total; };
+  contar(raiz);
+  ORG.raiz = raiz;
+  return raiz;
+}
+
+// Na primeira vez recolhe do nível 2 para baixo: numa rede de mil pessoas,
+// abrir tudo de cara desenha mil caixinhas e trava o celular. O candidato abre
+// o galho que quiser ver.
+function orgRecolherPadrao(raiz){
+  ORG.recolhidos = new Set();
+  (function passo(no, prof){
+    if(prof >= ORG_PROFUNDIDADE_ABERTA && no.filhos.length) ORG.recolhidos.add(no.id);
+    no.filhos.forEach(f=>passo(f, prof+1));
+  })(raiz, 0);
+}
+
+function renderOrganograma(){
+  return `
+  <div class="card" id="org-area" style="padding:0;overflow:hidden">
+    <div class="mm-barra">
+      <div class="mm-grupo">
+        <button class="mm-btn" onclick="orgTodos(false)">⊞ Abrir tudo</button>
+        <button class="mm-btn" onclick="orgTodos(true)">⊟ Recolher</button>
+      </div>
+      <div id="org-resumo" style="font-size:12px;color:var(--slate-light)"></div>
+      <div class="mm-grupo" style="margin-left:auto">
+        <button class="mm-btn" onclick="orgZoom(-1)">➖</button>
+        <button class="mm-btn" onclick="orgAjustar()">⤢ Ajustar</button>
+        <button class="mm-btn" onclick="orgZoom(1)">➕</button>
+        <button class="mm-btn" onclick="orgTelaCheia()">⛶ Tela cheia</button>
+      </div>
+    </div>
+    <div class="mm-viewport" id="org-viewport">
+      <div class="mm-mundo" id="org-mundo">
+        <svg id="org-links" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div id="org-nos"></div>
+      </div>
+      <div class="mm-dica">Clique num cartão para abrir ou fechar o galho · o "i" mostra a ficha · arraste o fundo para mover</div>
+    </div>
+  </div>`;
+}
+
+function orgIniciar(){
+  const raiz = orgMontarArvore();
+  orgRecolherPadrao(raiz);
+  pzLigarGestos('org-viewport', 'org-mundo', ORG, '.org-no');
+  orgDesenhar();
+  orgAjustar();
+}
+
+function orgDesenhar(){
+  const caixa = document.getElementById('org-nos');
+  const svg = document.getElementById('org-links');
+  if(!caixa || !svg || !ORG.raiz) return;
+
+  // O layout compartilhado lê "fechado" de cada nó, então o conjunto de
+  // recolhidos é aplicado na árvore antes de calcular as posições.
+  (function marcar(no){ no.fechado = ORG.recolhidos.has(no.id); no.filhos.forEach(marcar); })(ORG.raiz);
+
+  const visiveis = [];
+  (function coletar(no){ visiveis.push(no); if(no.fechado) return; no.filhos.forEach(coletar); })(ORG.raiz);
+
+  const CORES_NIVEL = { 0:'#0f1f3d', 1:'#c8a84b', 2:'#1a3460', 3:'#6b8ed6', 4:'#a0aec0' };
+  caixa.innerHTML = visiveis.map(no=>{
+    const cor = CORES_NIVEL[no.nivel] || '#a0aec0';
+    const ehRaiz = no.nivel === 0;
+    const temFilhos = no.filhos.length > 0;
+    return `<div class="org-no${ehRaiz?' org-raiz':''}" data-id="${no.id}"
+      style="border-color:${cor};${ehRaiz?`background:${cor};`:''}"
+      ${temFilhos?`onclick="orgAlternar('${no.id}',event)"`:''}>
+      <div class="org-nome">${escapeHtml(no.nome)}</div>
+      <div class="org-sub">${ehRaiz?'Candidato':`Nível ${no.nivel}${no.regiao?' · '+escapeHtml(no.regiao):''}`}</div>
+      ${temFilhos?`<span class="org-tag" style="background:${cor}">${no.fechado?'+'+no.total:no.filhos.length}</span>`:''}
+      ${ehRaiz?'':`<button class="org-info" onclick="event.stopPropagation();showDetail('${no.id}')" title="Ver ficha">i</button>`}
+    </div>`;
+  }).join('');
+
+  const els = new Map();
+  caixa.querySelectorAll('.org-no').forEach(el=>els.set(el.dataset.id, el));
+  const medidas = new Map();
+  els.forEach((el,id)=>medidas.set(id, { w: el.offsetWidth || 170, h: el.offsetHeight || 48 }));
+
+  const pos = mmCalcularLayout(ORG.raiz, (no)=>medidas.get(no.id) || { w:170, h:48 });
+  const minY = Math.min(...pos.map(p=>p.y - p.h/2));
+  const maxY = Math.max(...pos.map(p=>p.y + p.h/2));
+  const maxX = Math.max(...pos.map(p=>p.x + p.w));
+  const desloca = 20 - minY;
+
+  pos.forEach(p=>{
+    const el = els.get(p.no.id);
+    if(!el) return;
+    el.style.left = (p.x + 20) + 'px';
+    el.style.top = (p.y + desloca - p.h/2) + 'px';
+  });
+
+  const porId = new Map(pos.map(p=>[p.no.id,p]));
+  const linhas = [];
+  pos.forEach(p=>{
+    if(p.no.fechado) return;
+    p.no.filhos.forEach(f=>{
+      const pf = porId.get(f.id);
+      if(!pf) return;
+      linhas.push(`<path d="${mmCaminho(p.x+p.w+20, p.y+desloca, pf.x+20, pf.y+desloca)}"
+        fill="none" stroke="${CORES_NIVEL[f.nivel]||'#a0aec0'}" stroke-width="2" stroke-linecap="round"/>`);
+    });
+  });
+  const largura = maxX + 60, altura = (maxY - minY) + 60;
+  svg.setAttribute('width', largura); svg.setAttribute('height', altura);
+  svg.setAttribute('viewBox', `0 0 ${largura} ${altura}`);
+  svg.innerHTML = linhas.join('');
+  const mundo = document.getElementById('org-mundo');
+  if(mundo){ mundo.style.width = largura+'px'; mundo.style.height = altura+'px'; }
+  ORG.tamanho = { largura, altura };
+
+  const resumo = document.getElementById('org-resumo');
+  if(resumo) resumo.textContent = `${visiveis.length - 1} de ${APOIADORES.length} apoiadores à vista`;
+  pzAplicar('org-mundo', ORG);
+}
+
+function orgAlternar(id, ev){
+  if(ev) ev.stopPropagation();
+  if(ORG.recolhidos.has(id)) ORG.recolhidos.delete(id); else ORG.recolhidos.add(id);
+  orgDesenhar();
+}
+// Abrir tudo desenha um cartão por apoiador. Numa campanha de mil pessoas isso
+// é mil caixinhas medidas uma a uma pelo navegador — no computador demora, no
+// celular trava. Acima do limite a pessoa confirma antes.
+const ORG_AVISO_ACIMA_DE = 400;
+function orgTodos(recolher){
+  if(!recolher && APOIADORES.length > ORG_AVISO_ACIMA_DE
+     && !confirm(`Abrir a rede inteira desenha ${APOIADORES.length} cartões de uma vez e pode ficar lento, principalmente no celular. Abrir mesmo assim?`)) return;
+  ORG.recolhidos = new Set();
+  if(recolher && ORG.raiz) orgRecolherPadrao(ORG.raiz);
+  orgDesenhar();
+  orgAjustar();
+}
+function orgZoom(dir){ pzZoom('org-viewport','org-mundo',ORG,dir); }
+function orgAjustar(){ pzAjustar('org-viewport','org-mundo',ORG,ORG.tamanho); }
+function orgTelaCheia(){
+  const area = document.getElementById('org-area');
+  if(!area) return;
+  if(document.fullscreenElement){ document.exitFullscreen?.(); return; }
+  if(area.requestFullscreen) area.requestFullscreen().catch(()=>area.classList.toggle('mm-cheio'));
+  else area.classList.toggle('mm-cheio');
+  setTimeout(orgAjustar, 250);
+}
+
 // ══════════════════════════════════════════
 //  MAPA DA REDE
 // ══════════════════════════════════════════
@@ -2461,7 +2708,6 @@ async function resolverPendentesMapa(){
 const MM_CORES = ['#0f1f3d','#c8a84b','#276749','#c53030','#6b8ed6','#8b5cf6','#ea580c','#0891b2'];
 const MM_GAP_X = 46;   // espaço horizontal entre um nó e os filhos dele
 const MM_GAP_Y = 14;   // espaço vertical entre irmãos
-const MM_ESCALA_MIN = 0.25, MM_ESCALA_MAX = 2.5;
 
 let MM = {
   lista: [], mapaId: null, titulo: '', raiz: null,
@@ -3241,73 +3487,83 @@ function mmDesenhar(){
   mmAplicarTransform();
 }
 
-// ── mover e aproximar ─────────────────────────────────────────────────────
-function mmAplicarTransform(){
-  const mundo = document.getElementById('mm-mundo');
-  if(mundo) mundo.style.transform = `translate(${MM.panX}px, ${MM.panY}px) scale(${MM.escala})`;
+// ══════════════════════════════════════════
+//  MOVER E APROXIMAR (mapa mental e organograma)
+// ══════════════════════════════════════════
+// Duas telas desenham uma árvore grande dentro de uma janelinha e precisam
+// exatamente do mesmo comportamento: arrastar o fundo, pinça de dois dedos,
+// roda do mouse, encaixar na tela. Ficou aqui, com o estado passado por
+// parâmetro, para não existirem duas cópias que divergem com o tempo.
+const ESCALA_MIN = 0.25, ESCALA_MAX = 2.5;
+
+function pzAplicar(idMundo, est){
+  const mundo = document.getElementById(idMundo);
+  if(mundo) mundo.style.transform = `translate(${est.panX}px, ${est.panY}px) scale(${est.escala})`;
 }
-function mmZoom(dir, centro){
-  const antes = MM.escala;
-  const nova = Math.min(MM_ESCALA_MAX, Math.max(MM_ESCALA_MIN, antes * (dir > 0 ? 1.2 : 1/1.2)));
+
+function pzZoom(idViewport, idMundo, est, dir, centro){
+  const antes = est.escala;
+  const nova = Math.min(ESCALA_MAX, Math.max(ESCALA_MIN, antes * (dir > 0 ? 1.2 : 1/1.2)));
   if(nova === antes) return;
   // Aproxima em direção ao ponto apontado (dedo ou cursor), e não ao canto:
-  // aproximar sempre pelo canto faz o item que a pessoa está olhando fugir da tela.
-  const vp = document.getElementById('mm-viewport');
+  // aproximar pelo canto faz o item que a pessoa está olhando fugir da tela.
+  const vp = document.getElementById(idViewport);
   const c = centro || (vp ? { x: vp.clientWidth/2, y: vp.clientHeight/2 } : { x:0, y:0 });
-  MM.panX = c.x - ((c.x - MM.panX) * nova / antes);
-  MM.panY = c.y - ((c.y - MM.panY) * nova / antes);
-  MM.escala = nova;
-  mmAplicarTransform();
+  est.panX = c.x - ((c.x - est.panX) * nova / antes);
+  est.panY = c.y - ((c.y - est.panY) * nova / antes);
+  est.escala = nova;
+  pzAplicar(idMundo, est);
 }
-function mmAjustar(){
-  const vp = document.getElementById('mm-viewport');
-  if(!vp || !MM._tamanho) return;
-  const escala = Math.min(1.2, Math.max(MM_ESCALA_MIN,
-    Math.min((vp.clientWidth - 24) / MM._tamanho.largura, (vp.clientHeight - 24) / MM._tamanho.altura)));
-  MM.escala = escala;
-  MM.panX = Math.max(12, (vp.clientWidth - MM._tamanho.largura * escala) / 2);
-  MM.panY = Math.max(12, (vp.clientHeight - MM._tamanho.altura * escala) / 2);
-  mmAplicarTransform();
+
+function pzAjustar(idViewport, idMundo, est, tamanho){
+  const vp = document.getElementById(idViewport);
+  if(!vp || !tamanho) return;
+  const escala = Math.min(1.2, Math.max(ESCALA_MIN,
+    Math.min((vp.clientWidth - 24) / tamanho.largura, (vp.clientHeight - 24) / tamanho.altura)));
+  est.escala = escala;
+  est.panX = Math.max(12, (vp.clientWidth - tamanho.largura * escala) / 2);
+  est.panY = Math.max(12, (vp.clientHeight - tamanho.altura * escala) / 2);
+  pzAplicar(idMundo, est);
 }
 
 // Um único conjunto de handlers para mouse, dedo e caneta: Pointer Events
 // unifica os três. Com mouse/touch separados a tela ficava com dois códigos de
 // arrasto que se atrapalhavam no tablet, que dispara os dois.
-function mmLigarGestos(){
-  const vp = document.getElementById('mm-viewport');
+// `seletorItem` é o que NÃO deve arrastar o fundo (clique no cartão é seleção).
+function pzLigarGestos(idViewport, idMundo, est, seletorItem){
+  const vp = document.getElementById(idViewport);
   if(!vp || vp.dataset.ligado === '1') return;
   vp.dataset.ligado = '1';
   const ativos = new Map();
   let arrastando = false, ultimo = null, pinca = null;
 
   vp.addEventListener('pointerdown', (ev)=>{
-    // Clique em cima de um nó é seleção, não arrasto do fundo.
-    if(ev.target.closest('.mm-no')) return;
+    if(seletorItem && ev.target.closest && ev.target.closest(seletorItem)) return;
     ativos.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
     vp.setPointerCapture(ev.pointerId);
     if(ativos.size === 1){ arrastando = true; ultimo = { x: ev.clientX, y: ev.clientY }; }
-    else if(ativos.size === 2){ arrastando = false; pinca = mmDistanciaDedos(ativos); }
+    else if(ativos.size === 2){ arrastando = false; pinca = pzDistanciaDedos(ativos); }
   });
 
   vp.addEventListener('pointermove', (ev)=>{
     if(!ativos.has(ev.pointerId)) return;
     ativos.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
     if(arrastando && ultimo){
-      MM.panX += ev.clientX - ultimo.x;
-      MM.panY += ev.clientY - ultimo.y;
+      est.panX += ev.clientX - ultimo.x;
+      est.panY += ev.clientY - ultimo.y;
       ultimo = { x: ev.clientX, y: ev.clientY };
-      mmAplicarTransform();
+      pzAplicar(idMundo, est);
     } else if(ativos.size === 2 && pinca){
-      const agora = mmDistanciaDedos(ativos);
+      const agora = pzDistanciaDedos(ativos);
       const fator = agora.dist / pinca.dist;
       if(Math.abs(fator - 1) > 0.01){
         const r = vp.getBoundingClientRect();
         const centro = { x: agora.cx - r.left, y: agora.cy - r.top };
-        const nova = Math.min(MM_ESCALA_MAX, Math.max(MM_ESCALA_MIN, MM.escala * fator));
-        MM.panX = centro.x - ((centro.x - MM.panX) * nova / MM.escala);
-        MM.panY = centro.y - ((centro.y - MM.panY) * nova / MM.escala);
-        MM.escala = nova;
-        mmAplicarTransform();
+        const nova = Math.min(ESCALA_MAX, Math.max(ESCALA_MIN, est.escala * fator));
+        est.panX = centro.x - ((centro.x - est.panX) * nova / est.escala);
+        est.panY = centro.y - ((centro.y - est.panY) * nova / est.escala);
+        est.escala = nova;
+        pzAplicar(idMundo, est);
         pinca = agora;
       }
     }
@@ -3325,13 +3581,19 @@ function mmLigarGestos(){
   vp.addEventListener('wheel', (ev)=>{
     ev.preventDefault();
     const r = vp.getBoundingClientRect();
-    mmZoom(ev.deltaY < 0 ? 1 : -1, { x: ev.clientX - r.left, y: ev.clientY - r.top });
+    pzZoom(idViewport, idMundo, est, ev.deltaY < 0 ? 1 : -1, { x: ev.clientX - r.left, y: ev.clientY - r.top });
   }, { passive:false });
 }
-function mmDistanciaDedos(ativos){
+function pzDistanciaDedos(ativos){
   const [a, b] = [...ativos.values()];
   return { dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, cx: (a.x + b.x)/2, cy: (a.y + b.y)/2 };
 }
+
+// ── o mapa mental usa o mesmo motor ───────────────────────────────────────
+function mmAplicarTransform(){ pzAplicar('mm-mundo', MM); }
+function mmZoom(dir, centro){ pzZoom('mm-viewport', 'mm-mundo', MM, dir, centro); }
+function mmAjustar(){ pzAjustar('mm-viewport', 'mm-mundo', MM, MM._tamanho); }
+function mmLigarGestos(){ pzLigarGestos('mm-viewport', 'mm-mundo', MM, '.mm-no'); }
 
 function mmTelaCheia(){
   const area = document.getElementById('mm-area');
