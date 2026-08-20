@@ -234,6 +234,31 @@ Uma linha por aceite, **nunca sobrescrita**: `usuario_id` **ou** `apoiador_id`
 (exatamente um dos dois, garantido por CHECK), `versao_termo`, `aceite_em`,
 `ip`, `user_agent`.
 
+### `auditoria` — log de tudo que acontece no sistema
+
+`id` (BIGSERIAL, também é o cursor de paginação), `ocorrido_em`,
+`candidato_id` (workspace onde aconteceu; NULL quando é o admin agindo fora de
+um workspace), `ator_id`/`ator_nome`/`ator_perfil`, `como_admin`, `acao`,
+`alvo_tipo`/`alvo_id`/`alvo_nome`, `detalhes` (JSONB), `ip`, `user_agent`.
+
+Três decisões de projeto que não são óbvias:
+
+- **Nenhuma chave estrangeira.** O log precisa sobreviver à exclusão da
+  pessoa. Com `CASCADE`, apagar um apoiador apagaria junto a prova de que ele
+  existiu — que é justamente o que se quer consultar depois; com `RESTRICT`,
+  ninguém conseguiria mais excluir ninguém. Por isso `ator_nome` e `alvo_nome`
+  são gravados **por cópia**, e não resolvidos por JOIN na hora da leitura.
+- **`como_admin`** separa o que o candidato fez do que o admin fez atuando
+  como ele (`?as=<id>`). Sem essa marca o log culparia o candidato por
+  mudanças que ele não fez.
+- **Gravação fora da transação da rota.** Se o log entrasse no mesmo client da
+  transação, um `ROLLBACK` apagaria o registro da tentativa — que é exatamente
+  o que se quer poder auditar. `utils/auditoria.js` também nunca lança: falha
+  ao gravar vai para o console do servidor e a ação do usuário segue.
+
+Só o **Administrador Geral** lê, por `GET /api/admin/logs` e
+`GET /api/admin/logs/pessoa/:id`. Não há tela nem rota para os outros perfis.
+
 ---
 
 ## As invariantes que não podem ser quebradas
@@ -292,7 +317,31 @@ infinito, sem erro nenhum. Foi corrigido em massa no commit `60bf94c`.
 `criaLogin = novoNivel <= 3` (`routes/public.js`). Nível 4 é só contato: existe
 apenas em `apoiadores`, sem linha em `usuarios`.
 
-### 5. O driver do `pg` devolve DATE como string
+### 5. `apoiadores.parent_id` **não tem** chave estrangeira — e não pode ter
+
+O responsável de alguém na pirâmide pode estar em **duas tabelas diferentes**:
+um apoiador comum (sem login) só existe em `apoiadores`; o candidato e a
+liderança que emitiu o link só existem em `usuarios`. Nenhuma chave
+estrangeira consegue apontar para dois lugares.
+
+A coluna nasceu como `REFERENCES usuarios(id)`, de quando só liderança podia
+ser responsável. Isso quebrou a reorganização de hierarquia: mover alguém para
+baixo de um apoiador **sem login** violava a FK (erro `23503`) e o usuário via
+apenas *"Erro interno. Tente novamente."*. Funcionava com um responsável e não
+com outro, sem padrão aparente — e nem o admin escapava. A migração remove a
+restrição.
+
+Duas consequências que precisam ser lembradas em toda alteração:
+
+1. **Quem valida é o app**, não o banco: `PUT /apoiadores/:id` confere que o
+   responsável está na rede de quem edita e exatamente um nível acima.
+2. **`ON DELETE SET NULL` se perdeu junto** — as rotas de exclusão
+   (`DELETE /apoiadores/:id` e `DELETE /usuarios/:id`) precisam rodar
+   `UPDATE apoiadores SET parent_id = NULL WHERE parent_id = <excluído>` **antes**
+   do DELETE. Sem isso os indicados apontam para um id que não existe mais e
+   somem da pirâmide sem aviso.
+
+### 6. O driver do `pg` devolve DATE como string
 
 `db.js` registra `types.setTypeParser(1082, val => val)`. Sem isso, uma data de
 nascimento vira `Date` do JS, e ao serializar em JSON vira
@@ -356,9 +405,45 @@ modo pessoal, onde existe um pai definido) e reorganização de hierarquia.
 
 ### Duplicidade
 
-`utils/duplicidade.js` bloqueia **dentro da mesma rede de candidato**:
-e-mail (em `usuarios`), telefone e título de eleitor (em `apoiadores` — essa
-tabela cobre todo mundo, com e sem login).
+Duas coisas diferentes, que são fáceis de confundir:
+
+**Bloqueio no cadastro** — `utils/duplicidade.js`, **dentro da mesma rede de
+candidato**: e-mail (em `usuarios`), telefone e título de eleitor (em
+`apoiadores` — essa tabela cobre todo mundo, com e sem login).
+
+**Conferência depois** — `GET /apoiadores/duplicados` (candidato/admin), a
+tela "Cadastros duplicados". Agrupa por **quatro** critérios, cada grupo
+rotulado com o que casou: nome, telefone, título de eleitor e e-mail de
+acesso. Antes só olhava o nome, que é o critério mais fraco que existe numa
+campanha (dois "José Carlos da Silva" na mesma cidade é rotina) — e a mesma
+pessoa cadastrada duas vezes com o nome escrito diferente nunca aparecia.
+
+Telefone e título são comparados **só pelos dígitos**: `(67) 99999-9999` e
+`67999999999` são o mesmo telefone. Valor com menos de 8 dígitos é descartado
+em vez de agrupado — a ficha-espelho de quem tem login nasce com telefone `—`
+(ver `usuarios.js`), e sem esse corte toda liderança apareceria como duplicada
+de todas as outras.
+
+**O sistema não guarda CPF.** O que identifica o eleitor aqui é o título
+(+ zona e seção). Se um dia entrar, precisa entrar em `usuarios`, `apoiadores`,
+nos formulários, no export, em `duplicidade.js` e nos dois pontos acima.
+
+### Busca global do administrador
+
+`GET /api/admin/buscar?q=` responde "essa pessoa está em qual campanha?" —
+procura nome, telefone, título, login e e-mail **atravessando todos os
+workspaces**, e devolve o candidato dono de cada resultado e por qual campo
+cada um casou.
+
+É a **única** consulta do sistema que atravessa workspaces. Candidato e
+liderança enxergam só a própria rede, de propósito: quando o mesmo
+nome/telefone/título chega por duas campanhas, ninguém dentro delas consegue
+perceber. Por isso a rota vive em `routes/admin.js`, atrás do
+`requireRole('admin')` aplicado no topo do arquivo.
+
+O CTE recursivo `dono` resolve de uma vez o candidato de cada usuário subindo
+por `criado_por`; sem ele seria preciso uma consulta por resultado só para
+descobrir de quem é a rede — que é justamente a informação procurada.
 
 ### Reorganização de hierarquia
 
@@ -446,6 +531,15 @@ misturar aumentaria o risco de mexer na pirâmide sem querer.
 `GET /candidatos`, `POST /candidatos`, `PUT /candidatos/:id/senha`,
 `PUT /candidatos/:id/plano`, `PUT /candidatos/:id/login`,
 `PUT /candidatos/:id/email`
+
+| Método | Rota | O quê |
+|---|---|---|
+| GET | `/buscar?q=` | busca pessoa em **todos** os workspaces (mín. 3 caracteres, ou 4 dígitos) |
+| GET | `/logs?candidato=&acao=&q=&antesDeId=` | linha do tempo do sistema; `acao` casa por prefixo (`apoiador` pega criar/editar/mover/excluir) |
+| GET | `/logs/pessoa/:id` | histórico de uma pessoa — como alvo **e** como ator |
+
+> `/logs` pagina por `antesDeId` (o `id` da última linha), não por OFFSET: o
+> log cresce enquanto a tela está aberta e o OFFSET repetiria linhas.
 
 ### `/public` — **sem autenticação**
 | Método | Rota | O quê |
@@ -553,6 +647,30 @@ Isso resolve botão "voltar" do celular, F5 e link direto para uma tela — **n�
 é controle de acesso**. Quem impede alguém de ver dado alheio é o servidor,
 que exige sessão (`authRequired`) e perfil (`requireRole`) em toda rota da API.
 A lista do frontend é conveniência de navegação, e ponto.
+
+`PAGINAS_SO_ADMIN` (`busca-pessoa`, `logs`) é somada à lista do perfil quando
+`currentRole === 'admin'`. Precisa ser somada, e não ser uma lista à parte,
+porque o admin dentro de um workspace navega com as páginas do **candidato** —
+sem isso, abrir o log a partir da pirâmide cairia na tela inicial.
+
+### Telas exclusivas do Administrador Geral
+
+O menu `#nav-admin-extra` fica visível para o admin nas duas situações: na
+Central de Vagas e **dentro** do workspace de um candidato (que esconde
+`#nav-admin` e mostra o do candidato). Ele vem depois das outras seções na
+marcação por um motivo prático: o menu do rodapé no celular usa a primeira
+seção visível, e esta não pode roubar esse lugar.
+
+- **Buscar pessoa** (`renderBuscaPessoa`) — resultados agrupados por campanha,
+  com aviso em vermelho quando o mesmo termo aparece em mais de uma. Cada
+  resultado diz **por qual campo** casou; sem isso, procurar por telefone
+  devolve uma lista de nomes sem relação óbvia com o que foi digitado.
+- **Log do sistema** (`renderLogs`) — `LOG_ACOES` traduz `auditoria.acao` para
+  português; ação desconhecida (servidor mais novo que a tela) cai no genérico
+  em vez de sumir da lista. `logDetalhes()` monta o "de → para" a partir do
+  JSONB de `detalhes`.
+- **Ícone 📜** na tabela de apoiadores, no modal de detalhe e na tela de
+  duplicados → `abrirLogPessoa()`, o histórico daquele cadastro.
 
 ### Excel e PDF gerados no navegador, sem biblioteca
 

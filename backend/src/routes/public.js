@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../db');
 const asyncHandler = require('../utils/asyncHandler');
+const { registrar } = require('../utils/auditoria');
 const { validarTituloEleitoral } = require('../utils/tituloEleitoral');
 const { buscarDuplicidade } = require('../utils/duplicidade');
 const { limitesDoCandidato } = require('../utils/limites');
@@ -225,6 +226,21 @@ router.post('/autocadastro', asyncHandler(async (req, res) => {
     }
 
     await client.query('COMMIT');
+    // O "ator" aqui é a própria pessoa que preencheu o formulário — não há
+    // sessão. O candidato do workspace vem do link, não do contexto da
+    // requisição, por isso é passado explicitamente.
+    await registrar(req, {
+      acao: 'apoiador.autocadastro',
+      alvoTipo: criaLogin ? 'usuario' : 'apoiador',
+      alvoId: novoId,
+      alvoNome: nome,
+      detalhes: {
+        nivel: novoNivel, criou_login: criaLogin, login: criaLogin ? loginLimpo : null,
+        convite_de_id: cadastradoPor, convite_de_nome: ctx.nomeRede, responsavel_id: parentId, versao_termo: termoVersaoAtual,
+      },
+      ator: { id: novoId, nome, perfil: criaLogin ? perfilNovo : null },
+      candidatoId,
+    });
     res.status(201).json({ id: novoId, criouLogin: criaLogin, login: criaLogin ? loginLimpo : null });
   } catch (err) {
     await client.query('ROLLBACK');

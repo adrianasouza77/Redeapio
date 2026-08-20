@@ -5,6 +5,7 @@ const resolveWorkspace = require('../middleware/workspace');
 const { limitesDoCandidato } = require('../utils/limites');
 const { resolverCandidatoId } = require('../utils/duplicidade');
 const asyncHandler = require('../utils/asyncHandler');
+const { registrar } = require('../utils/auditoria');
 
 const router = express.Router();
 router.use(authRequired, resolveWorkspace);
@@ -50,6 +51,7 @@ router.put('/', asyncHandler(async (req, res) => {
     [valores.limiteNivel1, valores.limiteNivel2, valores.limiteNivel3, valores.limiteNivel4, req.effectiveId]
   );
   if (!rowCount) return res.status(404).json({ error: 'Candidato não encontrado.' });
+  await registrar(req, { acao: 'config.limites', alvoTipo: 'config', alvoId: req.effectiveId, alvoNome: 'Limites da pirâmide', detalhes: valores });
   res.json(valores);
 }));
 

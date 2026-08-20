@@ -315,3 +315,64 @@ DO $$ BEGIN
   ALTER TABLE mapas_mentais ADD CONSTRAINT mapas_mentais_tipo_check CHECK (tipo IN ('livre','geo'));
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
+
+-- A reorganização de hierarquia ("mover o nível 2 para nível 3, sob outro
+-- nível 2") falhava com "Erro interno" toda vez que o novo responsável não
+-- tinha login. Motivo: parent_id nasceu como REFERENCES usuarios(id), de
+-- quando só liderança podia ser responsável — mas hoje o responsável é
+-- QUALQUER linha de "apoiadores", e a maioria (autocadastro de base, cadastro
+-- feito pela liderança) nunca existe em "usuarios". O UPDATE batia na chave
+-- estrangeira (23503) e virava 500. Por isso movia sob uma pessoa e sob outra
+-- não, sem padrão aparente para quem usa — e nem o admin escapava.
+--
+-- Não dá para trocar a referência para apoiadores(id): parent_id também aponta
+-- para o candidato/liderança emissora de link, que existe só em "usuarios".
+-- Como o alvo legítimo está em duas tabelas diferentes, o banco não consegue
+-- validar isso sozinho — quem valida é o app (PUT /apoiadores/:id confere que
+-- o responsável está na rede e exatamente um nível acima). O ON DELETE SET
+-- NULL que se perde aqui é reposto à mão nas rotas de exclusão.
+DO $$
+DECLARE c RECORD;
+BEGIN
+  FOR c IN
+    SELECT con.conname FROM pg_constraint con
+    JOIN pg_class rel ON rel.oid = con.conrelid
+    JOIN pg_attribute att ON att.attrelid = rel.oid AND att.attnum = ANY(con.conkey)
+    WHERE rel.relname = 'apoiadores' AND con.contype = 'f' AND att.attname = 'parent_id'
+  LOOP
+    EXECUTE format('ALTER TABLE apoiadores DROP CONSTRAINT %I', c.conname);
+  END LOOP;
+END $$;
+
+-- Log de auditoria — quem fez o quê, com quem, quando. Só o Administrador
+-- Geral lê (rotas em /api/admin/logs); candidato e liderança não têm acesso
+-- nem à rota nem à tela.
+--
+-- Nenhuma coluna aqui tem chave estrangeira, e isso é deliberado: o log
+-- precisa sobreviver à exclusão da pessoa. Com CASCADE, apagar um apoiador
+-- apagaria junto a prova de que ele existiu (que é exatamente o que se quer
+-- consultar depois); com RESTRICT, ninguém conseguiria mais excluir ninguém.
+-- Por isso ator_nome/alvo_nome são gravados por cópia, e não por join.
+CREATE TABLE IF NOT EXISTS auditoria (
+  id            BIGSERIAL PRIMARY KEY,
+  ocorrido_em   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  candidato_id  UUID,          -- workspace onde aconteceu (NULL: ação do admin fora de um workspace)
+  ator_id       UUID,
+  ator_nome     TEXT,
+  ator_perfil   TEXT,
+  como_admin    BOOLEAN NOT NULL DEFAULT false,  -- admin agindo dentro do workspace de um candidato
+  acao          TEXT NOT NULL, -- 'login', 'apoiador.criar', 'apoiador.mover', ...
+  alvo_tipo     TEXT,          -- 'apoiador' | 'usuario' | 'candidato' | 'config' | 'mapa' | 'sessao'
+  alvo_id       UUID,
+  alvo_nome     TEXT,
+  detalhes      JSONB NOT NULL DEFAULT '{}'::jsonb,
+  ip            TEXT,
+  user_agent    TEXT
+);
+
+-- Os três jeitos de consultar: a linha do tempo do workspace, o histórico de
+-- uma pessoa específica (ícone de log na frente do apoiador) e o que um login
+-- andou fazendo. DESC porque toda tela mostra o mais recente primeiro.
+CREATE INDEX IF NOT EXISTS idx_auditoria_candidato ON auditoria (candidato_id, ocorrido_em DESC);
+CREATE INDEX IF NOT EXISTS idx_auditoria_alvo ON auditoria (alvo_id, ocorrido_em DESC);
+CREATE INDEX IF NOT EXISTS idx_auditoria_ator ON auditoria (ator_id, ocorrido_em DESC);

@@ -498,6 +498,17 @@
         <button class="nav-item active" onclick="showPage('vagas')" data-short="Vagas"><span>🗝️</span> Central de Vagas</button>
         <button class="nav-item" onclick="showPage('minha-conta')" data-short="Conta"><span>👤</span> Minha Conta</button>
       </div>
+      <!-- Fica visível para o admin nas duas situações: na Central de Vagas E
+           dentro do workspace de um candidato (que esconde o menu "nav-admin"
+           e mostra o do candidato). É dentro do workspace que ele precisa da
+           busca e do log com mais frequência, olhando a pirâmide de verdade.
+           Precisa vir DEPOIS das outras seções: o menu do rodapé no celular usa
+           a primeira seção visível, e esta não pode roubar esse lugar. -->
+      <div class="sidebar-section" id="nav-admin-extra" style="display:none">
+        <div class="sidebar-label">Só o administrador</div>
+        <button class="nav-item" onclick="showPage('busca-pessoa')" data-short="Buscar"><span>🔎</span> Buscar pessoa</button>
+        <button class="nav-item" onclick="showPage('logs')" data-short="Log"><span>📜</span> Log do sistema</button>
+      </div>
     </div>
     <div class="content" id="main-content"></div>
   </div>
@@ -512,6 +523,16 @@
       <button class="modal-close" onclick="closeModal('modal-detail')">✕</button>
     </div>
     <div id="modal-detail-body"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-log-pessoa">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-log-title">Histórico</div>
+      <button class="modal-close" onclick="closeModal('modal-log-pessoa')">✕</button>
+    </div>
+    <div id="modal-log-body"></div>
   </div>
 </div>
 
@@ -909,6 +930,7 @@ async function entrarNaApp(user){
   document.getElementById('nav-lideranca').style.display=currentRole==='lideranca'?'block':'none';
   document.getElementById('nav-apoiador').style.display=currentRole==='apoiador'?'block':'none';
   document.getElementById('nav-admin').style.display=currentRole==='admin'?'block':'none';
+  document.getElementById('nav-admin-extra').style.display=currentRole==='admin'?'block':'none';
   montarBottomNav();
 
   if(user.precisaAceitarTermo || user.precisaTrocarSenha) {
@@ -1128,10 +1150,15 @@ const PAGINAS_POR_PAPEL = {
   apoiador:  ['dashboard','minha-rede','cadastrar','minha-conta'],
   admin:     ['vagas','minha-conta'],
 };
+// Busca global e log de auditoria acompanham o admin em qualquer situação,
+// inclusive dentro do workspace de um candidato — sem isso, abrir o log a
+// partir da pirâmide cairia na tela inicial. Nenhum outro perfil tem acesso:
+// as rotas /api/admin/* exigem perfil admin no servidor.
+const PAGINAS_SO_ADMIN = ['busca-pessoa','logs'];
 function paginasPermitidas(){
   // O admin dentro de um workspace navega exatamente como o candidato dono dele.
-  if(workspaceAdmin) return PAGINAS_POR_PAPEL.candidato;
-  return PAGINAS_POR_PAPEL[currentRole] || [];
+  const base = workspaceAdmin ? PAGINAS_POR_PAPEL.candidato : (PAGINAS_POR_PAPEL[currentRole] || []);
+  return currentRole === 'admin' ? [...base, ...PAGINAS_SO_ADMIN] : base;
 }
 function paginaPadrao(){ return currentRole === 'admin' && !workspaceAdmin ? 'vagas' : 'dashboard'; }
 function paginaDoEndereco(){
@@ -1181,6 +1208,8 @@ function showPage(page) {
     case 'usuarios':      c.innerHTML=renderUsuarios(); setTimeout(carregarListaUsuarios,50); break;
     case 'configuracoes': c.innerHTML=renderConfiguracoes(); break;
     case 'vagas':         c.innerHTML=renderVagas(); setTimeout(carregarVagas,50); break;
+    case 'busca-pessoa':  c.innerHTML=renderBuscaPessoa(); break;
+    case 'logs':          c.innerHTML=renderLogs(); setTimeout(iniciarLogs,50); break;
   }
 }
 
@@ -1382,6 +1411,7 @@ function renderApoiadores(){
             <td onclick="showDetail('${a.id}')" style="cursor:pointer">${formatDate(a.nascimento)}</td>
             <td style="font-family:monospace;font-size:12px">${a.titulo||'—'}</td><td>${a.zona||'—'}</td><td>${a.secao||'—'}</td>
             <td style="white-space:nowrap">
+              ${currentRole==='admin'?`<button class="btn-sm btn-outline" style="font-size:11px;padding:4px 8px" title="Log deste cadastro" onclick="abrirLogPessoa('${a.id}','${escapeAttr(a.nome)}')">📜</button>`:''}
               <button class="btn-sm btn-outline" style="font-size:11px;padding:4px 8px" onclick="editarApoiador('${a.id}')">✏️</button>
               ${podeExcluir?`<button class="btn-del" onclick="excluirApoiador('${a.id}','${escapeAttr(a.nome)}')">🗑</button>`:''}
             </td>
@@ -1391,24 +1421,54 @@ function renderApoiadores(){
   </div>`;
 }
 
+// A tela só sabia agrupar por nome, e nome igual é o critério mais fraco que
+// existe numa campanha. Agora o servidor devolve grupos rotulados por critério
+// (nome, telefone, título de eleitor, e-mail) — e a tela precisa dizer QUAL
+// deles casou, senão "Maria Aparecida" e "Ma. Aparecida" aparecem juntas sem
+// explicação de por que o sistema acha que são a mesma pessoa.
+const DUP_CORES = {
+  nome:     { fundo:'#fdf5e0', borda:'var(--gold)', texto:'#8a6a10' },
+  telefone: { fundo:'#fff5f5', borda:'#c53030', texto:'#c53030' },
+  titulo:   { fundo:'#fff5f5', borda:'#c53030', texto:'#c53030' },
+  email:    { fundo:'#f0f2f8', borda:'var(--navy)', texto:'var(--navy)' },
+};
+
+function dupLinhaPessoa(a){
+  const dados = [a.regiao||'—', a.telefone||'—', a.titulo?`título ${a.titulo}`:'sem título', formatDate(a.nascimento)];
+  return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border);font-size:12px;color:var(--slate);flex-wrap:wrap">
+    <span style="flex:1;min-width:200px"><strong style="color:var(--navy)">${escapeHtml(a.nome)}</strong> ${nivelBadge(a.nivel)}<br>${escapeHtml(dados.join(' · '))}${a.login?` · <code style="background:#f0f2f8;padding:1px 5px;border-radius:3px">${escapeHtml(a.login)}</code>`:''}</span>
+    <span style="display:flex;gap:6px">
+      ${currentRole==='admin'?`<button class="btn-sm btn-outline" style="font-size:11px;padding:4px 8px" onclick="abrirLogPessoa('${a.id}','${escapeAttr(a.nome)}')" title="Histórico">📜</button>`:''}
+      <button class="btn-sm btn-outline" style="font-size:11px;padding:4px 8px" onclick="editarApoiador('${a.id}')">✏️</button>
+      <button class="btn-del" onclick="excluirApoiador('${a.id}','${escapeAttr(a.nome)}')">🗑 Excluir este</button>
+    </span>
+  </div>`;
+}
+
 async function buscarDuplicados(){
   const el = document.getElementById('duplicados-result');
   el.innerHTML = '<div class="card"><p style="font-size:13px;color:var(--slate-light)">Buscando...</p></div>';
   try {
     const grupos = await api('/apoiadores/duplicados' + wsQuery());
     if(!grupos.length){
-      el.innerHTML = '<div class="card"><p style="font-size:13px;color:var(--slate-light)">✔ Nenhum cadastro duplicado encontrado.</p></div>';
+      el.innerHTML = '<div class="card"><p style="font-size:13px;color:var(--slate-light)">✔ Nenhum cadastro duplicado encontrado (conferidos nome, telefone, título de eleitor e e-mail).</p></div>';
       return;
     }
-    el.innerHTML = `<div class="card"><div class="card-title" style="margin-bottom:12px">⚠️ Possíveis duplicados (${grupos.length} grupo(s))</div>
-      ${grupos.map(g=>`
-        <div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px">
-          <strong style="font-size:13px">${g[0].nome}</strong>
-          ${g.map(a=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:12px;color:var(--slate)">
-            <span>${a.regiao||'—'} · ${a.telefone||'—'} · ${formatDate(a.nascimento)}</span>
-            <button class="btn-del" onclick="excluirApoiador('${a.id}','${escapeAttr(a.nome)}')">🗑 Excluir este</button>
-          </div>`).join('')}
-        </div>`).join('')}
+    const porCampo = {};
+    grupos.forEach(g=>{ porCampo[g.campo] = (porCampo[g.campo]||0)+1; });
+    const resumo = Object.entries(porCampo).map(([c,n])=>`${n} por ${({nome:'nome',telefone:'telefone',titulo:'título de eleitor',email:'e-mail'})[c]}`).join(' · ');
+
+    el.innerHTML = `<div class="card">
+      <div class="card-title" style="margin-bottom:4px">⚠️ Possíveis duplicados (${grupos.length} grupo(s))</div>
+      <p style="font-size:12px;color:var(--slate-light);margin-bottom:14px">${resumo}. Telefone e título são comparados só pelos números, então "(67) 99999-9999" e "67999999999" contam como o mesmo.</p>
+      ${grupos.map(g=>{
+        const cor = DUP_CORES[g.campo] || DUP_CORES.nome;
+        return `
+        <div style="border:1px solid ${cor.borda};border-radius:8px;padding:12px;margin-bottom:12px;background:${cor.fundo}">
+          <div style="font-size:12px;font-weight:700;color:${cor.texto}">${escapeHtml(g.rotulo)}: <span style="font-family:monospace">${escapeHtml(String(g.valor))}</span> <span style="font-weight:500">— ${g.registros.length} cadastros</span></div>
+          ${g.registros.map(dupLinhaPessoa).join('')}
+        </div>`;
+      }).join('')}
       </div>`;
   } catch(e){
     el.innerHTML = `<div class="card"><p style="color:var(--red);font-size:13px">${e.message}</p></div>`;
@@ -3658,6 +3718,13 @@ function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x
 function renderVagas(){
   return `
   <div class="page-header"><h1>Central de Vagas</h1><p>Cada candidato é um workspace isolado — abra para gerenciar como se fosse ele</p></div>
+  <div class="card" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between">
+    <div class="card-title" style="margin:0">Conferir uma pessoa em todas as campanhas</div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-sm btn-outline" onclick="showPage('busca-pessoa')">🔎 Buscar pessoa</button>
+      <button class="btn-sm btn-outline" onclick="showPage('logs')">📜 Log do sistema</button>
+    </div>
+  </div>
   <div class="card">
     <div class="card-header"><div class="card-title">Criar novo workspace</div></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start">
@@ -3843,6 +3910,286 @@ async function trocarSenhaCandidato(id, login){
     showToast(`Senha de "${login}" atualizada!`, 'success');
     mostrarSenhaGerada(null, login, data.senha);
   } catch(e){ hideLoading(); showToast(e.message,'error'); }
+}
+
+
+// ══════════════════════════════════════════
+//  BUSCA GLOBAL DE PESSOA (só o Administrador Geral)
+// ══════════════════════════════════════════
+// Responde a pergunta que nenhuma outra tela responde: "essa pessoa está em
+// qual campanha?". Candidato e liderança enxergam só a própria rede — de
+// propósito —, então quando o mesmo nome/telefone/título aparece em duas
+// campanhas ninguém dentro delas consegue perceber. Só o admin.
+
+function renderBuscaPessoa(){
+  return `
+  <div class="page-header"><h1>Buscar pessoa</h1><p>Procura em todas as campanhas ao mesmo tempo — é assim que se descobre em qual workspace alguém está cadastrado</p></div>
+  <div class="card">
+    <div class="search-bar">
+      <input class="search-input" id="bp-q" placeholder="Nome, telefone, título de eleitor, login ou e-mail" onkeydown="if(event.key==='Enter')buscarPessoaGlobal()">
+      <button class="btn-sm btn-navy" style="white-space:nowrap" onclick="buscarPessoaGlobal()">🔎 Buscar</button>
+    </div>
+    <p style="font-size:11px;color:var(--slate-light);margin-top:8px">Telefone e título podem ser digitados com ou sem pontuação — a comparação usa só os números. Mínimo de 3 caracteres (4 se for número).</p>
+  </div>
+  <div id="bp-result"></div>`;
+}
+
+async function buscarPessoaGlobal(){
+  const q = document.getElementById('bp-q').value.trim();
+  const el = document.getElementById('bp-result');
+  if(q.length < 3){ el.innerHTML = '<div class="card"><p style="font-size:13px;color:var(--red)">Digite pelo menos 3 caracteres.</p></div>'; return; }
+  el.innerHTML = '<div class="card"><p style="font-size:13px;color:var(--slate-light)">Procurando em todas as campanhas...</p></div>';
+  let data;
+  try { data = await api('/admin/buscar?q=' + encodeURIComponent(q)); }
+  catch(e){ el.innerHTML = `<div class="card"><p style="color:var(--red);font-size:13px">${escapeHtml(e.message)}</p></div>`; return; }
+
+  if(!data.resultados.length){
+    el.innerHTML = `<div class="card"><p style="font-size:13px;color:var(--slate-light)">Nenhum cadastro encontrado para "${escapeHtml(q)}".</p></div>`;
+    return;
+  }
+
+  // Agrupado por campanha, porque a pergunta é "em qual workspace ela está".
+  const porWs = new Map();
+  for(const p of data.resultados){
+    const chave = p.candidato_id || 'sem-workspace';
+    if(!porWs.has(chave)) porWs.set(chave, { nome: p.candidato_nome || 'Sem workspace identificado', login: p.candidato_login, pessoas: [] });
+    porWs.get(chave).pessoas.push(p);
+  }
+
+  const emVariasCampanhas = porWs.size > 1;
+  el.innerHTML = `
+  ${emVariasCampanhas ? `<div class="card" style="background:#fff5f5;border-color:#c53030">
+    <p style="font-size:13px;color:#c53030;font-weight:600">⚠️ Esse termo aparece em ${porWs.size} campanhas diferentes. Confira telefone e título antes de concluir que é a mesma pessoa — nome igual é comum.</p>
+  </div>` : ''}
+  <div class="card">
+    <div class="card-title" style="margin-bottom:12px">${data.total} resultado(s) para "${escapeHtml(data.termo)}"${data.total>=300?' (mostrando os 300 primeiros)':''}</div>
+    ${[...porWs.entries()].map(([id, ws])=>`
+      <div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+          <div style="font-size:13px;font-weight:700;color:var(--navy)">🗝️ ${escapeHtml(ws.nome)}${ws.login?` <code style="background:#f0f2f8;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:400">${escapeHtml(ws.login)}</code>`:''} <span class="badge badge-navy">${ws.pessoas.length}</span></div>
+          ${id!=='sem-workspace'?`<button class="btn-sm btn-navy" style="font-size:11px;padding:5px 10px" onclick="abrirWorkspace('${id}','${escapeAttr(ws.nome)}')">Abrir workspace →</button>`:''}
+        </div>
+        ${ws.pessoas.map(bpLinha).join('')}
+      </div>`).join('')}
+  </div>`;
+}
+
+function bpLinha(p){
+  const identidade = [
+    p.telefone ? `📞 ${escapeHtml(p.telefone)}` : null,
+    p.titulo ? `🗳 ${escapeHtml(p.titulo)}${p.zona?`/${escapeHtml(p.zona)}`:''}${p.secao?`/${escapeHtml(p.secao)}`:''}` : null,
+    p.regiao ? escapeHtml(p.regiao) : null,
+    p.cidade ? `${escapeHtml(p.cidade)}${p.estado?'/'+escapeHtml(p.estado):''}` : null,
+  ].filter(Boolean).join(' · ');
+  return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border);font-size:12px;color:var(--slate);flex-wrap:wrap">
+    <span style="flex:1;min-width:220px">
+      <strong style="color:var(--navy)">${escapeHtml(p.nome)}</strong>
+      ${p.nivel?nivelBadge(p.nivel):`<span class="badge">${escapeHtml(p.perfil||'—')}</span>`}
+      ${p.login?`<code style="background:#f0f2f8;padding:1px 5px;border-radius:3px">${escapeHtml(p.login)}</code>`:''}
+      <br>${identidade || '—'}
+      <br><span style="font-size:11px;color:var(--slate-light)">achado por ${escapeHtml((p.casou||[]).join(', ') || '—')} · cadastrado em ${formatDate(p.created_at)}</span>
+    </span>
+    <button class="btn-sm btn-outline" style="font-size:11px;padding:5px 9px;white-space:nowrap" onclick="abrirLogPessoa('${p.id}','${escapeAttr(p.nome)}')">📜 Histórico</button>
+  </div>`;
+}
+
+// ══════════════════════════════════════════
+//  LOG DO SISTEMA (só o Administrador Geral)
+// ══════════════════════════════════════════
+// O que cada ação registrada quer dizer em português. A chave é o mesmo texto
+// gravado em auditoria.acao pelo servidor; ação desconhecida (versão do
+// servidor mais nova que a da tela) cai no genérico em vez de sumir da lista.
+const LOG_ACOES = {
+  'login':                     ['🔓','Entrou no sistema'],
+  'login.falha':               ['⛔','Tentativa de login recusada'],
+  'login.bloqueado':           ['🚫','Login bloqueado — contrato encerrado'],
+  'login.alterado':            ['🆔','Trocou o próprio login'],
+  'logout':                    ['🔒','Saiu do sistema'],
+  'termo.aceite':              ['📄','Aceitou o termo de uso'],
+  'senha.propria':             ['🔑','Trocou a própria senha'],
+  'senha.recuperacao_pedida':  ['✉️','Pediu recuperação de senha'],
+  'senha.redefinida_por_link': ['🔑','Redefiniu a senha pelo link do e-mail'],
+  'usuario.criar':             ['➕','Criou um acesso na rede'],
+  'usuario.editar':            ['✏️','Editou o cadastro de um acesso'],
+  'usuario.acesso':            ['🆔','Alterou login/e-mail de acesso'],
+  'usuario.senha':             ['🔑','Redefiniu a senha de outra pessoa'],
+  'usuario.excluir':           ['🗑','Excluiu um acesso'],
+  'apoiador.criar':            ['➕','Cadastrou apoiador'],
+  'apoiador.autocadastro':     ['🔗','Autocadastro por link'],
+  'apoiador.editar':           ['✏️','Editou a ficha do apoiador'],
+  'apoiador.mover':            ['🗂️','Moveu na pirâmide'],
+  'apoiador.excluir':          ['🗑','Excluiu apoiador'],
+  'candidato.criar':           ['🗝️','Criou workspace de candidato'],
+  'candidato.senha':           ['🔑','Redefiniu a senha do candidato'],
+  'candidato.plano':           ['🏷️','Alterou plano/contrato'],
+  'candidato.login':           ['🆔','Alterou o login do candidato'],
+  'candidato.email':           ['✉️','Alterou o e-mail do candidato'],
+  'config.limites':            ['⚙️','Alterou os limites da pirâmide'],
+  'mapa.criar':                ['🧠','Criou um mapa mental'],
+  'mapa.excluir':              ['🗑','Excluiu um mapa mental'],
+};
+
+const LOG_CAMPOS = { nome:'nome', telefone:'telefone', nascimento:'nascimento', endereco:'endereço',
+  regiao:'bairro', cidade:'cidade', estado:'estado', titulo:'título', zona:'zona', secao:'seção',
+  login:'login', email:'e-mail', plano:'plano', periodo_contrato:'período', data_desativacao:'desativação' };
+
+function logValor(v){
+  if(v === null || v === undefined || v === '') return 'vazio';
+  return escapeHtml(String(v));
+}
+
+function logDeParaHtml(campo, par){
+  return `<span style="display:inline-block;margin-right:10px">${escapeHtml(LOG_CAMPOS[campo]||campo)}: <span style="text-decoration:line-through;color:var(--slate-light)">${logValor(par.de)}</span> → <strong>${logValor(par.para)}</strong></span>`;
+}
+
+function logDetalhes(ev){
+  const d = ev.detalhes || {};
+  const partes = [];
+
+  if(ev.acao === 'apoiador.mover'){
+    if(d.nivel) partes.push(`nível <span style="text-decoration:line-through;color:var(--slate-light)">${logValor(d.nivel.de)}</span> → <strong>${logValor(d.nivel.para)}</strong>`);
+    if(d.responsavel) partes.push(`responsável: <span style="text-decoration:line-through;color:var(--slate-light)">${logValor(d.responsavel.de_nome || 'sem responsável')}</span> → <strong>${logValor(d.responsavel.para_nome)}</strong>`);
+  }
+  if(d.campos) for(const [campo, par] of Object.entries(d.campos)) partes.push(logDeParaHtml(campo, par));
+  if(ev.acao === 'candidato.plano'){
+    for(const campo of ['plano','periodo_contrato','data_desativacao']) if(d[campo]) partes.push(logDeParaHtml(campo, d[campo]));
+  }
+  if(ev.acao === 'config.limites') partes.push(`níveis 1–4: <strong>${[d.limiteNivel1,d.limiteNivel2,d.limiteNivel3,d.limiteNivel4].map(logValor).join(' / ')}</strong>`);
+  if(d.motivo) partes.push(`motivo: <strong>${logValor(d.motivo)}</strong>`);
+  if(d.login && !d.campos) partes.push(`login: <code>${logValor(d.login)}</code>`);
+  if(d.perfil) partes.push(`perfil: ${logValor(d.perfil)}`);
+  if(d.nivel !== undefined && ev.acao !== 'apoiador.mover') partes.push(`nível ${logValor(d.nivel)}`);
+  if(d.responsavel_nome) partes.push(`responsável: <strong>${logValor(d.responsavel_nome)}</strong>`);
+  if(d.convite_de_nome) partes.push(`entrou pelo link de <strong>${logValor(d.convite_de_nome)}</strong>`);
+  if(d.indicados_sem_responsavel) partes.push(`<strong>${d.indicados_sem_responsavel}</strong> indicado(s) ficaram sem responsável`);
+  if(d.para !== undefined) partes.push(`novo valor: <strong>${logValor(d.para)}</strong>`);
+
+  return partes.join(' · ');
+}
+
+function logEventoHtml(ev, mostrarWorkspace){
+  const [icone, rotulo] = LOG_ACOES[ev.acao] || ['•', ev.acao];
+  const detalhe = logDetalhes(ev);
+  const ator = ev.ator_nome || 'alguém não identificado';
+  // "como_admin" existe porque o admin atua dentro do workspace usando ?as=:
+  // sem essa marca o log culparia o candidato por mudanças que ele não fez.
+  const marcaAdmin = ev.como_admin ? ' <span class="badge" style="background:#fdf5e0;color:#8a6a10">via administrador</span>' : '';
+  const alvo = ev.alvo_nome && ev.alvo_nome !== ev.ator_nome ? ` → <strong>${escapeHtml(ev.alvo_nome)}</strong>` : '';
+  return `<div style="display:flex;gap:10px;padding:10px 0;border-top:1px solid var(--border)">
+    <div style="font-size:16px;line-height:1.2">${icone}</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;color:var(--navy)"><strong>${escapeHtml(rotulo)}</strong>${alvo}</div>
+      <div style="font-size:12px;color:var(--slate)">por ${escapeHtml(ator)}${ev.ator_perfil?` (${escapeHtml(ev.ator_perfil)})`:''}${marcaAdmin}</div>
+      ${detalhe?`<div style="font-size:12px;color:var(--slate);margin-top:2px">${detalhe}</div>`:''}
+      <div style="font-size:11px;color:var(--slate-light);margin-top:2px">${formatDateTime(ev.ocorrido_em)}${mostrarWorkspace&&ev.candidato_nome?` · 🗝️ ${escapeHtml(ev.candidato_nome)}`:''}${ev.ip?` · ${escapeHtml(ev.ip)}`:''}</div>
+    </div>
+  </div>`;
+}
+
+let LOG_ESTADO = { candidato:'', acao:'', q:'', eventos:[], temMais:false };
+let _logTimer = null;
+
+function renderLogs(){
+  return `
+  <div class="page-header"><h1>Log do sistema</h1><p>Quem fez o quê, com quem e quando — visível só para o Administrador Geral</p></div>
+  <div class="card">
+    <div class="search-bar">
+      <select id="log-candidato" class="search-input" style="max-width:260px;flex:none" onchange="recarregarLogs()"><option value="">Todos os workspaces</option></select>
+      <select id="log-acao" class="search-input" style="max-width:220px;flex:none" onchange="recarregarLogs()">
+        <option value="">Todas as ações</option>
+        <option value="log">Acessos (entrar/sair)</option>
+        <option value="apoiador">Apoiadores</option>
+        <option value="usuario">Acessos da rede</option>
+        <option value="candidato">Candidatos (administrador)</option>
+        <option value="senha">Recuperação de senha</option>
+        <option value="config">Configurações</option>
+        <option value="termo">Termo de uso</option>
+      </select>
+      <input class="search-input" id="log-q" placeholder="🔍 Nome de quem fez ou de quem sofreu a ação" oninput="agendarBuscaLog()">
+    </div>
+    <div id="log-lista"><p style="font-size:13px;color:var(--slate-light)">Carregando...</p></div>
+  </div>`;
+}
+
+async function iniciarLogs(){
+  // Dentro do workspace de um candidato o filtro já vem travado nele — é o log
+  // "da aba do candidato" que o admin abre a partir da rede que está vendo.
+  LOG_ESTADO.candidato = workspaceAdmin ? workspaceAdmin.id : '';
+  const sel = document.getElementById('log-candidato');
+  if(sel){
+    try {
+      const candidatos = await api('/admin/candidatos');
+      sel.innerHTML = '<option value="">Todos os workspaces</option>'
+        + candidatos.map(c=>`<option value="${c.id}" ${LOG_ESTADO.candidato===c.id?'selected':''}>${escapeHtml(c.nome)} (${escapeHtml(c.login)})</option>`).join('');
+    } catch(e){ /* sem a lista o filtro fica só com "todos" — a lista de eventos continua funcionando */ }
+  }
+  recarregarLogs();
+}
+
+function agendarBuscaLog(){
+  clearTimeout(_logTimer);
+  _logTimer = setTimeout(recarregarLogs, 400);
+}
+
+function recarregarLogs(){
+  LOG_ESTADO.candidato = document.getElementById('log-candidato')?.value || '';
+  LOG_ESTADO.acao = document.getElementById('log-acao')?.value || '';
+  LOG_ESTADO.q = document.getElementById('log-q')?.value.trim() || '';
+  LOG_ESTADO.eventos = [];
+  carregarLogs();
+}
+
+async function carregarLogs(){
+  const el = document.getElementById('log-lista');
+  if(!el) return;
+  if(!LOG_ESTADO.eventos.length) el.innerHTML = '<p style="font-size:13px;color:var(--slate-light)">Carregando...</p>';
+
+  const p = new URLSearchParams();
+  if(LOG_ESTADO.candidato) p.set('candidato', LOG_ESTADO.candidato);
+  if(LOG_ESTADO.acao) p.set('acao', LOG_ESTADO.acao);
+  if(LOG_ESTADO.q) p.set('q', LOG_ESTADO.q);
+  // Página seguinte a partir do id da última linha, não por OFFSET: o log
+  // cresce enquanto a tela está aberta e o OFFSET repetiria linhas.
+  const ultimo = LOG_ESTADO.eventos[LOG_ESTADO.eventos.length-1];
+  if(ultimo) p.set('antesDeId', ultimo.id);
+
+  try {
+    const data = await api('/admin/logs?' + p.toString());
+    LOG_ESTADO.eventos = LOG_ESTADO.eventos.concat(data.eventos);
+    LOG_ESTADO.temMais = data.temMais;
+  } catch(e){
+    el.innerHTML = `<p style="color:var(--red);font-size:13px">${escapeHtml(e.message)}</p>`;
+    return;
+  }
+
+  if(!LOG_ESTADO.eventos.length){
+    el.innerHTML = '<p style="font-size:13px;color:var(--slate-light)">Nenhuma atividade registrada com esses filtros. O log começa a partir da instalação desta versão — o que aconteceu antes não foi gravado.</p>';
+    return;
+  }
+  const mostrarWs = !LOG_ESTADO.candidato;
+  el.innerHTML = LOG_ESTADO.eventos.map(ev=>logEventoHtml(ev, mostrarWs)).join('')
+    + (LOG_ESTADO.temMais ? '<div style="text-align:center;margin-top:14px"><button class="btn-sm btn-outline" onclick="carregarLogs()">Carregar mais</button></div>' : '');
+}
+
+// Histórico de UMA pessoa — o que fizeram com ela e o que ela fez com o login
+// dela, na mesma linha do tempo. É o que o ícone 📜 abre.
+async function abrirLogPessoa(id, nome){
+  document.getElementById('modal-log-title').textContent = `📜 ${nome}`;
+  document.getElementById('modal-log-body').innerHTML = '<p style="font-size:13px;color:var(--slate-light)">Carregando histórico...</p>';
+  document.getElementById('modal-log-pessoa').classList.add('open');
+  try {
+    const data = await api(`/admin/logs/pessoa/${id}`);
+    const ficha = data.pessoa;
+    const cabecalho = ficha ? `<div style="font-size:12px;color:var(--slate);padding-bottom:10px">
+        Cadastrado em <strong>${formatDateTime(ficha.cadastrado_em)}</strong>${ficha.nivel?` · nível ${ficha.nivel}`:''}${ficha.login?` · login <code style="background:#f0f2f8;padding:1px 5px;border-radius:3px">${escapeHtml(ficha.login)}</code>`:' · sem login'}
+      </div>` : '';
+    const corpo = data.eventos.length
+      ? data.eventos.map(ev=>logEventoHtml(ev, true)).join('')
+      : '<p style="font-size:13px;color:var(--slate-light);border-top:1px solid var(--border);padding-top:10px">Nenhuma atividade registrada para este cadastro. O log só grava o que aconteceu a partir da instalação desta versão.</p>';
+    document.getElementById('modal-log-body').innerHTML = cabecalho + corpo;
+  } catch(e){
+    document.getElementById('modal-log-body').innerHTML = `<p style="color:var(--red);font-size:13px">${escapeHtml(e.message)}</p>`;
+  }
 }
 
 // ══════════════════════════════════════════
@@ -4157,7 +4504,8 @@ function showDetail(id){
     <div class="detail-row"><span class="detail-key">Título Eleitoral</span><span class="detail-val ${canSee?'':'sensitive'}" onclick="this.classList.toggle('revealed')">${a.titulo||'—'}</span></div>
     <div class="detail-row"><span class="detail-key">Zona Eleitoral</span><span class="detail-val ${canSee?'':'sensitive'}" onclick="this.classList.toggle('revealed')">${a.zona||'—'}</span></div>
     <div class="detail-row"><span class="detail-key">Seção Eleitoral</span><span class="detail-val ${canSee?'':'sensitive'}" onclick="this.classList.toggle('revealed')">${a.secao||'—'}</span></div>
-    ${!canSee?'<p style="font-size:11px;color:var(--slate-light);margin-top:12px;text-align:center">🔒 Clique para revelar</p>':''}`;
+    ${!canSee?'<p style="font-size:11px;color:var(--slate-light);margin-top:12px;text-align:center">🔒 Clique para revelar</p>':''}
+    ${currentRole==='admin'?`<button class="btn-sm btn-outline" style="width:100%;margin-top:14px" onclick="closeModal('modal-detail');abrirLogPessoa('${a.id}','${escapeAttr(a.nome)}')">📜 Ver o histórico deste cadastro</button>`:''}`;
   document.getElementById('modal-detail').classList.add('open');
 }
 
@@ -4599,6 +4947,15 @@ function formatDate(d){
   } catch { return String(d); }
 }
 function escapeAttr(s){return String(s).replace(/'/g,"\\'").replace(/"/g,'&quot;');}
+
+// formatDate mostra só o dia — no log a hora é essencial ("quem mexeu nisso
+// às 23h de ontem?"). Usa o fuso do navegador de quem está lendo.
+function formatDateTime(v){
+  if(!v) return '—';
+  const d = new Date(v);
+  if(isNaN(d.getTime())) return '—';
+  return d.toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
 // Texto livre que vira HTML precisa passar por aqui. No mapa mental o candidato
 // escreve o que quiser dentro dos itens, e um "<" solto quebraria o desenho —
 // além de deixar a porta aberta para script injetado no próprio mapa.

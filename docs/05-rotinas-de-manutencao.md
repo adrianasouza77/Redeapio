@@ -155,6 +155,10 @@ toque autenticação, pirâmide ou cadastro.
 - [ ] Liderança vê só a própria rede
 - [ ] Candidato vê a rede inteira
 - [ ] Reorganizar hierarquia (mudar responsável) funciona
+- [ ] Mover um nível 2 para nível 3 **sob um apoiador sem login** funciona
+      (era o caso que dava "Erro interno" — ver invariante 5 da referência)
+- [ ] Excluir alguém deixa os indicados dele com o badge "sem responsável",
+      e não some com eles da pirâmide
 - [ ] Tentar pendurar alguém sob um descendente dele é bloqueado
 - [ ] Limite de indicações é respeitado
 
@@ -179,6 +183,14 @@ toque autenticação, pirâmide ou cadastro.
 - [ ] Criar candidato mostra a senha temporária
 - [ ] Abrir workspace de um candidato mostra os dados dele
 - [ ] Data de desativação no passado bloqueia o candidato **e a rede dele**
+- [ ] "Buscar pessoa" acha por nome, por telefone com e sem máscara e por título
+- [ ] "Buscar pessoa" mostra o workspace de cada resultado e avisa quando o
+      mesmo termo aparece em campanhas diferentes
+- [ ] "Log do sistema" lista os eventos, filtra por workspace/ação/nome e
+      pagina com "Carregar mais"
+- [ ] O ícone 📜 na frente de um apoiador abre o histórico dele
+- [ ] **Entrando como candidato ou liderança**, nem o menu nem `#/logs` /
+      `#/busca-pessoa` dão acesso — e a API responde 403
 
 ---
 
@@ -259,6 +271,29 @@ teclado. Procure e aplique o padrão do `mascaraLogin()`:
 grep -n "oninput=\"this.value" frontend/index.html
 ```
 
+### "Erro interno" ao mover alguém de nível na pirâmide
+
+Sintoma: o candidato (ou a liderança, ou o admin) muda o nível e o responsável
+de um apoiador, salva, e recebe *"Erro interno. Tente novamente."*. Move para
+baixo de uma pessoa e funciona, para baixo de outra e não — sem padrão visível.
+
+Causa: `apoiadores.parent_id` tinha `REFERENCES usuarios(id)`, e quem não tem
+login não existe em `usuarios`. Confirme que a restrição já saiu:
+
+```sql
+-- Deve retornar ZERO linhas.
+SELECT con.conname FROM pg_constraint con
+JOIN pg_class rel ON rel.oid = con.conrelid
+JOIN pg_attribute att ON att.attrelid = rel.oid AND att.attnum = ANY(con.conkey)
+WHERE rel.relname = 'apoiadores' AND con.contype = 'f' AND att.attname = 'parent_id';
+```
+
+Se retornar alguma linha, o container está rodando uma imagem anterior à
+migração — `git pull origin 1.0 && bash build.sh` resolve, já que
+`001_init.sql` roda em todo boot. A rota também passou a devolver uma mensagem
+explicando o caso (409) em vez de 500, então "Erro interno" puro aqui aponta
+para outra coisa: veja os logs.
+
 ### 500 sem mensagem clara
 
 ```bash
@@ -281,6 +316,13 @@ docker exec $(docker ps -q -f name=redeapoio_redeapoio-postgres) \
 
 `termos_aceite` cresce sozinha por design (uma linha por aceite) e **não deve
 ser limpa** — é a prova de consentimento.
+
+`auditoria` também cresce sozinha, e mais rápido (uma linha por login, edição,
+movimentação, exclusão). Se um dia precisar de poda, apague **por data**, nunca
+sem filtro, e só depois de exportar o período — é a única fonte que responde
+"quem mexeu nisso". Uma linha ocupa poucos bytes: uma campanha de 5 mil pessoas
+gera na ordem de dezenas de milhares de linhas por ciclo eleitoral, o que não
+chega perto de ser um problema de espaço.
 
 ---
 

@@ -7,6 +7,7 @@ const { nivelUsuario } = require('../utils/nivelUsuario');
 const { buscarDuplicidade, resolverCandidatoId } = require('../utils/duplicidade');
 const { hash, gerarSenhaTemporaria } = require('../utils/password');
 const asyncHandler = require('../utils/asyncHandler');
+const { registrar, diferencas } = require('../utils/auditoria');
 
 const router = express.Router();
 router.use(authRequired, resolveWorkspace);
@@ -72,16 +73,61 @@ router.get('/', asyncHandler(async (req, res) => {
   res.json(rows);
 }));
 
+// Só o nome era comparado aqui, e nome igual é o critério mais fraco que
+// existe numa campanha (dois "Jose Carlos da Silva" diferentes na mesma cidade
+// é rotina). O que realmente identifica a pessoa — telefone, título de eleitor
+// e e-mail de acesso — ficava de fora, então a mesma pessoa cadastrada duas
+// vezes com o nome escrito de formas diferentes ("Ma. Aparecida" / "Maria
+// Aparecida") nunca aparecia nesta tela.
+//
+// Telefone e título são comparados só pelos dígitos: "(67) 99999-9999" e
+// "67999999999" são o mesmo telefone, e antes passavam como dois cadastros
+// distintos. Valor curto demais é descartado em vez de agrupado — a ficha-
+// espelho de quem tem login nasce com telefone '—' (ver usuarios.js), e sem
+// esse corte TODA liderança da rede apareceria como duplicada de todas as outras.
+const MIN_DIGITOS = { telefone: 8, titulo: 8 };
+
+function soDigitos(v) {
+  return String(v || '').replace(/[^0-9]/g, '');
+}
+
+const CRITERIOS_DUPLICIDADE = [
+  { campo: 'nome', rotulo: 'Mesmo nome', chave: (a) => (a.nome || '').trim().toLowerCase().replace(/\s+/g, ' ') || null },
+  { campo: 'telefone', rotulo: 'Mesmo telefone', chave: (a) => { const d = soDigitos(a.telefone); return d.length >= MIN_DIGITOS.telefone ? d : null; } },
+  { campo: 'titulo', rotulo: 'Mesmo título de eleitor', chave: (a) => { const d = soDigitos(a.titulo); return d.length >= MIN_DIGITOS.titulo ? d : null; } },
+  { campo: 'email', rotulo: 'Mesmo e-mail de acesso', chave: (a) => (a.email || '').trim().toLowerCase() || null },
+];
+
 router.get('/duplicados', requireRole('candidato', 'admin'), asyncHandler(async (req, res) => {
   const { rows: arvore } = await pool.query(SQL_ARVORE_CANDIDATO, [req.effectiveId]);
-  const grupos = new Map();
-  for (const a of arvore) {
-    const chave = a.nome.trim().toLowerCase();
-    if (!grupos.has(chave)) grupos.set(chave, []);
-    grupos.get(chave).push(a);
+
+  const grupos = [];
+  for (const criterio of CRITERIOS_DUPLICIDADE) {
+    const porChave = new Map();
+    for (const a of arvore) {
+      const chave = criterio.chave(a);
+      if (!chave) continue;
+      if (!porChave.has(chave)) porChave.set(chave, []);
+      porChave.get(chave).push(a);
+    }
+    for (const registros of porChave.values()) {
+      if (registros.length < 2) continue;
+      grupos.push({
+        campo: criterio.campo,
+        rotulo: criterio.rotulo,
+        // O valor exibido é o do primeiro registro (com máscara, do jeito que
+        // foi digitado), não a chave normalizada — quem lê a tela precisa
+        // reconhecer o telefone, não a versão só-dígitos dele.
+        valor: registros[0][criterio.campo] || '—',
+        registros,
+      });
+    }
   }
-  const duplicados = [...grupos.values()].filter((g) => g.length > 1);
-  res.json(duplicados);
+
+  // Grupo maior primeiro, e dentro do mesmo tamanho a ordem dos critérios
+  // acima (nome, telefone, título, e-mail) — do mais frequente ao mais grave.
+  grupos.sort((a, b) => b.registros.length - a.registros.length);
+  res.json(grupos);
 }));
 
 // ── Mapa da rede ──────────────────────────────────────────────────────────
@@ -695,6 +741,13 @@ router.post('/', requireRole('lideranca', 'apoiador'), asyncHandler(async (req, 
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$12) RETURNING *`,
     [nome, telefone, nascimento, regiao, endereco || null, cidade || null, estado || null, titulo || null, zona || null, secao || null, novoNivel, req.user.id]
   );
+  await registrar(req, {
+    acao: 'apoiador.criar',
+    alvoTipo: 'apoiador',
+    alvoId: rows[0].id,
+    alvoNome: nome,
+    detalhes: { nivel: novoNivel, responsavel_id: req.user.id, responsavel_nome: req.user.nome, origem: 'cadastro pelo painel' },
+  });
   res.status(201).json(rows[0]);
 }));
 
@@ -709,6 +762,18 @@ const SQL_SUBARVORE = `
   SELECT ap.id, ap.nivel, ap.parent_id FROM apoiadores ap
   WHERE ap.id IN (SELECT id FROM arvore)
 `;
+
+// O responsavel pode estar em qualquer uma das duas tabelas: um apoiador
+// comum (sem login) vive so em "apoiadores"; o candidato e a lideranca
+// emissora de link vivem em "usuarios". O log precisa do nome nos dois casos.
+async function nomeDeQualquer(id) {
+  if (!id) return null;
+  const { rows } = await pool.query(
+    'SELECT nome FROM apoiadores WHERE id = $1 UNION ALL SELECT nome FROM usuarios WHERE id = $1 LIMIT 1',
+    [id]
+  );
+  return rows[0]?.nome || null;
+}
 
 async function podeGerenciar(req, id) {
   if (req.effectivePerfil === 'candidato' || req.user.perfil === 'admin') {
@@ -741,6 +806,12 @@ function descendentesDe(arvore, id) {
 router.put('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
   if (!(await podeGerenciar(req, id))) return res.status(403).json({ error: 'Sem permissão para editar este registro.' });
+
+  // Foto do registro antes da edição — é a partir dela que o log de auditoria
+  // consegue dizer "trocou o telefone de X para Y" em vez de só "editou".
+  const { rows: antesRows } = await pool.query('SELECT * FROM apoiadores WHERE id = $1', [id]);
+  const antes = antesRows[0];
+  if (!antes) return res.status(404).json({ error: 'Cadastro não encontrado.' });
 
   const { nome, telefone, nascimento, endereco, regiao, cidade, estado, titulo, zona, secao, nivel, parent_id, login, email } = req.body || {};
   if (!nome) return res.status(400).json({ error: 'Nome é obrigatório.' });
@@ -797,11 +868,43 @@ router.put('/:id', asyncHandler(async (req, res) => {
   }
   vals.push(id);
 
-  const { rows } = await pool.query(
-    `UPDATE apoiadores SET ${campos.join(', ')} WHERE id = $${vals.length} RETURNING *`,
-    vals
-  );
-  const atualizado = rows[0];
+  let atualizado;
+  try {
+    const { rows } = await pool.query(
+      `UPDATE apoiadores SET ${campos.join(', ')} WHERE id = $${vals.length} RETURNING *`,
+      vals
+    );
+    atualizado = rows[0];
+  } catch (err) {
+    // Rede de segurança: se algum banco antigo ainda tiver a chave estrangeira
+    // de parent_id apontando para "usuarios" (removida na migração), a
+    // reorganização volta a falhar. Sem isto o usuário via só "Erro interno" e
+    // não havia como descobrir a causa a partir da tela.
+    if (err.code === '23503') {
+      return res.status(409).json({ error: 'Não foi possível mover: o responsável escolhido não pôde ser vinculado. Avise o administrador (restrição parent_id no banco).' });
+    }
+    throw err;
+  }
+
+  if (novoNivel !== undefined && (antes.nivel !== novoNivel || String(antes.parent_id) !== String(novoParentId))) {
+    await registrar(req, {
+      acao: 'apoiador.mover',
+      alvoTipo: 'apoiador',
+      alvoId: id,
+      alvoNome: atualizado.nome,
+      detalhes: {
+        nivel: { de: antes.nivel, para: novoNivel },
+        responsavel: {
+          de_id: antes.parent_id, de_nome: await nomeDeQualquer(antes.parent_id),
+          para_id: novoParentId, para_nome: await nomeDeQualquer(novoParentId),
+        },
+      },
+    });
+  }
+  const mudancas = diferencas(antes, atualizado, ['nome', 'telefone', 'nascimento', 'endereco', 'regiao', 'cidade', 'estado', 'titulo', 'zona', 'secao']);
+  if (Object.keys(mudancas).length) {
+    await registrar(req, { acao: 'apoiador.editar', alvoTipo: 'apoiador', alvoId: id, alvoNome: atualizado.nome, detalhes: { campos: mudancas } });
+  }
 
   // Se este cadastro também tem login (usuário nível 1..3), mantém o "usuarios"
   // em sincronia e permite ajustar login/e-mail do acesso a partir daqui — tanto
@@ -822,10 +925,15 @@ router.put('/:id', asyncHandler(async (req, res) => {
       const dup = await buscarDuplicidade({ candidatoId: candId, email: emailLimpo, excluirUsuarioId: id });
       if (dup) return res.status(409).json({ error: `Já existe um cadastro com esse ${dup.campo} nesta rede (${dup.nome}).` });
       try {
+        const { rows: acessoAntes } = await pool.query('SELECT login, email FROM usuarios WHERE id = $1', [id]);
         if (loginNovo) {
           await pool.query('UPDATE usuarios SET nome = $1, email = $2, login = $3 WHERE id = $4', [nome, emailLimpo, loginNovo, id]);
         } else {
           await pool.query('UPDATE usuarios SET nome = $1, email = $2 WHERE id = $3', [nome, emailLimpo, id]);
+        }
+        const mudouAcesso = diferencas(acessoAntes[0] || {}, { login: loginNovo || acessoAntes[0]?.login, email: emailLimpo }, ['login', 'email']);
+        if (Object.keys(mudouAcesso).length) {
+          await registrar(req, { acao: 'usuario.acesso', alvoTipo: 'usuario', alvoId: id, alvoNome: nome, detalhes: { campos: mudouAcesso } });
         }
       } catch (err) {
         if (err.code === '23505') return res.status(409).json({ error: 'Esse login já está em uso. Escolha outro.' });
@@ -860,13 +968,32 @@ router.put('/:id/senha', asyncHandler(async (req, res) => {
   const novaSenha = senha && senha.length >= 4 ? senha : gerarSenhaTemporaria();
   const senhaHash = await hash(novaSenha);
   await pool.query('UPDATE usuarios SET senha_hash = $1, senha_temporaria = true WHERE id = $2', [senhaHash, id]);
+  // A senha em si nunca entra no log — só o fato de ter sido redefinida, por quem.
+  await registrar(req, { acao: 'usuario.senha', alvoTipo: 'usuario', alvoId: id, alvoNome: rows[0].nome, detalhes: { login: rows[0].login } });
   res.json({ senha: novaSenha, login: rows[0].login, nome: rows[0].nome });
 }));
 
 router.delete('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
   if (!(await podeGerenciar(req, id))) return res.status(403).json({ error: 'Sem permissão para excluir este registro.' });
+  const { rows: alvoRows } = await pool.query('SELECT nome, nivel, parent_id FROM apoiadores WHERE id = $1', [id]);
+  const alvo = alvoRows[0];
+
+  // Quem era indicado do excluído passa a "sem responsável" (badge vermelho na
+  // tela de apoiadores), em vez de apontar para um id que não existe mais.
+  // A chave estrangeira fazia isso sozinha só quando o excluído tinha login —
+  // excluir um apoiador comum deixava os filhos pendurados no vazio e eles
+  // sumiam da pirâmide, sem aviso nenhum.
+  const { rowCount: orfanados } = await pool.query('UPDATE apoiadores SET parent_id = NULL WHERE parent_id = $1', [id]);
+
   await pool.query('DELETE FROM apoiadores WHERE id = $1', [id]);
+  await registrar(req, {
+    acao: 'apoiador.excluir',
+    alvoTipo: 'apoiador',
+    alvoId: id,
+    alvoNome: alvo?.nome || null,
+    detalhes: { nivel: alvo?.nivel ?? null, indicados_sem_responsavel: orfanados },
+  });
   res.status(204).end();
 }));
 

@@ -9,6 +9,7 @@ const { avaliarStatusTermo } = require('../utils/termoStatus');
 const { nivelUsuario } = require('../utils/nivelUsuario');
 const mail = require('../services/mail');
 const asyncHandler = require('../utils/asyncHandler');
+const { registrar } = require('../utils/auditoria');
 
 const router = express.Router();
 
@@ -33,10 +34,27 @@ router.post('/login', asyncHandler(async (req, res) => {
     [identificador, perfil]
   );
   const user = rows[0];
-  if (!user) return res.status(401).json({ error: 'Usuário ou senha incorretos.' });
+  // Tentativa com login inexistente também vira log: é assim que o admin
+  // enxerga alguém tentando adivinhar o acesso de outra pessoa. Sem ator_id
+  // (não há usuário), só o que foi digitado e o IP de origem.
+  if (!user) {
+    await registrar(req, { acao: 'login.falha', alvoTipo: 'sessao', alvoNome: identificador, detalhes: { motivo: 'login não encontrado', perfil_tentado: perfil }, ator: {}, candidatoId: null });
+    return res.status(401).json({ error: 'Usuário ou senha incorretos.' });
+  }
 
   const ok = await compare(senha, user.senha_hash);
-  if (!ok) return res.status(401).json({ error: 'Usuário ou senha incorretos.' });
+  if (!ok) {
+    await registrar(req, {
+      acao: 'login.falha',
+      alvoTipo: 'sessao',
+      alvoId: user.id,
+      alvoNome: user.nome,
+      detalhes: { motivo: 'senha incorreta', login: user.login },
+      ator: { id: user.id, nome: user.nome, perfil: user.perfil },
+      candidatoId: user.perfil === 'candidato' ? user.id : user.criado_por || null,
+    });
+    return res.status(401).json({ error: 'Usuário ou senha incorretos.' });
+  }
 
   // Contrato encerrado: bloqueia o candidato E toda a rede criada por ele
   // (lideranças/apoiadores) a partir da data de desativação configurada pelo admin.
@@ -48,6 +66,11 @@ router.post('/login', asyncHandler(async (req, res) => {
     );
     const dataDesativacao = cRows[0]?.data_desativacao;
     if (dataDesativacao && new Date(dataDesativacao) <= new Date()) {
+      await registrar(req, {
+        acao: 'login.bloqueado', alvoTipo: 'sessao', alvoId: user.id, alvoNome: user.nome,
+        detalhes: { motivo: 'contrato encerrado', login: user.login },
+        ator: { id: user.id, nome: user.nome, perfil: user.perfil }, candidatoId,
+      });
       return res.status(403).json({ error: 'Acesso encerrado. Entre em contato com o suporte.' });
     }
   }
@@ -61,6 +84,15 @@ router.post('/login', asyncHandler(async (req, res) => {
   // Cookie httpOnly: o JS do navegador não consegue ler o token, o que reduz o
   // impacto de um eventual XSS (só cookies acessíveis por JS podem ser roubados).
   res.cookie('token', token, COOKIE_OPTS);
+  await registrar(req, {
+    acao: 'login',
+    alvoTipo: 'sessao',
+    alvoId: user.id,
+    alvoNome: user.nome,
+    detalhes: { login: user.login, perfil: user.perfil },
+    ator: { id: user.id, nome: user.nome, perfil: user.perfil },
+    candidatoId,
+  });
   res.json({
     user: { id: user.id, nome: user.nome, login: user.login, perfil: user.perfil, criado_por: user.criado_por, nivel: await nivelUsuario(user), ...avaliarStatusTermo(user) },
   });
@@ -73,10 +105,24 @@ router.get('/me', authRequired, asyncHandler(async (req, res) => {
   res.json({ user: { ...user, nivel: await nivelUsuario(user), ...avaliarStatusTermo(rows[0]) } });
 }));
 
-router.post('/logout', (req, res) => {
+// Não usa authRequired: sair tem que funcionar mesmo com a sessão já expirada.
+// Por isso o ator é lido do token quando ele ainda é válido, e o logout de
+// sessão vencida simplesmente não gera linha no log (não há quem registrar).
+router.post('/logout', asyncHandler(async (req, res) => {
+  const token = req.cookies?.token;
+  if (token) {
+    try {
+      const dados = jwt.verify(token, jwtSecret);
+      await registrar(req, {
+        acao: 'logout', alvoTipo: 'sessao', alvoId: dados.id, alvoNome: dados.nome,
+        ator: { id: dados.id, nome: dados.nome, perfil: dados.perfil },
+        candidatoId: dados.perfil === 'candidato' ? dados.id : dados.criado_por || null,
+      });
+    } catch { /* token expirado: não há sessão para registrar */ }
+  }
   res.clearCookie('token', COOKIE_OPTS);
   res.json({ ok: true });
-});
+}));
 
 // Autoatendimento: só funciona se o usuário tiver e-mail cadastrado (canal
 // verificado). Sem e-mail, precisa falar com o candidato/admin — que pode
@@ -104,6 +150,12 @@ router.post('/esqueci-senha', asyncHandler(async (req, res) => {
     [hashToken, expira, user.id]
   );
 
+  await registrar(req, {
+    acao: 'senha.recuperacao_pedida', alvoTipo: 'usuario', alvoId: user.id, alvoNome: user.nome,
+    detalhes: { email: user.email }, ator: { id: user.id, nome: user.nome },
+    candidatoId: null,
+  });
+
   const link = `${publicUrl}/?reset=1&token=${rawToken}`;
   await mail.sendMailSilent({
     to: user.email,
@@ -122,7 +174,7 @@ router.post('/redefinir-senha', asyncHandler(async (req, res) => {
 
   const hashToken = crypto.createHash('sha256').update(token).digest('hex');
   const { rows } = await pool.query(
-    'SELECT id FROM usuarios WHERE reset_password_token = $1 AND reset_password_expires > now()',
+    'SELECT id, nome FROM usuarios WHERE reset_password_token = $1 AND reset_password_expires > now()',
     [hashToken]
   );
   if (!rows[0]) return res.status(400).json({ error: 'Link inválido ou expirado. Solicite uma nova recuperação.' });
@@ -135,6 +187,10 @@ router.post('/redefinir-senha', asyncHandler(async (req, res) => {
     'UPDATE usuarios SET senha_hash = $1, reset_password_token = NULL, reset_password_expires = NULL, senha_temporaria = false WHERE id = $2',
     [senhaHash, rows[0].id]
   );
+  await registrar(req, {
+    acao: 'senha.redefinida_por_link', alvoTipo: 'usuario', alvoId: rows[0].id,
+    alvoNome: rows[0].nome, ator: { id: rows[0].id, nome: rows[0].nome }, candidatoId: null,
+  });
   res.json({ ok: true });
 }));
 

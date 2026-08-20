@@ -6,6 +6,7 @@ const { hash, gerarSenhaTemporaria } = require('../utils/password');
 const { publicUrl } = require('../config');
 const { buscarDuplicidade } = require('../utils/duplicidade');
 const asyncHandler = require('../utils/asyncHandler');
+const { registrar, diferencas } = require('../utils/auditoria');
 
 const router = express.Router();
 router.use(authRequired, resolveWorkspace);
@@ -88,6 +89,14 @@ router.post('/', requireRole('candidato', 'admin'), asyncHandler(async (req, res
 
     await client.query('COMMIT');
 
+    await registrar(req, {
+      acao: 'usuario.criar',
+      alvoTipo: 'usuario',
+      alvoId: novoUsuario.id,
+      alvoNome: nome,
+      detalhes: { perfil, login: novoUsuario.login, email: novoUsuario.email, nivel: perfil === 'lideranca' ? 1 : ([2, 3].includes(Number(req.body?.nivel)) ? Number(req.body.nivel) : 2) },
+    });
+
     res.status(201).json({
       usuario: novoUsuario,
       autocadastroLink: perfil === 'lideranca' ? linkAutocadastro(novoUsuario.id, req.effectiveId) : null,
@@ -104,7 +113,7 @@ router.post('/', requireRole('candidato', 'admin'), asyncHandler(async (req, res
 router.put('/:id/senha', requireRole('candidato', 'admin'), asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { senha } = req.body || {};
-  const owned = await pool.query('SELECT id FROM usuarios WHERE id = $1 AND (criado_por = $2 OR $3 = true)', [
+  const owned = await pool.query('SELECT id, nome, login FROM usuarios WHERE id = $1 AND (criado_por = $2 OR $3 = true)', [
     id, req.effectiveId, req.user.perfil === 'admin',
   ]);
   if (!owned.rows[0]) return res.status(404).json({ error: 'Usuário não encontrado.' });
@@ -114,6 +123,7 @@ router.put('/:id/senha', requireRole('candidato', 'admin'), asyncHandler(async (
   // Marca como temporária de novo: quem recebe uma senha escolhida por outra
   // pessoa precisa passar pela tela obrigatória de primeiro acesso e trocá-la.
   await pool.query('UPDATE usuarios SET senha_hash = $1, senha_temporaria = true WHERE id = $2', [senhaHash, id]);
+  await registrar(req, { acao: 'usuario.senha', alvoTipo: 'usuario', alvoId: id, alvoNome: owned.rows[0].nome, detalhes: { login: owned.rows[0].login } });
   res.json({ senha: novaSenha });
 }));
 
@@ -121,9 +131,10 @@ router.put('/:id/senha', requireRole('candidato', 'admin'), asyncHandler(async (
 // telefone, endereço e dados eleitorais, tudo num único salvamento.
 router.put('/:id', requireRole('candidato', 'admin'), asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const owned = await pool.query('SELECT id FROM usuarios WHERE id = $1 AND (criado_por = $2 OR $3 = true)', [
-    id, req.effectiveId, req.user.perfil === 'admin',
-  ]);
+  const owned = await pool.query(
+    'SELECT id, nome, login, email, telefone, endereco, regiao, cidade, estado, titulo, zona, secao FROM usuarios WHERE id = $1 AND (criado_por = $2 OR $3 = true)',
+    [id, req.effectiveId, req.user.perfil === 'admin']
+  );
   if (!owned.rows[0]) return res.status(404).json({ error: 'Usuário não encontrado.' });
 
   const { nome, login, email, telefone, endereco, regiao, cidade, estado, titulo, zona, secao } = req.body || {};
@@ -166,6 +177,10 @@ router.put('/:id', requireRole('candidato', 'admin'), asyncHandler(async (req, r
       'UPDATE apoiadores SET nome=$1, telefone=$2, endereco=$3, regiao=$4, cidade=$5, estado=$6, titulo=$7, zona=$8, secao=$9 WHERE id = $10',
       [nome.trim(), telefone || null, endereco || null, regiao || null, cidade || null, estado || null, titulo?.trim() || null, zona?.trim() || null, secao?.trim() || null, id]
     );
+    const mudancas = diferencas(owned.rows[0], rows[0], ['nome', 'login', 'email', 'telefone', 'endereco', 'regiao', 'cidade', 'estado', 'titulo', 'zona', 'secao']);
+    if (Object.keys(mudancas).length) {
+      await registrar(req, { acao: 'usuario.editar', alvoTipo: 'usuario', alvoId: id, alvoNome: rows[0].nome, detalhes: { campos: mudancas } });
+    }
     res.json(rows[0]);
   } catch (err) {
     if (err.code === '23505') return res.status(409).json({ error: 'Este login já existe.' });
@@ -175,8 +190,26 @@ router.put('/:id', requireRole('candidato', 'admin'), asyncHandler(async (req, r
 
 router.delete('/:id', requireRole('candidato', 'admin'), asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { rowCount } = await pool.query('DELETE FROM usuarios WHERE id = $1 AND criado_por = $2', [id, req.effectiveId]);
-  if (!rowCount) return res.status(404).json({ error: 'Usuário não encontrado.' });
+  // A checagem de posse vem ANTES de qualquer escrita: soltar os indicados
+  // primeiro deixaria alguém desmontar a rede de outro candidato mandando um
+  // id que não é dele — o DELETE recusaria, mas o estrago já estaria feito.
+  const { rows: alvoRows } = await pool.query('SELECT nome, login, perfil FROM usuarios WHERE id = $1 AND criado_por = $2', [id, req.effectiveId]);
+  if (!alvoRows[0]) return res.status(404).json({ error: 'Usuário não encontrado.' });
+
+  // Quem era indicado dessa pessoa vira "sem responsável" em vez de apontar
+  // para um id que deixou de existir. Isso era feito pela chave estrangeira de
+  // parent_id (ON DELETE SET NULL), que precisou ser removida para a
+  // reorganização de hierarquia funcionar — ver a migração 001_init.sql.
+  const { rowCount: orfanados } = await pool.query('UPDATE apoiadores SET parent_id = NULL WHERE parent_id = $1', [id]);
+
+  await pool.query('DELETE FROM usuarios WHERE id = $1 AND criado_por = $2', [id, req.effectiveId]);
+  await registrar(req, {
+    acao: 'usuario.excluir',
+    alvoTipo: 'usuario',
+    alvoId: id,
+    alvoNome: alvoRows[0].nome,
+    detalhes: { login: alvoRows[0].login, perfil: alvoRows[0].perfil, indicados_sem_responsavel: orfanados },
+  });
   res.status(204).end();
 }));
 

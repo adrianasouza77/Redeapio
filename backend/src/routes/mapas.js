@@ -3,6 +3,7 @@ const pool = require('../db');
 const { authRequired, requireRole } = require('../middleware/auth');
 const resolveWorkspace = require('../middleware/workspace');
 const asyncHandler = require('../utils/asyncHandler');
+const { registrar } = require('../utils/auditoria');
 
 // Mapa mental — ferramenta de gestão do candidato (estrutura política, grupos,
 // compromissos). NÃO tem relação com a pirâmide de apoiadores: é rascunho
@@ -141,6 +142,10 @@ router.post('/', asyncHandler(async (req, res) => {
      RETURNING id, titulo, dados, tipo, estado, cidade, bairro, atualizado_em`,
     [donoDoMapa(req), titulo, mapaPadrao(lugar.bairro || lugar.cidade || titulo, tipo), tipo, lugar.estado, lugar.cidade, lugar.bairro]
   );
+  // Só criar e excluir entram no log. O PUT é o autossalvamento do mapa, que
+  // dispara ~1s depois de cada mudança de galho — registrá-lo encheria a
+  // auditoria de milhares de linhas iguais e esconderia o que importa.
+  await registrar(req, { acao: 'mapa.criar', alvoTipo: 'mapa', alvoId: rows[0].id, alvoNome: titulo, detalhes: { tipo, estado: lugar.estado, cidade: lugar.cidade, bairro: lugar.bairro } });
   res.status(201).json(rows[0]);
 }));
 
@@ -202,11 +207,12 @@ router.put('/:id', asyncHandler(async (req, res) => {
 }));
 
 router.delete('/:id', asyncHandler(async (req, res) => {
-  const { rowCount } = await pool.query(
-    'DELETE FROM mapas_mentais WHERE id = $1 AND candidato_id = $2',
+  const { rows } = await pool.query(
+    'DELETE FROM mapas_mentais WHERE id = $1 AND candidato_id = $2 RETURNING titulo',
     [req.params.id, donoDoMapa(req)]
   );
-  if (!rowCount) return res.status(404).json({ error: 'Mapa não encontrado.' });
+  if (!rows[0]) return res.status(404).json({ error: 'Mapa não encontrado.' });
+  await registrar(req, { acao: 'mapa.excluir', alvoTipo: 'mapa', alvoId: req.params.id, alvoNome: rows[0].titulo });
   res.status(204).end();
 }));
 
