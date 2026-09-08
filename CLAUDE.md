@@ -24,9 +24,9 @@ tudo isso é deliberado.
 
 1. **`apoiadores.id == usuarios.id`** para quem tem login. Toda liderança e
    apoiador com acesso existe nas duas tabelas com o **mesmo UUID** — é o que
-   liga a pessoa aos indicados dela (`apoiadores.parent_id`). Ao criar um
+   liga a pessoa aos apoiadores dela (`apoiadores.parent_id`). Ao criar um
    usuário com login, sempre insira a ficha em `apoiadores` passando o `id`
-   explicitamente. Ignorar isso faz toda a pirâmide mostrar "0 indicados".
+   explicitamente. Ignorar isso faz toda a pirâmide mostrar "0 apoiadores".
 
 2. **`backend/migrations/001_init.sql` roda a cada boot do container.** Não há
    versionamento de migração. Toda instrução nova precisa ser idempotente

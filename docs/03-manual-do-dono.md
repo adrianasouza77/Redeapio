@@ -53,7 +53,7 @@ escolhendo embaixo de quem a pessoa fica.
 
 **Entrar como candidato → Configurações → Limites da Pirâmide**
 
-Define quantas pessoas cada nível pode indicar. Vale para toda a rede daquele
+Define quantas pessoas cada nível pode cadastrar. Vale para toda a rede daquele
 candidato — inclusive para as lideranças e apoiadores dele. O padrão é
 50 / 30 / 15 / 10.
 

@@ -65,8 +65,8 @@ CREATE INDEX IF NOT EXISTS idx_usuarios_email ON usuarios (lower(email));
 -- Bug estrutural do app original: a linha-espelho de uma liderança/apoiador
 -- em "apoiadores" (a que faz ela aparecer na pirâmide de Rede de Apoio)
 -- sempre ganhava um id aleatório próprio, em vez do id do usuário real. Só
--- que os indicados dela salvam parent_id = id do USUÁRIO — então a pirâmide
--- nunca conseguia achar os indicados de ninguém ("0 indicados" pra todo
+-- que os apoiadores dela salvam parent_id = id do USUÁRIO — então a pirâmide
+-- nunca conseguia achar os apoiadores de ninguém ("0 apoiadores" pra todo
 -- mundo). Alinha o id da linha-espelho com o id do usuário correspondente.
 UPDATE apoiadores a
 SET id = u.id
@@ -88,12 +88,12 @@ WHERE u.perfil IN ('lideranca','apoiador')
 -- tinha uma consequência que ninguém ligava ao reparo: o link pessoal de um
 -- apoiador cadastra "o nível dele + 1", lido desta ficha. Um nível 3 que
 -- ganhasse a ficha por aqui virava nível 2, e o link dele passava a cadastrar
--- gente no nível 3 em vez do 4 — os indicados apareciam no MESMO nível de quem
--- os indicou, e a tela de reorganização depois recusava arrumar ("o responsável
+-- gente no nível 3 em vez do 4 — os apoiadores apareciam no MESMO nível de quem
+-- os cadastrou, e a tela de reorganização depois recusava arrumar ("o responsável
 -- precisa estar exatamente um nível acima").
 --
--- Agora o nível é deduzido de quem já está pendurado na pessoa: se os indicados
--- dela são nível 4, ela é nível 3. Quem ainda não indicou ninguém continua no
+-- Agora o nível é deduzido de quem já está pendurado na pessoa: se os apoiadores
+-- dela são nível 4, ela é nível 3. Quem ainda não cadastrou ninguém continua no
 -- palpite antigo (2), que é o melhor disponível — mas aí o próprio app recusa
 -- o link em vez de chutar, e o candidato corrige o nível pela tela da pirâmide.
 INSERT INTO apoiadores (id, nome, telefone, regiao, endereco, cidade, titulo, zona, secao, nivel, parent_id, cadastrado_por)

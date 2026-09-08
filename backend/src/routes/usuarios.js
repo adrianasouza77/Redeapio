@@ -69,9 +69,9 @@ router.post('/', requireRole('candidato', 'admin'), asyncHandler(async (req, res
 
     // Cria a "ficha" espelho em apoiadores para lideranças/apoiadores-com-login
     // aparecerem na pirâmide de Rede de Apoio. O id da ficha precisa ser IGUAL
-    // ao id do próprio usuário — é esse id que os indicados dela usam como
+    // ao id do próprio usuário — é esse id que os apoiadores dela usam como
     // parent_id. Se fossem ids diferentes (como um gen_random_uuid() default),
-    // a pirâmide nunca conseguiria achar os indicados de ninguém.
+    // a pirâmide nunca conseguiria achar os apoiadores de ninguém.
     if (perfil === 'lideranca' || perfil === 'apoiador') {
       // Liderança é sempre nível 1. Para apoiador o nível vinha fixo em 2, então
       // o candidato não tinha como criar alguém de nível 3 por esta tela: a
@@ -190,13 +190,13 @@ router.put('/:id', requireRole('candidato', 'admin'), asyncHandler(async (req, r
 
 router.delete('/:id', requireRole('candidato', 'admin'), asyncHandler(async (req, res) => {
   const { id } = req.params;
-  // A checagem de posse vem ANTES de qualquer escrita: soltar os indicados
+  // A checagem de posse vem ANTES de qualquer escrita: soltar os apoiadores
   // primeiro deixaria alguém desmontar a rede de outro candidato mandando um
   // id que não é dele — o DELETE recusaria, mas o estrago já estaria feito.
   const { rows: alvoRows } = await pool.query('SELECT nome, login, perfil FROM usuarios WHERE id = $1 AND criado_por = $2', [id, req.effectiveId]);
   if (!alvoRows[0]) return res.status(404).json({ error: 'Usuário não encontrado.' });
 
-  // Quem era indicado dessa pessoa vira "sem responsável" em vez de apontar
+  // Quem era apoiador dessa pessoa vira "sem responsável" em vez de apontar
   // para um id que deixou de existir. Isso era feito pela chave estrangeira de
   // parent_id (ON DELETE SET NULL), que precisou ser removida para a
   // reorganização de hierarquia funcionar — ver a migração 001_init.sql.
@@ -208,7 +208,7 @@ router.delete('/:id', requireRole('candidato', 'admin'), asyncHandler(async (req
     alvoTipo: 'usuario',
     alvoId: id,
     alvoNome: alvoRows[0].nome,
-    detalhes: { login: alvoRows[0].login, perfil: alvoRows[0].perfil, indicados_sem_responsavel: orfanados },
+    detalhes: { login: alvoRows[0].login, perfil: alvoRows[0].perfil, apoiadores_sem_responsavel: orfanados },
   });
   res.status(204).end();
 }));

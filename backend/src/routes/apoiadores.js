@@ -29,7 +29,7 @@ const SQL_ARVORE_CANDIDATO = `
   ORDER BY ap.created_at
 `;
 
-// Para lideranca/apoiador, SQL_ARVORE_CANDIDATO só pega os indicados DIRETOS
+// Para lideranca/apoiador, SQL_ARVORE_CANDIDATO só pega os apoiadores DIRETOS
 // (cadastrado_por/parent_id = o próprio id) — não desce para nível 3/4 depois
 // que a liderança reorganiza a hierarquia (parent_id passa a apontar para
 // outro apoiador, não mais para um usuário). Esta resolve a subárvore inteira
@@ -39,7 +39,7 @@ const SQL_ARVORE_CANDIDATO = `
 // candidato (que usa a outra query, baseada em cadastrado_por):
 //   1) a raiz vinha de "SELECT id FROM apoiadores WHERE id = $1" — quem não
 //      tinha a ficha-espelho (usuário criado antes dessa regra) recebia uma
-//      lista VAZIA e não via nem os próprios indicados diretos. A raiz agora é
+//      lista VAZIA e não via nem os próprios apoiadores diretos. A raiz agora é
 //      o próprio id, então a busca funciona mesmo sem ficha.
 //   2) quem entra pelos links por nível do candidato fica com parent_id NULL:
 //      a descida parava nesse nó e ninguém abaixo dele aparecia. O cadastro
@@ -728,7 +728,7 @@ router.post('/', requireRole('lideranca', 'apoiador'), asyncHandler(async (req, 
   const limites = await limitesDoCandidato(resolverCandidatoId(req.user));
   const limite = limites[myNivel];
   if (countRows[0].c >= limite) {
-    return res.status(400).json({ error: `Limite de ${limite} indicações atingido.` });
+    return res.status(400).json({ error: `Limite de ${limite} apoiadores atingido.` });
   }
 
   const dup = await buscarDuplicidade({ candidatoId: resolverCandidatoId(req.user), telefone, titulo });
@@ -753,7 +753,7 @@ router.post('/', requireRole('lideranca', 'apoiador'), asyncHandler(async (req, 
 
 // Sub-árvore (nível/parent_id) a partir de um nó qualquer de "apoiadores" — usada
 // tanto para permissão (lideranca/apoiador podem gerenciar qualquer descendente,
-// não só quem indicaram direto) quanto para validar a reorganização de hierarquia.
+// não só quem cadastraram direto) quanto para validar a reorganização de hierarquia.
 // Mesma recursão da listagem (raiz = o próprio id, órfão puxado por quem
 // cadastrou): permissão e listagem precisam enxergar exatamente a mesma rede,
 // senão a pessoa vê um nome na tela e leva 403 ao tentar editá-lo.
@@ -846,7 +846,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
       return res.status(400).json({ error: 'O responsável escolhido precisa estar exatamente um nível acima.' });
     }
     if (descendentesDe(arvore, id).has(novoParentId)) {
-      return res.status(400).json({ error: 'Não é possível mover um apoiador para debaixo de alguém que ele mesmo indicou.' });
+      return res.status(400).json({ error: 'Não é possível mover um apoiador para debaixo de alguém que ele mesmo cadastrou.' });
     }
 
     const { rows: countRows } = await pool.query(
@@ -856,7 +856,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
     const limites = await limitesDoCandidato(ehCandidato ? req.effectiveId : resolverCandidatoId(req.user));
     const limite = limites[novoNivel - 1];
     if (countRows[0].c >= limite) {
-      return res.status(400).json({ error: `Limite de ${limite} indicações atingido para esse responsável.` });
+      return res.status(400).json({ error: `Limite de ${limite} apoiadores atingido para esse responsável.` });
     }
   }
 
@@ -979,7 +979,7 @@ router.delete('/:id', asyncHandler(async (req, res) => {
   const { rows: alvoRows } = await pool.query('SELECT nome, nivel, parent_id FROM apoiadores WHERE id = $1', [id]);
   const alvo = alvoRows[0];
 
-  // Quem era indicado do excluído passa a "sem responsável" (badge vermelho na
+  // Quem era apoiador do excluído passa a "sem responsável" (badge vermelho na
   // tela de apoiadores), em vez de apontar para um id que não existe mais.
   // A chave estrangeira fazia isso sozinha só quando o excluído tinha login —
   // excluir um apoiador comum deixava os filhos pendurados no vazio e eles
@@ -992,7 +992,7 @@ router.delete('/:id', asyncHandler(async (req, res) => {
     alvoTipo: 'apoiador',
     alvoId: id,
     alvoNome: alvo?.nome || null,
-    detalhes: { nivel: alvo?.nivel ?? null, indicados_sem_responsavel: orfanados },
+    detalhes: { nivel: alvo?.nivel ?? null, apoiadores_sem_responsavel: orfanados },
   });
   res.status(204).end();
 }));

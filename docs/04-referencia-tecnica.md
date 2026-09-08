@@ -271,10 +271,10 @@ Toda liderança e todo apoiador com login existe em **duas** tabelas: em
 `usuarios` (o acesso) e em `apoiadores` (a ficha na pirâmide). As duas linhas
 **compartilham o mesmo UUID**.
 
-Por quê: quem essa pessoa indica grava `apoiadores.parent_id = <id do usuário>`.
+Por quê: quem essa pessoa cadastra grava `apoiadores.parent_id = <id do usuário>`.
 Se a ficha-espelho tivesse um id próprio (um `gen_random_uuid()` qualquer),
-nenhuma consulta conseguiria ligar a pessoa aos indicados dela — todo mundo
-apareceria com "0 indicados". **Foi exatamente esse o bug que existiu no
+nenhuma consulta conseguiria ligar a pessoa aos apoiadores dela — todo mundo
+apareceria com "0 apoiadores". **Foi exatamente esse o bug que existiu no
 sistema original**, e as linhas 71-79 do `001_init.sql` são o reparo dos dados
 antigos.
 
@@ -338,7 +338,7 @@ Duas consequências que precisam ser lembradas em toda alteração:
 2. **`ON DELETE SET NULL` se perdeu junto** — as rotas de exclusão
    (`DELETE /apoiadores/:id` e `DELETE /usuarios/:id`) precisam rodar
    `UPDATE apoiadores SET parent_id = NULL WHERE parent_id = <excluído>` **antes**
-   do DELETE. Sem isso os indicados apontam para um id que não existe mais e
+   do DELETE. Sem isso os apoiadores apontam para um id que não existe mais e
    somem da pirâmide sem aviso.
 
 ### 6. O driver do `pg` devolve DATE como string
@@ -840,7 +840,7 @@ A branch `1.0` reescreveu tudo: Node/Express + Postgres próprio, containerizado
 | `4d512fd` | adequação ao Swarm + Traefik |
 | `6c956d9` | cookie httpOnly, CEP nacional, recuperação por e-mail |
 | `bb3759c` | admin abre workspace de qualquer candidato |
-| `5d1344e` | correção do bug de "0 indicados" (invariante do id-espelho) |
+| `5d1344e` | correção do bug de "0 apoiadores" (invariante do id-espelho) |
 | `9132ed7` | validação do dígito verificador do título de eleitor |
 | `11aee34` | 4º nível, LGPD versionada, plano e desativação de candidato |
 | `3ba553a` | limites da pirâmide passam a persistir por candidato |

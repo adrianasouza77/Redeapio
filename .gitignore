@@ -4,3 +4,7 @@ backend/node_modules/
 
 # Google Drive cria estes arquivos em toda pasta sincronizada no Windows.
 desktop.ini
+
+# Grafo de conhecimento gerado pelo graphify — reconstruído com `graphify update .`,
+# não precisa versionar.
+graphify-out/

@@ -151,16 +151,16 @@ toque autenticação, pirâmide ou cadastro.
 - [ ] Sair e voltar exige login de novo
 
 ### Pirâmide
-- [ ] Rede de Apoio mostra os níveis com a contagem certa de indicados
+- [ ] Rede de Apoio mostra os níveis com a contagem certa de apoiadores
 - [ ] Liderança vê só a própria rede
 - [ ] Candidato vê a rede inteira
 - [ ] Reorganizar hierarquia (mudar responsável) funciona
 - [ ] Mover um nível 2 para nível 3 **sob um apoiador sem login** funciona
       (era o caso que dava "Erro interno" — ver invariante 5 da referência)
-- [ ] Excluir alguém deixa os indicados dele com o badge "sem responsável",
+- [ ] Excluir alguém deixa os apoiadores dele com o badge "sem responsável",
       e não some com eles da pirâmide
 - [ ] Tentar pendurar alguém sob um descendente dele é bloqueado
-- [ ] Limite de indicações é respeitado
+- [ ] Limite de apoiadores é respeitado
 
 ### Cadastro
 - [ ] Cadastrar apoiador pelo painel
@@ -196,7 +196,7 @@ toque autenticação, pirâmide ou cadastro.
 
 ## Diagnóstico por sintoma
 
-### "0 indicados" para todo mundo na pirâmide
+### "0 apoiadores" para todo mundo na pirâmide
 
 **Quase certamente a invariante do id-espelho foi violada** (ver
 [`04-referencia-tecnica.md`](04-referencia-tecnica.md)). Confirme:
@@ -217,7 +217,7 @@ docker service update --force redeapoio_redeapoio-app
 
 ### Quem se cadastra pelo link entra no nível errado
 
-Sintoma típico: o link de uma pessoa de **nível 3** cadastra os indicados dela
+Sintoma típico: o link de uma pessoa de **nível 3** cadastra os apoiadores dela
 como **nível 3** também, em vez de nível 4 — e depois a tela de reorganização
 recusa arrumar, porque "o responsável precisa estar exatamente um nível acima".
 
@@ -242,7 +242,7 @@ incoerente com o responsável.
    dava para criar um nível 3 de verdade por lá. O select agora carrega o nível
    junto (`apoiador-2` / `apoiador-3`).
 2. O reparo de fichas ausentes em `001_init.sql` também gravava **nível 2 fixo**.
-   Agora deduz o nível de quem já está pendurado na pessoa (se os indicados dela
+   Agora deduz o nível de quem já está pendurado na pessoa (se os apoiadores dela
    são nível 4, ela é nível 3).
 
 Além disso, `contextoConvitePessoal` (em `routes/public.js`) tinha um `?? 2` que

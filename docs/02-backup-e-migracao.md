@@ -199,7 +199,7 @@ Antes de mexer no DNS de produção, valide o servidor novo de ponta a ponta em
 - [ ] Login do administrador
 - [ ] Login de um candidato
 - [ ] Login de uma liderança
-- [ ] A pirâmide de Rede de Apoio mostra os indicados corretamente
+- [ ] A pirâmide de Rede de Apoio mostra os apoiadores corretamente
 - [ ] "Todos os Apoiadores" lista todo mundo
 - [ ] Cadastrar um apoiador de teste — e depois excluí-lo
 - [ ] Gerar um link de cadastro e abri-lo **pelo celular**

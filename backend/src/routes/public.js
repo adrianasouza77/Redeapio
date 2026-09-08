@@ -14,7 +14,7 @@ const router = express.Router();
 //   nomeRede      nome exibido no formulário público (nome de quem convida / da rede)
 //   candidatoId   dono da rede (duplicidade, limites, criado_por)
 //   parentId      onde o novo cadastro fica pendurado na pirâmide (null = topo)
-//   emissorId     id contra o qual se conta o limite de indicados diretos (null = sem limite)
+//   emissorId     id contra o qual se conta o limite de apoiadores diretos (null = sem limite)
 //   nivelConvite  nível de quem convida (usado só para achar o limite do emissor)
 //   novoNivel     nível do novo cadastro (1..4)
 //   perfilNovo    'lideranca' (nível 1) ou 'apoiador' (níveis 2..4)
@@ -23,7 +23,7 @@ const router = express.Router();
 
 // Modo PESSOAL: link que uma liderança/apoiador compartilha. O novo cadastrado
 // entra um nível ABAIXO de quem enviou e fica pendurado nele, respeitando o
-// limite de indicados diretos do emissor.
+// limite de apoiadores diretos do emissor.
 async function contextoConvitePessoal(emissorId) {
   const { rows } = await pool.query(
     "SELECT u.id, u.nome, u.perfil, u.criado_por, a.nivel FROM usuarios u LEFT JOIN apoiadores a ON a.id = u.id WHERE u.id = $1 AND u.perfil IN ('lideranca','apoiador')",
@@ -104,7 +104,7 @@ function erroDoContexto(ctx) {
       + 'Peça o link a outra pessoa da campanha ou avise a coordenação.';
   }
   if (ctx.erroNivelMaximo) {
-    return `${ctx.nomeRede} já está no último nível da rede e não pode indicar mais ninguém por link.`;
+    return `${ctx.nomeRede} já está no último nível da rede e não pode cadastrar mais ninguém por link.`;
   }
   return null;
 }
@@ -155,7 +155,7 @@ router.post('/autocadastro', asyncHandler(async (req, res) => {
     return res.status(409).json({ error: `Já existe um cadastro com esse ${dup.campo} nesta rede (${dup.nome}). Se você acha que isso é um engano, fale com quem enviou o link.` });
   }
 
-  // No modo pessoal, respeita o limite de indicados que o candidato configurou
+  // No modo pessoal, respeita o limite de apoiadores que o candidato configurou
   // para o nível de quem enviou o link (mesma regra do cadastro autenticado).
   // No modo candidato não há um pai único para contar — o limite é aplicado
   // depois, quando o candidato pendura cada cadastro sob um responsável.
@@ -164,7 +164,7 @@ router.post('/autocadastro', asyncHandler(async (req, res) => {
     const limite = limites[nivelConvite];
     const { rows: countRows } = await pool.query('SELECT count(*)::int AS c FROM apoiadores WHERE parent_id = $1', [emissorId]);
     if (limite && countRows[0].c >= limite) {
-      return res.status(400).json({ error: `Quem enviou este link já atingiu o limite de ${limite} indicações. Fale com a equipe da campanha.` });
+      return res.status(400).json({ error: `Quem enviou este link já atingiu o limite de ${limite} apoiadores. Fale com a equipe da campanha.` });
     }
   }
 
@@ -187,7 +187,7 @@ router.post('/autocadastro', asyncHandler(async (req, res) => {
     if (criaLogin) {
       // Vira usuário-com-login (perfil apoiador) que poderá acessar o sistema e
       // recrutar o nível de baixo. A ficha-espelho em "apoiadores" usa o MESMO id
-      // do usuário (é o que os indicados dele usarão como parent_id) e fica
+      // do usuário (é o que os apoiadores dele usarão como parent_id) e fica
       // pendurada sob quem o convidou (parent_id = id de quem enviou o link).
       const senhaHash = await hash(senha);
       const { rows: uRows } = await client.query(
