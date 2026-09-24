@@ -49,6 +49,7 @@ app.use('/api/public', require('./routes/public'));
 app.use('/api/conta', require('./routes/conta'));
 app.use('/api/config', require('./routes/config'));
 app.use('/api/mapas', require('./routes/mapas'));
+app.use('/api/apuracao', require('./routes/apuracao'));
 
 const frontendDir = process.env.FRONTEND_DIR || path.join(__dirname, '..', '..', 'frontend');
 app.use(express.static(frontendDir));
@@ -63,7 +64,12 @@ app.use((err, req, res, next) => {
 });
 
 aplicarMigracoes()
-  .then(() => app.listen(port, () => console.log(`RedeApoio backend rodando na porta ${port}`)))
+  .then(() => {
+    app.listen(port, () => console.log(`RedeApoio backend rodando na porta ${port}`));
+    // Busca dos boletins de urna em segundo plano (só para quem ativou a
+    // apuração ao vivo). Depois das migrações, porque lê apuracao_config.
+    require('./services/apuracao').iniciar();
+  })
   .catch((err) => {
     console.error(err);
     process.exit(1);

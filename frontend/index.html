@@ -96,6 +96,28 @@
   .mm-modal.aberto{display:flex;}
   .mm-modal-caixa{background:var(--white);border-radius:14px;padding:22px;width:100%;max-width:440px;box-shadow:0 20px 60px rgba(0,0,0,.3);}
 
+  /* APURAÇÃO AO VIVO */
+  .ap-topo{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+  .ap-pill{display:inline-block;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;background:#e6f4ec;color:var(--green);white-space:nowrap;}
+  .ap-pill-erro{background:#fde8e8;color:var(--red);}
+  .ap-pill-pausa{background:var(--bg);color:var(--slate-light);border:1px solid var(--border);}
+  .ap-barra-topo{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding-top:14px;border-top:1px solid var(--border);}
+  .ap-rotulo{font-size:13px;font-weight:700;color:var(--navy);}
+  .ap-select{padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:'Inter',sans-serif;color:var(--navy);background:var(--white);min-width:180px;}
+  .ap-meta{font-size:12px;color:var(--slate-light);}
+  .ap-de{font-size:16px;font-weight:600;color:var(--slate-light);}
+  .ap-card-cob{background:#e6f4ec;border-color:#bfe0cc;}
+  .ap-card-cob .stat-label,.ap-card-cob .stat-value{color:var(--green);}
+  .ap-aviso{font-size:12.5px;color:#8a6a10;background:#fdf5e0;border:1px solid var(--gold);border-radius:8px;padding:10px 14px;margin-bottom:16px;line-height:1.6;}
+  .ap-aviso-erro{color:var(--red);background:#fde8e8;border-color:#f5b5b5;}
+  .ap-cob{display:flex;align-items:center;gap:10px;}
+  .ap-trilho{flex:1;height:8px;border-radius:4px;background:#ecebe2;overflow:hidden;min-width:90px;}
+  .ap-enche{height:100%;background:var(--green);border-radius:4px;transition:width .4s;}
+  .ap-cob-num{font-size:12px;font-weight:700;color:var(--navy);min-width:44px;text-align:right;}
+  .ap-linha-zona{cursor:pointer;}
+  .ap-linha-zona:hover td{background:var(--bg);}
+  @media(max-width:768px){ .ap-select{flex:1 1 100%;font-size:16px;} .ap-barra-topo .btn-sm{flex:1 1 auto;} }
+
   /* LOADING */
   .loading-overlay{display:none;position:fixed;inset:0;background:rgba(15,31,61,0.7);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:16px;}
   .loading-overlay.show{display:flex;}
@@ -473,6 +495,7 @@
         <button class="nav-item" onclick="showPage('grafico')"><span>📈</span> Gráficos da Rede</button>
         <button class="nav-item" onclick="showPage('mapa')" data-short="Mapa"><span>🗺️</span> Mapa da Rede</button>
         <button class="nav-item" onclick="showPage('mapa-mental')" data-short="Mental"><span>🧠</span> Mapa Mental</button>
+        <button class="nav-item" onclick="showPage('apuracao')" data-short="Apuração"><span>🗳️</span> Apuração ao Vivo</button>
         <button class="nav-item" onclick="showPage('usuarios')"><span>🔑</span> Usuários</button>
         <button class="nav-item" onclick="showPage('configuracoes')"><span>⚙️</span> Configurações</button>
         <button class="nav-item" onclick="showPage('minha-conta')"><span>👤</span> Minha Conta</button>
@@ -1145,7 +1168,7 @@ function atualizarBottomNav(){
 // sistema não mostrar uma tela em branco quando alguém digita um endereço de
 // outro perfil na barra do navegador.
 const PAGINAS_POR_PAPEL = {
-  candidato: ['dashboard','rede','apoiadores','exportar','grafico','mapa','mapa-mental','usuarios','configuracoes','minha-conta'],
+  candidato: ['dashboard','rede','apoiadores','exportar','grafico','mapa','mapa-mental','apuracao','usuarios','configuracoes','minha-conta'],
   lideranca: ['dashboard','minha-rede','cadastrar','minha-conta'],
   apoiador:  ['dashboard','minha-rede','cadastrar','minha-conta'],
   admin:     ['vagas','minha-conta'],
@@ -1202,6 +1225,7 @@ function showPage(page) {
                           setTimeout(()=>{ if(vistaGrafico==='organograma') orgIniciar(); else desenharGrafico(); },50); break;
     case 'mapa':          c.innerHTML=renderMapa(); setTimeout(carregarMapa,50); break;
     case 'mapa-mental':   c.innerHTML=renderMapaMental(); setTimeout(()=>{ mmLigarGestos(); mmIniciar(); },50); break;
+    case 'apuracao':      c.innerHTML=renderApuracao(); setTimeout(apIniciar,50); break;
     case 'minha-rede':    c.innerHTML=renderMinhaRede(); break;
     case 'cadastrar':     c.innerHTML=renderCadastrar(); break;
     case 'minha-conta':   c.innerHTML=renderMinhaConta(); break;
@@ -4948,6 +4972,315 @@ function formatDate(d){
     if(!y||!m||!day) return String(d);
     return `${day}/${m}/${y}`;
   } catch { return String(d); }
+}
+// ══════════════════════════════════════════
+//  APURAÇÃO AO VIVO
+// ══════════════════════════════════════════
+// Cruza o boletim de urna (BU) de cada seção — dado público do TSE — com
+// quantos apoiadores a rede cadastrou naquela seção. O servidor busca os BUs
+// sozinho a cada minuto; a tela só relê o que já está no banco. Nada aqui
+// identifica o voto de ninguém: só entram totais por seção.
+const AP = { dados:null, zona:'', pleitos:null, cargos:[], municipios:[], editando:false, colando:false, buscando:false, timer:null };
+const AP_RELER_MS = 30000;
+const AP_UFS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+
+// "0015" → "015": é como a zona aparece no título de eleitor. Seção fica com 4.
+function apZona(z){ return String(parseInt(z,10)).padStart(3,'0'); }
+function apNum(n){ return Number(n||0).toLocaleString('pt-BR'); }
+function apPct(votos, cad){ return cad ? Math.round(votos/cad*100) : null; }
+function apSemAcento(s){ return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().trim(); }
+
+function renderApuracao(){
+  return `
+  <div class="page-header ap-topo">
+    <div><h1>Apuração ao vivo</h1><p>Cobertura da rede por seção e zona eleitoral, atualizada conforme os boletins de urna são divulgados</p></div>
+    <div id="ap-estado"></div>
+  </div>
+  <div id="ap-corpo"><div class="card"><p style="color:var(--slate-light);font-size:13px">Carregando...</p></div></div>`;
+}
+
+async function apIniciar(){
+  clearInterval(AP.timer);
+  // O relógio só vive enquanto a tela está aberta; sem isso, cada visita à
+  // apuração deixaria mais um consultando o servidor para sempre. Também não
+  // redesenha no meio do formulário nem da colagem — apagaria o que a pessoa digitou.
+  AP.timer = setInterval(()=>{
+    if(paginaAtual!=='apuracao'){ clearInterval(AP.timer); return; }
+    if(!AP.editando && !AP.colando && !AP.buscando) apCarregar();
+  }, AP_RELER_MS);
+  AP.editando = false; AP.colando = false;
+  await apCarregar();
+}
+
+async function apCarregar(){
+  try { AP.dados = await api('/apuracao'+wsQuery()); }
+  catch(e){
+    const c = document.getElementById('ap-corpo');
+    if(c) c.innerHTML = `<div class="card"><p style="color:var(--red);font-size:13px">${escapeHtml(e.message)}</p></div>`;
+    return;
+  }
+  if(!AP.dados.config) AP.editando = true;
+  apDesenhar();
+}
+
+function apDesenhar(){
+  if(paginaAtual!=='apuracao') return;
+  const est = document.getElementById('ap-estado');
+  const cfg = AP.dados && AP.dados.config;
+  if(est){
+    if(!cfg) est.innerHTML = '';
+    else if(cfg.ultimoErro) est.innerHTML = `<span class="ap-pill ap-pill-erro">⚠️ Problema na busca</span>`;
+    else if(!cfg.ativo) est.innerHTML = `<span class="ap-pill ap-pill-pausa">⏸ Busca automática desligada</span>`;
+    else est.innerHTML = `<span class="ap-pill">● Atualizando automaticamente</span>`;
+  }
+  if(AP.editando) apFormConfig();
+  else apPainel();
+}
+
+function apPainel(){
+  const c = document.getElementById('ap-corpo'); if(!c) return;
+  const d = AP.dados, cfg = d.config;
+  const zonasTodas = (d.zonas||[]).map(z=>z.zona);
+  if(AP.zona && !zonasTodas.includes(AP.zona)) AP.zona = '';
+  const secoes = (d.secoes||[]).filter(s=>!AP.zona || s.zona===AP.zona);
+  const zonas  = (d.zonas||[]).filter(z=>!AP.zona || z.zona===AP.zona);
+
+  // Regra da especificação: a cobertura média é a soma dos votos das seções
+  // apuradas ÷ a soma dos cadastrados DESSAS MESMAS seções. Média simples das
+  // porcentagens daria o mesmo peso a uma seção com 2 cadastrados e a uma com 200,
+  // e seção ainda aguardando BU puxaria a média para baixo sem motivo.
+  const cadastrados = secoes.reduce((t,s)=>t+s.cadastrados,0);
+  const apuradas = secoes.filter(s=>s.status==='apurado');
+  const votos = apuradas.reduce((t,s)=>t+s.votos,0);
+  const cobertura = apPct(votos, apuradas.reduce((t,s)=>t+s.cadastrados,0));
+
+  const a = d.alertas || {};
+  const avisos = [
+    a.semZona && `<b>${apNum(a.semZona)}</b> cadastrado(s) sem zona eleitoral — ficam fora da apuração`,
+    a.semSecao && `<b>${apNum(a.semSecao)}</b> com zona mas sem seção — contam só na comparação por zona`,
+    a.secaoInexistente && `<b>${apNum(a.secaoInexistente)}</b> com uma seção que não existe na lista do TSE (provável erro de digitação) — contam só na zona`,
+    a.foraDoMunicipio && `<b>${apNum(a.foraDoMunicipio)}</b> votam em outro município`,
+    a.foraDaUf && `<b>${apNum(a.foraDaUf)}</b> moram em outro estado`,
+  ].filter(Boolean);
+
+  const quando = cfg.ultimaBusca ? new Date(cfg.ultimaBusca).toLocaleTimeString('pt-BR') : null;
+  const municipioNome = cfg.municipio ? (cfg.municipioNome || cfg.municipio) : null;
+
+  c.innerHTML = `
+  ${d.erro ? `<div class="ap-aviso ap-aviso-erro">${escapeHtml(d.erro)}</div>` : ''}
+  ${cfg.ultimoErro ? `<div class="ap-aviso ap-aviso-erro">Última busca no TSE falhou: ${escapeHtml(cfg.ultimoErro)}</div>` : ''}
+  <div class="ap-barra-topo">
+    <label class="ap-rotulo" for="ap-zona">Zona eleitoral</label>
+    <select id="ap-zona" class="ap-select" onchange="apFiltrar(this.value)">
+      <option value="">Todas as zonas</option>
+      ${zonasTodas.map(z=>`<option value="${z}" ${z===AP.zona?'selected':''}>Zona ${apZona(z)}</option>`).join('')}
+    </select>
+    <span class="ap-meta">${secoes.length} ${secoes.length===1?'seção':'seções'} nesta visão</span>
+    <span style="flex:1"></span>
+    <button class="btn-sm btn-outline" onclick="apBuscarAgora()" ${AP.buscando?'disabled':''}>${AP.buscando?'Buscando...':'🔄 Buscar agora'}</button>
+    <button class="btn-sm btn-outline" onclick="apAbrirColar()">📋 Colar resultado</button>
+    <button class="btn-sm btn-outline" onclick="apAbrirConfig()">⚙️ Configuração</button>
+  </div>
+  <p class="ap-meta" style="margin:-6px 0 16px">
+    ${escapeHtml(cfg.cargo)} · nº ${escapeHtml(cfg.numero)} · ${cfg.uf.toUpperCase()}${municipioNome?' · '+escapeHtml(municipioNome):''} · eleição ${escapeHtml(cfg.ciclo.replace('ele',''))} (${escapeHtml(cfg.pleito)})
+    ${quando?` · última busca no TSE às ${quando}`:''}
+  </p>
+  ${AP.colando ? apHtmlColar() : ''}
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-label">Cadastrados na rede</div><div class="stat-value">${apNum(cadastrados)}</div><div class="stat-sub">com seção eleitoral informada</div></div>
+    <div class="stat-card"><div class="stat-label">Seções apuradas</div><div class="stat-value">${apuradas.length} <span class="ap-de">de ${secoes.length}</span></div><div class="stat-sub">seções onde a rede tem gente</div></div>
+    <div class="stat-card"><div class="stat-label">Votos apurados</div><div class="stat-value">${apNum(votos)}</div><div class="stat-sub">nessas seções</div></div>
+    <div class="stat-card ap-card-cob"><div class="stat-label">Cobertura média</div><div class="stat-value">${cobertura==null?'—':cobertura+'%'}</div><div class="stat-sub">votos ÷ cadastrados das seções apuradas</div></div>
+  </div>
+  ${avisos.length ? `<div class="ap-aviso">⚠️ ${avisos.join(' · ')}. <a href="#/apoiadores" onclick="showPage('apoiadores');return false">Corrigir cadastros</a></div>` : ''}
+  <div class="card">
+    <div class="card-header"><div class="card-title">Comparação por zona</div></div>
+    <p class="ap-meta" style="margin:-10px 0 14px">Todos os votos do candidato na zona (inclusive em seções onde a rede não tem ninguém), comparados com quantos a rede cadastrou nela.</p>
+    <div class="table-wrap" style="overflow-x:auto"><table>
+      <thead><tr><th>Zona</th><th>Cadastrados</th><th>Seções apuradas</th><th>Votos na zona</th><th>Votos ÷ cadastrados</th></tr></thead>
+      <tbody>${zonas.map(z=>{
+        const pct = z.secoesApuradas ? apPct(z.votosZona, z.cadastrados) : null;
+        const parcial = z.secoesApuradas && z.secoesApuradas < z.secoesTotal;
+        return `<tr class="ap-linha-zona" onclick="apFiltrar('${z.zona}')" title="Ver só esta zona">
+          <td><b>${apZona(z.zona)}</b></td>
+          <td>${apNum(z.cadastrados)}</td>
+          <td>${z.secoesApuradas} de ${z.secoesTotal}</td>
+          <td>${z.secoesApuradas ? apNum(z.votosZona) : '—'}</td>
+          <td>${pct==null ? '—' : `<b>${pct}%</b>${parcial?' <span class="ap-meta">(parcial)</span>':''}`}</td>
+        </tr>`;}).join('') || `<tr><td colspan="5" class="ap-meta">Nenhum cadastrado com zona eleitoral.</td></tr>`}</tbody>
+    </table></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="card-title">Por seção</div></div>
+    <div class="table-wrap" style="overflow-x:auto"><table class="ap-tabela">
+      <thead><tr><th>Zona</th><th>Seção</th><th style="min-width:180px">Cobertura da rede</th><th>Cadastrados</th><th>Votos apurados</th><th>Status</th></tr></thead>
+      <tbody>${secoes.map(s=>{
+        const pct = s.status==='apurado' ? apPct(s.votos, s.cadastrados) : null;
+        return `<tr>
+          <td><b>${apZona(s.zona)}</b></td>
+          <td>${s.secao}${s.agregadas.length?`<div class="ap-meta">agrega ${s.agregadas.join(', ')}</div>`:''}</td>
+          <td><div class="ap-cob"><div class="ap-trilho"><div class="ap-enche" style="width:${pct==null?0:Math.min(pct,100)}%"></div></div><span class="ap-cob-num">${pct==null?'—':pct+'%'}</span></div></td>
+          <td>${apNum(s.cadastrados)}</td>
+          <td>${s.status==='apurado' ? apNum(s.votos) : '—'}</td>
+          <td>${s.status==='apurado'
+              ? `<span class="badge badge-green">Apurado</span>${s.fonte==='manual'?' <span class="ap-meta" title="Resultado colado à mão">manual</span>':''}`
+              : `<span class="badge badge-gold">Aguardando BU</span>`}</td>
+        </tr>`;}).join('') || `<tr><td colspan="6" class="ap-meta">Nenhum cadastrado com seção eleitoral${AP.zona?' nesta zona':''}.</td></tr>`}</tbody>
+    </table></div>
+  </div>
+  <p class="ap-meta" style="line-height:1.6">A cobertura compara os votos do candidato divulgados no boletim de urna de cada seção com o número de apoiadores cadastrados pela rede naquela seção — não identifica o voto individual de nenhum eleitor, que permanece secreto por lei. Passar de 100% é normal: o candidato também recebe votos de quem não está na rede.</p>`;
+}
+
+function apFiltrar(zona){ AP.zona = zona || ''; apPainel(); }
+
+async function apBuscarAgora(){
+  AP.buscando = true; apPainel();
+  try {
+    const r = await api('/apuracao/buscar'+wsQuery(), { method:'POST' });
+    if(r.painel) AP.dados = r.painel;
+    if(r.emAndamento) showToast('Uma busca já está em andamento. Os números atualizam em instantes.', 'info');
+    else if(r.erro) showToast(r.erro, 'error');
+    else showToast(r.novas ? `${r.novas} seção(ões) nova(s) apurada(s).` : 'Nenhum boletim novo no TSE por enquanto.');
+  } catch(e){ showToast(e.message, 'error'); }
+  AP.buscando = false; apDesenhar();
+}
+
+function apHtmlColar(){
+  return `<div class="card">
+    <div class="card-header"><div class="card-title">Colar resultado por seção</div></div>
+    <p class="ap-meta" style="margin:-10px 0 12px">Plano B, se a busca automática no TSE falhar. Uma seção por linha: <b>zona;seção;votos</b> (ex.: <code>15;42;61</code>). Resultado colado substitui o que havia naquela seção e não é sobrescrito pela busca automática.</p>
+    <textarea id="ap-colar" rows="8" style="width:100%;font-family:monospace;font-size:14px;padding:10px;border:1px solid var(--border);border-radius:8px" placeholder="zona;secao;votos"></textarea>
+    <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+      <button class="btn-sm btn-navy" onclick="apImportar()">Importar</button>
+      <button class="btn-sm btn-outline" onclick="AP.colando=false;apPainel()">Cancelar</button>
+    </div>
+  </div>`;
+}
+function apAbrirColar(){ AP.colando = true; apPainel(); setTimeout(()=>document.getElementById('ap-colar')?.focus(),30); }
+async function apImportar(){
+  const texto = document.getElementById('ap-colar').value;
+  if(!texto.trim()){ showToast('Cole pelo menos uma linha.', 'error'); return; }
+  showLoading('Importando...');
+  try {
+    const r = await api('/apuracao/manual'+wsQuery(), { method:'POST', body: JSON.stringify({ texto }) });
+    showToast(`${r.importadas} seção(ões) importada(s)` + (r.recusadas.length ? ` · ${r.recusadas.length} linha(s) ignorada(s) (${r.recusadas.slice(0,8).join(', ')}${r.recusadas.length>8?'…':''})` : ''), r.recusadas.length?'info':'success');
+    AP.colando = false;
+    await apCarregar();
+  } catch(e){ showToast(e.message, 'error'); }
+  finally { hideLoading(); }
+}
+
+function apAbrirConfig(){ AP.editando = true; apDesenhar(); }
+
+async function apFormConfig(){
+  const c = document.getElementById('ap-corpo'); if(!c) return;
+  if(!AP.pleitos){
+    c.innerHTML = `<div class="card"><p class="ap-meta">Consultando as eleições publicadas pelo TSE...</p></div>`;
+    try {
+      const r = await api('/apuracao/pleitos'+wsQuery());
+      AP.pleitos = r.pleitos || []; AP.cargos = r.cargos || [];
+      if(r.erro) showToast(r.erro, 'error');
+    } catch(e){ AP.pleitos = []; showToast(e.message, 'error'); }
+    if(!AP.editando || paginaAtual!=='apuracao') return;
+  }
+  const cfg = (AP.dados && AP.dados.config) || {};
+  const atual = cfg.ciclo ? `${cfg.ciclo}|${cfg.pleito}` : '';
+  const conhecido = AP.pleitos.some(p=>`${p.ciclo}|${p.pleito}`===atual);
+  // Estado sugerido: o mais comum entre os cadastrados, que quase sempre é o da campanha.
+  const ufSug = cfg.uf ? cfg.uf.toUpperCase() : ((contarPor(APOIADORES.filter(a=>a.estado), a=>String(a.estado).trim().toUpperCase())[0]||[])[0] || '');
+  const cargos = AP.cargos.length ? AP.cargos : ['VEREADOR','PREFEITO'];
+  c.innerHTML = `<div class="card">
+    <div class="card-header"><div class="card-title">🗳️ Qual eleição acompanhar</div></div>
+    <div class="form-grid">
+      <div class="field full"><label>Eleição</label>
+        <select id="ap-f-pleito" onchange="apTrocouPleito()">
+          ${AP.pleitos.map(p=>`<option value="${p.ciclo}|${p.pleito}" ${`${p.ciclo}|${p.pleito}`===atual?'selected':''}>${escapeHtml(p.data)} — ${escapeHtml(p.eleicoes.map(e=>e.nome).join(' / '))}</option>`).join('')}
+          <option value="outra" ${(atual && !conhecido) || !AP.pleitos.length ?'selected':''}>Outra — informar o código do TSE</option>
+        </select>
+      </div>
+      <div class="field" id="ap-f-outra-1" style="display:none"><label>Ciclo (ex.: ele2026)</label><input id="ap-f-ciclo" value="${escapeHtml(cfg.ciclo||'ele2026')}" autocomplete="off"></div>
+      <div class="field" id="ap-f-outra-2" style="display:none"><label>Código do turno no TSE</label><input id="ap-f-codigo" value="${escapeHtml(cfg.pleito||'')}" inputmode="numeric" autocomplete="off"></div>
+      <div class="field"><label>Estado</label>
+        <select id="ap-f-uf" onchange="apCarregarMunicipios()">
+          <option value="">Escolha...</option>
+          ${AP_UFS.map(u=>`<option value="${u.toLowerCase()}" ${u===ufSug?'selected':''}>${u}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><label>Município</label>
+        <select id="ap-f-mun"><option value="">— Estado inteiro (governador, senador, deputado)</option></select>
+      </div>
+      <div class="field"><label>Cargo</label>
+        <select id="ap-f-cargo">
+          ${cargos.map(k=>`<option value="${k}" ${k===cfg.cargo?'selected':''}>${k.charAt(0)+k.slice(1).toLowerCase()}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><label>Número do candidato na urna</label><input id="ap-f-numero" value="${escapeHtml(cfg.numero||'')}" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="ex.: 45123"></div>
+      <div class="field full"><label style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:13px;cursor:pointer">
+        <input type="checkbox" id="ap-f-ativo" style="width:auto" ${cfg.ativo===false?'':'checked'}> Buscar os boletins de urna automaticamente (a cada minuto)</label></div>
+    </div>
+    <p class="ap-meta" style="line-height:1.6">Para <b>testar antes do dia da eleição</b>, escolha a eleição de 2024 e o número de algum candidato daquele ano: a tela se enche com os boletins reais e mostra como vai funcionar. Depois é só trocar para a eleição de verdade — quando o TSE publicá-la, ela aparece nesta lista.</p>
+    <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+      <button class="btn-sm btn-navy" onclick="apSalvarConfig()">💾 Salvar e começar</button>
+      ${AP.dados && AP.dados.config ? `<button class="btn-sm btn-outline" onclick="AP.editando=false;apDesenhar()">Cancelar</button>` : ''}
+    </div>
+  </div>`;
+  apTrocouPleito();
+}
+
+function apPleitoEscolhido(){
+  const v = document.getElementById('ap-f-pleito').value;
+  if(v==='outra') return { ciclo: document.getElementById('ap-f-ciclo').value.trim().toLowerCase(), pleito: document.getElementById('ap-f-codigo').value.trim() };
+  const [ciclo, pleito] = v.split('|');
+  return { ciclo, pleito };
+}
+function apTrocouPleito(){
+  const outra = document.getElementById('ap-f-pleito').value==='outra';
+  document.getElementById('ap-f-outra-1').style.display = outra ? '' : 'none';
+  document.getElementById('ap-f-outra-2').style.display = outra ? '' : 'none';
+  apCarregarMunicipios();
+}
+
+async function apCarregarMunicipios(){
+  const sel = document.getElementById('ap-f-mun'); if(!sel) return;
+  const { ciclo, pleito } = apPleitoEscolhido();
+  const uf = document.getElementById('ap-f-uf').value;
+  const cfg = (AP.dados && AP.dados.config) || {};
+  const antes = sel.value || cfg.municipio || '';
+  AP.municipios = [];
+  if(uf && /^ele\d{4}$/.test(ciclo) && /^\d+$/.test(pleito)){
+    try { AP.municipios = await api(`/apuracao/municipios?ciclo=${ciclo}&pleito=${pleito}&uf=${uf}`+wsQuery('&')); } catch(e){}
+  }
+  // Município sugerido: a cidade com mais cadastrados, casada pelo nome sem acento.
+  let sugerido = antes;
+  if(!sugerido){
+    const cidade = (contarPor(APOIADORES.filter(a=>a.cidade), a=>apSemAcento(a.cidade))[0]||[])[0];
+    const m = cidade && AP.municipios.find(x=>apSemAcento(x.nome)===cidade);
+    if(m) sugerido = m.codigo;
+  }
+  sel.innerHTML = `<option value="">— Estado inteiro (governador, senador, deputado)</option>` +
+    AP.municipios.map(m=>`<option value="${m.codigo}" ${m.codigo===sugerido?'selected':''}>${escapeHtml(m.nome)}</option>`).join('');
+}
+
+async function apSalvarConfig(){
+  const { ciclo, pleito } = apPleitoEscolhido();
+  const corpo = {
+    ciclo, pleito,
+    uf: document.getElementById('ap-f-uf').value,
+    municipio: document.getElementById('ap-f-mun').value || null,
+    cargo: document.getElementById('ap-f-cargo').value,
+    numero: document.getElementById('ap-f-numero').value.replace(/\D/g,''),
+    ativo: document.getElementById('ap-f-ativo').checked,
+  };
+  showLoading('Salvando...');
+  try {
+    AP.dados = await api('/apuracao/config'+wsQuery(), { method:'PUT', body: JSON.stringify(corpo) });
+    AP.editando = false;
+    hideLoading();
+    apDesenhar();
+    // Primeira busca já, sem esperar o laço do servidor: é o que mostra na
+    // hora se a configuração está certa.
+    if(corpo.ativo) apBuscarAgora();
+  } catch(e){ hideLoading(); showToast(e.message, 'error'); }
 }
 function escapeAttr(s){return String(s).replace(/'/g,"\\'").replace(/"/g,'&quot;');}
 

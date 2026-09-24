@@ -376,3 +376,45 @@ CREATE TABLE IF NOT EXISTS auditoria (
 CREATE INDEX IF NOT EXISTS idx_auditoria_candidato ON auditoria (candidato_id, ocorrido_em DESC);
 CREATE INDEX IF NOT EXISTS idx_auditoria_alvo ON auditoria (alvo_id, ocorrido_em DESC);
 CREATE INDEX IF NOT EXISTS idx_auditoria_ator ON auditoria (ator_id, ocorrido_em DESC);
+
+-- Apuração ao vivo: cruza o boletim de urna (BU) de cada seção, publicado pelo
+-- TSE, com quantos apoiadores a rede tem cadastrados naquela seção. Só entra
+-- aqui o TOTAL de votos do candidato por seção — dado público. Nada permite
+-- saber em quem um eleitor específico votou: o voto é secreto por lei.
+--
+-- Configuração: qual eleição acompanhar e qual é o número do candidato nela.
+-- ciclo + pleito são os códigos do portal de resultados do TSE ("ele2026" e o
+-- código do turno). municipio só é preenchido em eleição municipal: vereador
+-- e prefeito têm o mesmo número em cidades diferentes, então sem esse filtro
+-- os votos do "11123" de outra cidade da mesma zona seriam somados ao nosso.
+CREATE TABLE IF NOT EXISTS apuracao_config (
+  candidato_id  UUID PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
+  ciclo         TEXT NOT NULL,
+  pleito        TEXT NOT NULL,
+  uf            TEXT NOT NULL,
+  municipio     TEXT,
+  cargo         TEXT NOT NULL,
+  numero        TEXT NOT NULL,
+  ativo         BOOLEAN NOT NULL DEFAULT true,
+  ultima_busca  TIMESTAMPTZ,
+  ultimo_erro   TEXT,
+  atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Uma linha por seção JÁ apurada. Seção sem linha = "aguardando BU": não há
+-- status guardado, porque o único estado que muda é a chegada do boletim.
+-- ciclo/pleito na chave para o teste com uma eleição passada (2024) não se
+-- misturar com a eleição de verdade. secao é sempre a seção PRINCIPAL da urna:
+-- seções agregadas votam na mesma urna e saem no mesmo BU.
+CREATE TABLE IF NOT EXISTS apuracao_secoes (
+  candidato_id  UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  ciclo         TEXT NOT NULL,
+  pleito        TEXT NOT NULL,
+  zona          TEXT NOT NULL,
+  secao         TEXT NOT NULL,
+  municipio     TEXT,
+  votos         INT  NOT NULL CHECK (votos >= 0),
+  fonte         TEXT NOT NULL DEFAULT 'tse',
+  apurado_em    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (candidato_id, ciclo, pleito, zona, secao)
+);

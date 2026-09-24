@@ -998,3 +998,7 @@ router.delete('/:id', asyncHandler(async (req, res) => {
 }));
 
 module.exports = router;
+// A apuração ao vivo conta os cadastrados por seção com esta mesma consulta:
+// se cada tela tivesse a sua cópia, uma correção na árvore faria o painel da
+// apuração mostrar um número de cadastrados diferente do resto do sistema.
+module.exports.SQL_ARVORE_CANDIDATO = SQL_ARVORE_CANDIDATO;

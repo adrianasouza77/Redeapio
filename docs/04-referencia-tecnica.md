@@ -56,7 +56,10 @@ backend/
       public.js               autocadastro por link (SEM autenticação)
       conta.js                autoatendimento: senha, login, aceite do termo
       config.js               limites da pirâmide por candidato
+      apuracao.js             apuração ao vivo (BU do TSE × cadastrados)
     services/mail.js          SMTP + template de recuperação
+    services/tse.js           leitura do portal de resultados do TSE (BU por seção)
+    services/apuracao.js      apuração ao vivo: cruzamento com a rede + laço de busca
     utils/
       asyncHandler.js         obrigatório em toda rota async
       duplicidade.js          telefone/título/e-mail repetidos na mesma rede
@@ -227,6 +230,49 @@ Com as duas, 6 dos 8 bairros da amostra são posicionados; os 2 restantes são
 cidade, dizendo que a posição é aproximada. Bairro sem cidade no cadastro nem
 chega a ser procurado — buscar só pelo nome é exatamente o que trazia a cidade
 errada.
+
+### `apuracao_config` e `apuracao_secoes` — apuração ao vivo
+
+Cruza o boletim de urna (BU) de cada seção, publicado pelo TSE, com quantos
+apoiadores a rede cadastrou naquela seção. **Só entra o total de votos do
+candidato por seção**, que é dado público: nada identifica o voto de ninguém.
+
+`apuracao_config` (uma linha por candidato): `ciclo` (`ele2026`), `pleito`
+(código do turno no TSE), `uf`, `municipio` (código TSE, só em eleição
+municipal), `cargo` (como aparece no BU: `VEREADOR`, `DEPUTADO FEDERAL`...),
+`numero`, `ativo`, `ultima_busca`, `ultimo_erro`.
+
+`apuracao_secoes`: uma linha por seção **já apurada**, chave
+`(candidato_id, ciclo, pleito, zona, secao)`. Seção sem linha = "aguardando
+BU". `fonte` é `tse` ou `manual` (colado à mão, plano B).
+
+Decisões que não são óbvias:
+
+- **De onde vem o dado** (`services/tse.js`): o portal
+  `resultados.tse.jus.br`, o mesmo do site e do app oficiais. Não há API
+  documentada; o caminho é lista de seções do estado (`-cs.json`) → índice da
+  seção (`-aux.json`) → BU em texto (`-imgbu.dat`, Latin-1). Conferido em
+  set/2026 com a eleição de 2024: a soma das seções de Dourados bateu com o
+  total oficial do candidato. Se o TSE mudar o formato, é esse arquivo que
+  quebra — e o erro aparece na tela, nunca vira "0 votos".
+- **Seção agregada**: duas seções que votam na mesma urna saem no mesmo BU.
+  O cadastrado da agregada é contado na seção principal (campo `nsp` do TSE).
+- **Município obrigatório para prefeito/vereador**: o mesmo número existe em
+  cidades diferentes, e uma zona pode cobrir mais de um município.
+- **Zona inteira**: busca todas as seções das zonas onde a rede tem alguém,
+  não só as seções com cadastrado — é o que permite comparar os cadastrados
+  da zona com o voto do candidato na zona toda.
+- **Laço no servidor** (`services/apuracao.js`, `iniciar()`): a cada minuto,
+  até 600 seções por candidato com `ativo`, 8 em paralelo; primeiro as seções
+  com cadastrado. Seção apurada não é buscada de novo.
+- **Trocar número, cargo ou município apaga** os resultados daquela eleição
+  (eram de outra pessoa). Trocar de eleição não apaga: ciclo/pleito estão na chave.
+- **Cobertura média** = soma dos votos das seções apuradas ÷ soma dos
+  cadastrados dessas mesmas seções (regra da especificação, feita no
+  navegador porque muda com o filtro de zona).
+
+Para testar sem esperar a eleição: configurar a eleição de 2024 com o número
+de algum candidato daquele ano.
 
 ### `termos_aceite` — trilha de auditoria da LGPD
 
@@ -526,6 +572,18 @@ Fica em arquivo próprio (`routes/mapas.js`), contrariando a convenção de
 concentrar rotas: `apoiadores.js` é o arquivo mais delicado do sistema
 (árvore recursiva, permissões, limites) e não tem nada a ver com isto —
 misturar aumentaria o risco de mexer na pirâmide sem querer.
+
+### `/apuracao` `[A]` — candidato, admin
+| Método | Rota | O quê |
+|---|---|---|
+| GET | `/` | painel: seções da rede, zonas, alertas de cadastro |
+| GET | `/pleitos` | eleições publicadas pelo TSE (`ele-c.json`) |
+| GET | `/municipios?ciclo=&pleito=&uf=` | municípios do estado naquela eleição |
+| PUT | `/config` | eleição, UF, município, cargo, número, ativo |
+| POST | `/buscar` | roda uma rodada de busca no TSE agora |
+| POST | `/manual` | importa `zona;seção;votos` colado (plano B) |
+
+Arquivo próprio (`routes/apuracao.js`), pelo mesmo motivo do `/mapas`.
 
 ### `/admin` `[A]` — só admin
 `GET /candidatos`, `POST /candidatos`, `PUT /candidatos/:id/senha`,
