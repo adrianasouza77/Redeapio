@@ -1621,13 +1621,22 @@ function renderApoiadores(){
         ${NICHOS.map(n=>`<option value="${n.id}">${escapeHtml(n.nome)}</option>`).join('')}
         <option value="__sem">${NICHO_SEM}</option>
       </select>` : ''}
+      <select id="filter-zona" class="search-input" style="max-width:170px;flex:none" onchange="atualizarFiltroSecao();filterTable()">
+        <option value="">Todas as zonas</option>
+        ${zonasDaRede().map(z=>`<option value="${z}">Zona ${z.padStart(3,'0')}</option>`).join('')}
+        <option value="__sem">Sem zona</option>
+      </select>
+      <select id="filter-secao" class="search-input" style="max-width:170px;flex:none" onchange="filterTable()" disabled title="Escolha a zona primeiro">
+        <option value="">Todas as seções</option>
+      </select>
       ${papelEfetivo()==='candidato'?`<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--slate);white-space:nowrap;cursor:pointer"><input type="checkbox" id="filter-semresp" onchange="filterTable()"> ⚠️ Sem responsável</label>`:''}
     </div>
+    <p id="filtro-contagem" class="ap-meta" style="margin:-4px 0 10px"></p>
     <div class="table-wrap">
       <table><thead><tr><th>Nome</th><th>Região</th><th>Nível</th><th>Telefone</th><th>Nascimento</th><th>Título</th><th>Zona</th><th>Seção</th><th>Ações</th></tr></thead>
       <tbody id="apoiadores-tbody">
         ${APOIADORES.map(a=>`
-          <tr data-nome="${a.nome.toLowerCase()}" data-regiao="${(a.regiao||'').toLowerCase()}" data-nivel="${a.nivel}" data-semresp="${(!a.parent_id && a.nivel !== 1)?'1':'0'}" data-nichos="${(a.nichos||[]).join(' ') || '__sem'}">
+          <tr data-nome="${a.nome.toLowerCase()}" data-regiao="${(a.regiao||'').toLowerCase()}" data-nivel="${a.nivel}" data-semresp="${(!a.parent_id && a.nivel !== 1)?'1':'0'}" data-nichos="${(a.nichos||[]).join(' ') || '__sem'}" data-zona="${numZS(a.zona)||'__sem'}" data-secao="${numZS(a.secao)||'__sem'}">
             <td onclick="showDetail('${a.id}')" style="cursor:pointer"><strong>${a.nome}</strong>${NICHOS.length && (a.nichos||[]).length ? `<div class="nicho-linha">${chipsNichos(a)}</div>` : ''}${(papelEfetivo()==='candidato' && !a.parent_id && a.nivel !== 1)?' <span class="badge" style="background:#fff5f5;color:#c53030;border:1px solid #c53030;font-size:10px">sem responsável</span>':''}</td>
             <td onclick="showDetail('${a.id}')" style="cursor:pointer"><span class="region-tag">${a.regiao}</span></td>
             <td onclick="showDetail('${a.id}')" style="cursor:pointer">${nivelBadge(a.nivel)}</td>
@@ -1699,6 +1708,32 @@ async function buscarDuplicados(){
   }
 }
 
+// Zona e seção chegam do cadastro de todo jeito ("15", "015", "0015"): o
+// filtro compara só os dígitos sem zero à esquerda, senão a mesma zona
+// apareceria três vezes na lista e cada opção pegaria só parte das pessoas.
+function numZS(v){ return String(v||'').replace(/\D/g,'').replace(/^0+/,''); }
+function zonasDaRede(){
+  return [...new Set(APOIADORES.map(a=>numZS(a.zona)).filter(Boolean))].sort((x,y)=>Number(x)-Number(y));
+}
+// Seção só faz sentido dentro de uma zona: a seção 42 da zona 18 e a seção 42
+// da zona 43 são urnas diferentes. Por isso o seletor de seção só abre depois
+// que a zona é escolhida, e lista as seções DAQUELA zona.
+function atualizarFiltroSecao(){
+  const zona = document.getElementById('filter-zona').value;
+  const sel = document.getElementById('filter-secao');
+  if(!zona || zona==='__sem'){
+    sel.innerHTML = '<option value="">Todas as seções</option>';
+    sel.disabled = true;
+    return;
+  }
+  const secoes = [...new Set(APOIADORES.filter(a=>numZS(a.zona)===zona).map(a=>numZS(a.secao)).filter(Boolean))]
+    .sort((x,y)=>Number(x)-Number(y));
+  sel.innerHTML = '<option value="">Todas as seções</option>'
+    + secoes.map(s=>`<option value="${s}">Seção ${s.padStart(4,'0')}</option>`).join('')
+    + '<option value="__sem">Sem seção</option>';
+  sel.disabled = false;
+}
+
 function filterTable(){
   const q=document.getElementById('search-inp').value.toLowerCase();
   const n=document.getElementById('filter-nivel').value;
@@ -1706,13 +1741,22 @@ function filterTable(){
   const soSemResp=semRespEl&&semRespEl.checked;
   const nichoEl=document.getElementById('filter-nicho');
   const nicho=nichoEl?nichoEl.value:'';
+  const zona=document.getElementById('filter-zona')?.value||'';
+  const secao=document.getElementById('filter-secao')?.value||'';
+  let visiveis=0, total=0;
   document.querySelectorAll('#apoiadores-tbody tr').forEach(tr=>{
     const mQ=!q||tr.dataset.nome.includes(q)||tr.dataset.regiao.includes(q);
     const mN=!n||tr.dataset.nivel===n;
     const mS=!soSemResp||tr.dataset.semresp==='1';
     const mC=!nicho||(tr.dataset.nichos||'').split(' ').includes(nicho);
-    tr.style.display=(mQ&&mN&&mS&&mC)?'':'none';
+    const mZ=!zona||tr.dataset.zona===zona;
+    const mSe=!secao||tr.dataset.secao===secao;
+    const ok=mQ&&mN&&mS&&mC&&mZ&&mSe;
+    tr.style.display=ok?'':'none';
+    total++; if(ok) visiveis++;
   });
+  const cont=document.getElementById('filtro-contagem');
+  if(cont) cont.textContent = visiveis===total ? '' : `Mostrando ${visiveis} de ${total} apoiadores${zona&&zona!=='__sem'?` · zona ${zona.padStart(3,'0')}`:''}${secao&&secao!=='__sem'?` · seção ${secao.padStart(4,'0')}`:''}`;
 }
 
 // O formato escolhido aqui vale para TODOS os botões da tela. Antes cada grupo
