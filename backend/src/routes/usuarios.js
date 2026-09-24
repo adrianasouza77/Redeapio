@@ -7,6 +7,7 @@ const { publicUrl } = require('../config');
 const { buscarDuplicidade } = require('../utils/duplicidade');
 const asyncHandler = require('../utils/asyncHandler');
 const { registrar, diferencas } = require('../utils/auditoria');
+const { prepararNichos, gravarNichos, prepararMeta } = require('../utils/nichos');
 
 const router = express.Router();
 router.use(authRequired, resolveWorkspace);
@@ -55,6 +56,11 @@ router.post('/', requireRole('candidato', 'admin'), asyncHandler(async (req, res
   if (dup) {
     return res.status(409).json({ error: `Já existe um cadastro com esse ${dup.campo} nesta rede (${dup.nome}).` });
   }
+  const temFicha = perfil === 'lideranca' || perfil === 'apoiador';
+  const nichos = temFicha ? await prepararNichos(req.effectiveId, req.body.nichos, { criacao: true }) : { ids: undefined };
+  if (nichos.erro) return res.status(400).json({ error: nichos.erro });
+  const meta = prepararMeta(req.body.meta_votos, 1);
+  if (meta.erro) return res.status(400).json({ error: meta.erro });
 
   const client = await pool.connect();
   try {
@@ -81,10 +87,11 @@ router.post('/', requireRole('candidato', 'admin'), asyncHandler(async (req, res
       const nivelPedido = Number(req.body?.nivel);
       const nivelFicha = perfil === 'lideranca' ? 1 : ([2, 3].includes(nivelPedido) ? nivelPedido : 2);
       await client.query(
-        `INSERT INTO apoiadores (id, nome, telefone, regiao, endereco, cidade, estado, titulo, zona, secao, nivel, parent_id, cadastrado_por)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NULL,$12)`,
-        [novoUsuario.id, nome, telefone || '—', regiao || '—', endereco || null, cidade || null, estado || null, titulo || null, zona || null, secao || null, nivelFicha, req.effectiveId]
+        `INSERT INTO apoiadores (id, nome, telefone, regiao, endereco, cidade, estado, titulo, zona, secao, nivel, parent_id, cadastrado_por, meta_votos)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NULL,$12,$13)`,
+        [novoUsuario.id, nome, telefone || '—', regiao || '—', endereco || null, cidade || null, estado || null, titulo || null, zona || null, secao || null, nivelFicha, req.effectiveId, meta.meta ?? null]
       );
+      await gravarNichos(client, novoUsuario.id, nichos.ids);
     }
 
     await client.query('COMMIT');

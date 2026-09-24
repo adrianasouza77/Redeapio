@@ -57,9 +57,14 @@ backend/
       conta.js                autoatendimento: senha, login, aceite do termo
       config.js               limites da pirâmide por candidato
       apuracao.js             apuração ao vivo (BU do TSE × cadastrados)
+      nichos.js               nichos temáticos da campanha
+      historico.js            desempenho eleitoral histórico por município
+      ia.js                   copiloto de IA
     services/mail.js          SMTP + template de recuperação
     services/tse.js           leitura do portal de resultados do TSE (BU por seção)
-    services/apuracao.js      apuração ao vivo: cruzamento com a rede + laço de busca
+    services/apuracao.js      apuração ao vivo: cruzamento com a rede + laço de busca + metas
+    services/historico.js     resultado oficial por município × rede de hoje
+    services/ia.js            resumo da rede + chamada à API da Anthropic
     utils/
       asyncHandler.js         obrigatório em toda rota async
       duplicidade.js          telefone/título/e-mail repetidos na mesma rede
@@ -68,6 +73,8 @@ backend/
       password.js             bcrypt + senha temporária via CSPRNG
       termoStatus.js          precisa aceitar termo? trocar senha?
       tituloEleitoral.js      dígito verificador do título (mod 11)
+      nichos.js               regra de nicho e meta, igual nos quatro cadastros
+      totp.js                 código da verificação em duas etapas (RFC 6238)
 
 frontend/index.html           TUDO do frontend
 docs/                         esta documentação
@@ -273,6 +280,88 @@ Decisões que não são óbvias:
 
 Para testar sem esperar a eleição: configurar a eleição de 2024 com o número
 de algum candidato daquele ano.
+
+### Nichos, meta de votos e papéis — o "mapa mental de nichos"
+
+Especificação da dona (set/2026, "Mapa Mental de Nichos, IA e Diagnóstico
+Eleitoral"). Três dimensões independentes de cada pessoa: **papel** (nível),
+**território** (cidade/bairro/zona/seção, que já existiam) e **nicho**.
+
+- **Papéis**: os níveis 1–4 passaram a se chamar Líder, Coordenador,
+  Mobilizador e Apoiador (`PAPEIS` no frontend). É só nome: a pirâmide, os
+  limites e as permissões não mudaram.
+- **`nichos`** (`candidato_id`, `nome`, `cor`) — criados pelo candidato em
+  "Mapa de Nichos"; nome único por campanha sem diferenciar maiúscula.
+- **`apoiador_nichos`** — N:N; apagar nicho ou pessoa apaga só a ligação.
+- **`apoiadores.meta_votos`** — só níveis 1–3; quem desce para o nível 4 perde a meta.
+
+`utils/nichos.js` concentra a regra, usada pelos quatro caminhos de cadastro
+(painel da liderança, tela de usuários, link público, edição):
+
+- nicho de outra campanha é descartado em silêncio;
+- **obrigatório só quando a campanha tem nichos criados** — campanha que não
+  usa nichos cadastra exatamente como antes;
+- na edição, campo ausente = não mexer (tela antiga em cache não apaga nada).
+
+`GET /apoiadores` devolve `nichos` (ids) em cada pessoa (`anexarNichos`, uma
+consulta para a rede inteira).
+
+### Meta × resultado (Telas 3 e 4)
+
+Calculado em `services/apuracao.js` (`calcularMetas`) e mostrado dentro da
+Apuração ao Vivo:
+
+- **por zona**: soma das metas de quem mora na zona × votos do candidato na zona inteira;
+- **por responsável**: meta da pessoa × votos nas urnas onde ela **e toda a
+  equipe abaixo dela** votam (cada urna conta uma vez). É o mais perto que dá
+  para chegar sem saber o voto de ninguém — e ninguém sabe: o voto é secreto.
+- verde ≥ 100%, amarelo ≥ 70%, vermelho abaixo disso.
+
+### `historico_config`, `resultado_urna`, `resultado_urna_municipio` — desempenho histórico (Tela 5)
+
+Resultado oficial de uma eleição passada, por município, de **todos** os
+candidatos do cargo (`services/historico.js`). `resultado_urna` não tem
+`candidato_id` de propósito: é dado público igual para todas as campanhas,
+baixado uma vez e reaproveitado (eleição encerrada não muda).
+
+- Fonte: `<ciclo>/<eleicao>/dados/<uf>/<uf><mun>-c<cargo>-e<eleicao>-u.json`
+  (com nome e partido) e `-v.json` (aptos e comparecimento; o único que
+  existe para presidente). Eleições conferidas: 2024 (619/620) e 2022 (544–547).
+- **A posição é calculada pelos votos.** O campo `seq` do TSE parece ranking
+  mas não é — em Dourados/2024 a vereadora com 2.992 votos vinha com `seq` 30.
+- A rede é casada com o município pelo **nome da cidade sem acento**, dentro
+  do estado. Cidade digitada errada fica fora (a tela mostra quantos).
+- "Liderança formal" = Líder ou Coordenador (níveis 1 e 2).
+
+### `ia_insights` — copiloto de IA
+
+`services/ia.js`. Monta um **resumo só com contagens** (papéis, nichos,
+territórios sem liderança, gargalos, metas, apuração e histórico quando
+configurados) e chama a API da Anthropic (`@anthropic-ai/sdk`, modelo
+`IA_MODELO`, padrão `claude-sonnet-5`, como pede a especificação) com saída
+estruturada em JSON (`output_config.format`). **Nenhum nome, telefone ou
+título sai do servidor.** Cada leitura é gravada (reabrir o painel não gasta
+chamada) e há teto diário por campanha (`IA_LIMITE_DIA`). Sem
+`ANTHROPIC_API_KEY`, tudo funciona e o painel avisa que falta ativar.
+
+### Segurança (seção 9 da especificação)
+
+- **Isolamento**: toda rota já filtra por candidato (`req.effectiveId`); as
+  novas também. O que a especificação chama de RLS do Supabase não se aplica
+  — o sistema é Postgres próprio, e o isolamento é feito no servidor.
+- **`usuarios.suporte_admin`** (padrão `true`): o candidato desliga em Minha
+  Conta; `resolveWorkspace` passa a recusar o `?as=` e a busca global deixa de
+  listar a rede dele. Cada abertura de workspace vira `workspace.abrir` no log
+  (no máximo uma por 30 min por admin/campanha).
+- **Verificação em duas etapas** (`utils/totp.js`, RFC 6238 escrito à mão com
+  `crypto`, conferido com os vetores oficiais): opcional; ligar exige provar
+  um código antes de valer, para ninguém se trancar fora.
+- **Registro de acessos** (`GET /conta/acessos`): login, falhas, exportações
+  (avisadas pela tela via `POST /conta/evento`, já que o arquivo é montado no
+  navegador), aberturas do suporte e mudanças de segurança.
+- **Não feito**, por decisão: criptografia de coluna do telefone (quebraria a
+  checagem de duplicidade e a busca por telefone) — a proteção em repouso é a
+  do disco do servidor, que é configuração da hospedagem.
 
 ### `termos_aceite` — trilha de auditoria da LGPD
 
@@ -585,6 +674,20 @@ misturar aumentaria o risco de mexer na pirâmide sem querer.
 
 Arquivo próprio (`routes/apuracao.js`), pelo mesmo motivo do `/mapas`.
 
+### `/nichos` `[A]`
+`GET /` (qualquer perfil da rede lê), `POST /`, `PUT /:id`, `DELETE /:id` (candidato, admin).
+
+### `/historico` `[A]` — candidato, admin
+`GET /eleicoes`, `GET /` (visão por município), `GET /municipios`,
+`GET /municipio/:codigo`, `PUT /config`.
+
+### `/ia` `[A]` — candidato, admin
+`GET /` (situação e última leitura), `POST /gerar`.
+
+### `/conta` — segurança `[A]`
+`GET /seguranca`, `POST /2fa/iniciar` | `/2fa/ativar` | `/2fa/desativar`,
+`PUT /suporte` (só candidato), `GET /acessos` (só candidato), `POST /evento`.
+
 ### `/admin` `[A]` — só admin
 `GET /candidatos`, `POST /candidatos`, `PUT /candidatos/:id/senha`,
 `PUT /candidatos/:id/plano`, `PUT /candidatos/:id/login`,
@@ -806,6 +909,9 @@ resolve isso com `docker service update --force`.
 | `LIMITE_NIVEL1..4` | não | padrão 50/30/15/10 |
 | `FRONTEND_DIR` | não | `/frontend` no container |
 | `SUPABASE_*` | não | **histórico** — migração única já concluída |
+| `ANTHROPIC_API_KEY` | não | liga o copiloto de IA; sem ela o resto funciona |
+| `IA_MODELO` | não | padrão `claude-sonnet-5` |
+| `IA_LIMITE_DIA` | não | leituras de IA por campanha por dia, padrão 30 |
 
 > Variáveis discretas do Postgres em vez de uma `DATABASE_URL` montada: senhas
 > fortes contendo `/ @ : #` quebrariam o parser de URL de conexão.

@@ -8,6 +8,7 @@ const { buscarDuplicidade, resolverCandidatoId } = require('../utils/duplicidade
 const { hash, gerarSenhaTemporaria } = require('../utils/password');
 const asyncHandler = require('../utils/asyncHandler');
 const { registrar, diferencas } = require('../utils/auditoria');
+const { prepararNichos, gravarNichos, prepararMeta, anexarNichos } = require('../utils/nichos');
 
 const router = express.Router();
 router.use(authRequired, resolveWorkspace);
@@ -70,7 +71,7 @@ router.get('/', asyncHandler(async (req, res) => {
     ehArvoreCandidato ? SQL_ARVORE_CANDIDATO : SQL_ARVORE_LIDERANCA,
     [ehArvoreCandidato ? req.effectiveId : req.user.id]
   );
-  res.json(rows);
+  res.json(await anexarNichos(rows));
 }));
 
 // Só o nome era comparado aqui, e nome igual é o critério mais fraco que
@@ -735,12 +736,17 @@ router.post('/', requireRole('lideranca', 'apoiador'), asyncHandler(async (req, 
   if (dup) {
     return res.status(409).json({ error: `Já existe um cadastro com esse ${dup.campo} nesta rede (${dup.nome}).` });
   }
+  const nichos = await prepararNichos(resolverCandidatoId(req.user), req.body.nichos, { criacao: true });
+  if (nichos.erro) return res.status(400).json({ error: nichos.erro });
+  const meta = prepararMeta(req.body.meta_votos, novoNivel);
+  if (meta.erro) return res.status(400).json({ error: meta.erro });
 
   const { rows } = await pool.query(
-    `INSERT INTO apoiadores (nome, telefone, nascimento, regiao, endereco, cidade, estado, titulo, zona, secao, nivel, parent_id, cadastrado_por)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$12) RETURNING *`,
-    [nome, telefone, nascimento, regiao, endereco || null, cidade || null, estado || null, titulo || null, zona || null, secao || null, novoNivel, req.user.id]
+    `INSERT INTO apoiadores (nome, telefone, nascimento, regiao, endereco, cidade, estado, titulo, zona, secao, nivel, parent_id, cadastrado_por, meta_votos)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$12,$13) RETURNING *`,
+    [nome, telefone, nascimento, regiao, endereco || null, cidade || null, estado || null, titulo || null, zona || null, secao || null, novoNivel, req.user.id, meta.meta ?? null]
   );
+  await gravarNichos(pool, rows[0].id, nichos.ids);
   await registrar(req, {
     acao: 'apoiador.criar',
     alvoTipo: 'apoiador',
@@ -860,11 +866,24 @@ router.put('/:id', asyncHandler(async (req, res) => {
     }
   }
 
+  // Nicho e meta só mudam quando vêm no corpo — edição que não os envia
+  // (tela antiga em cache, liderança editando só o telefone) não apaga nada.
+  const candidatoDaRede = (req.effectivePerfil === 'candidato' || req.user.perfil === 'admin') ? req.effectiveId : resolverCandidatoId(req.user);
+  const nichos = await prepararNichos(candidatoDaRede, req.body.nichos, { criacao: false });
+  if (nichos.erro) return res.status(400).json({ error: nichos.erro });
+  const meta = prepararMeta(req.body.meta_votos, novoNivel ?? antes.nivel);
+  if (meta.erro) return res.status(400).json({ error: meta.erro });
+
   const campos = ['nome=$1', 'telefone=$2', 'nascimento=$3', 'endereco=$4', 'regiao=$5', 'cidade=$6', 'estado=$7', 'titulo=$8', 'zona=$9', 'secao=$10'];
   const vals = [nome, telefone || null, nascimento || null, endereco || null, regiao || null, cidade || null, estado || null, titulo || null, zona || null, secao || null];
   if (novoNivel !== undefined) {
     campos.push(`nivel=$${vals.length + 1}`, `parent_id=$${vals.length + 2}`);
     vals.push(novoNivel, novoParentId);
+  }
+  // Quem desce para a base (nível 4) perde a meta: apoiador da base não declara.
+  if (meta.meta !== undefined || novoNivel === 4) {
+    campos.push(`meta_votos=$${vals.length + 1}`);
+    vals.push(novoNivel === 4 ? null : meta.meta);
   }
   vals.push(id);
 
@@ -885,6 +904,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
     }
     throw err;
   }
+  await gravarNichos(pool, id, nichos.ids);
 
   if (novoNivel !== undefined && (antes.nivel !== novoNivel || String(antes.parent_id) !== String(novoParentId))) {
     await registrar(req, {
@@ -901,7 +921,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
       },
     });
   }
-  const mudancas = diferencas(antes, atualizado, ['nome', 'telefone', 'nascimento', 'endereco', 'regiao', 'cidade', 'estado', 'titulo', 'zona', 'secao']);
+  const mudancas = diferencas(antes, atualizado, ['nome', 'telefone', 'nascimento', 'endereco', 'regiao', 'cidade', 'estado', 'titulo', 'zona', 'secao', 'meta_votos']);
   if (Object.keys(mudancas).length) {
     await registrar(req, { acao: 'apoiador.editar', alvoTipo: 'apoiador', alvoId: id, alvoNome: atualizado.nome, detalhes: { campos: mudancas } });
   }

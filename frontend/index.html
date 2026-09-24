@@ -118,6 +118,94 @@
   .ap-linha-zona:hover td{background:var(--bg);}
   @media(max-width:768px){ .ap-select{flex:1 1 100%;font-size:16px;} .ap-barra-topo .btn-sm{flex:1 1 auto;} }
 
+  /* NICHOS */
+  .nicho-chip{display:inline-block;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:600;color:var(--c);background:color-mix(in srgb, var(--c) 12%, #fff);border:1px solid color-mix(in srgb, var(--c) 35%, #fff);margin:2px 4px 2px 0;white-space:nowrap;}
+  .nicho-linha{margin-top:4px;line-height:1.6;}
+  .nicho-escolha{display:flex;flex-wrap:wrap;gap:8px;}
+  .nicho-opcao{padding:8px 14px;border-radius:20px;border:1.5px solid color-mix(in srgb, var(--c) 45%, #fff);background:#fff;color:var(--c);font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;}
+  .nicho-opcao.sel{background:var(--c);color:#fff;border-color:var(--c);}
+  .nicho-opcao.sel::before{content:'✓ ';}
+  .nicho-novo{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;}
+  .nicho-novo .ap-select{flex:1;min-width:220px;}
+  .nicho-cores{display:flex;gap:6px;flex-wrap:wrap;}
+  .nicho-cor{width:26px;height:26px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1px var(--border);cursor:pointer;}
+  .nicho-cor.sel{box-shadow:0 0 0 2px var(--navy);}
+  .nicho-gestao{display:flex;flex-direction:column;gap:8px;}
+  .nicho-item{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0;border-top:1px solid #f0f2f8;}
+  .nicho-trocacor{padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;}
+  .mapa-nichos{margin-bottom:20px;}
+  .mn-centro{margin:0 auto 18px;max-width:320px;text-align:center;background:var(--navy);color:#fff;border-radius:16px;padding:16px 20px;box-shadow:var(--shadow);position:relative;}
+  .mn-centro::after{content:'';position:absolute;left:50%;bottom:-18px;width:2px;height:18px;background:var(--border);}
+  .mn-centro-nome{font-family:'DM Serif Display',serif;font-size:20px;}
+  .mn-centro-num{font-size:12px;color:var(--gold);margin-top:2px;}
+  .mn-galhos{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;border-top:2px solid var(--border);padding-top:18px;}
+  .mn-galho{background:#fff;border:1px solid var(--border);border-top:5px solid var(--c);border-radius:12px;padding:16px;box-shadow:var(--shadow);}
+  .mn-nome{font-weight:700;color:var(--c);font-size:16px;}
+  .mn-num{font-size:12px;color:var(--slate);margin:4px 0 8px;}
+  .mn-barra{height:6px;background:#f0f2f8;border-radius:3px;overflow:hidden;margin-bottom:10px;}
+  .mn-barra div{height:100%;background:var(--c);}
+  .mn-papeis{display:flex;gap:10px;font-size:12px;color:var(--slate-light);margin-bottom:8px;}
+  .mn-papeis b{color:var(--navy);}
+  .mn-linha{font-size:12px;color:var(--slate);margin-top:4px;line-height:1.5;}
+  .mn-ver{margin-top:10px;font-size:12px;padding:6px 12px;}
+  /* REDE: visões */
+  .rede-visoes{display:flex;gap:8px;flex-wrap:wrap;margin:-10px 0 18px;}
+  .pn-meta{font-size:11px;color:var(--green);font-weight:600;margin-top:3px;}
+  .rg-topo{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+  .rg-titulo{font-weight:700;color:var(--navy);font-size:16px;display:flex;align-items:center;gap:8px;}
+  .rg-bola{width:12px;height:12px;border-radius:50%;display:inline-block;}
+  .rg-numeros{font-size:12px;color:var(--slate);}
+  .rg-papeis{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--slate-light);margin:8px 0 10px;}
+  .rg-alerta{color:var(--red);font-weight:600;}
+  .rg-lista{border-top:1px solid #f0f2f8;}
+  .rg-pessoa{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid #f0f2f8;cursor:pointer;font-size:13px;}
+  .rg-pessoa:hover{background:var(--bg);}
+  .rg-nome{font-weight:600;color:var(--navy);}
+  .rg-info{color:var(--slate-light);font-size:12px;}
+  .rg-meta{color:var(--green);font-size:12px;font-weight:600;}
+  .rg-mais{font-size:12px;color:var(--slate-light);padding:10px 0;}
+  /* APURAÇÃO: situação da meta */
+  .ap-st{display:inline-block;padding:3px 9px;border-radius:12px;font-size:11px;font-weight:700;white-space:nowrap;margin:2px 0;}
+  .ap-st-verde{background:#e6f4ec;color:var(--green);}
+  .ap-st-amarelo{background:#fdf5e0;color:#8a6a10;}
+  .ap-st-vermelho{background:#fde8e8;color:var(--red);}
+  .ap-st-cinza{background:#f0f2f8;color:var(--slate-light);}
+  /* HISTÓRICO */
+  .hi-eu td{background:#fdf5e0;}
+  .hi-colunas{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
+  .hi-barra{display:grid;grid-template-columns:130px 1fr 40px;align-items:center;gap:8px;font-size:12px;margin-bottom:6px;}
+  .hi-barra div{height:10px;background:#f0f2f8;border-radius:5px;overflow:hidden;}
+  .hi-barra i{display:block;height:100%;border-radius:5px;}
+  .hi-barra span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--slate);}
+  .hi-barra b{text-align:right;color:var(--navy);}
+  /* COPILOTO DE IA */
+  .ia-botao{position:fixed;right:22px;bottom:22px;z-index:160;display:flex;align-items:center;gap:8px;background:var(--navy);color:#fff;border:none;border-radius:28px;padding:12px 18px;font-size:13px;font-weight:600;font-family:'Inter',sans-serif;box-shadow:0 8px 24px rgba(15,31,61,.35);cursor:pointer;}
+  .ia-botao span{font-size:18px;}
+  .ia-painel{position:fixed;top:0;right:0;bottom:0;width:400px;max-width:100%;background:#fff;z-index:9990;box-shadow:-10px 0 40px rgba(15,31,61,.25);transform:translateX(105%);transition:transform .25s ease;display:flex;flex-direction:column;}
+  .ia-painel.aberto{transform:none;}
+  .ia-cabeca{display:flex;justify-content:space-between;gap:10px;padding:20px;border-bottom:1px solid var(--border);background:var(--navy);color:#fff;}
+  .ia-titulo{font-family:'DM Serif Display',serif;font-size:20px;}
+  .ia-sub{font-size:12px;opacity:.75;margin-top:4px;}
+  .ia-fechar{background:none;border:none;color:#fff;font-size:20px;cursor:pointer;align-self:flex-start;}
+  .ia-corpo{padding:18px;overflow-y:auto;flex:1;}
+  .ia-card{border:1px solid var(--border);border-left:4px solid var(--gold);border-radius:10px;padding:14px;margin-bottom:12px;}
+  .ia-tipo{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--slate-light);}
+  .ia-tipo span{text-transform:none;letter-spacing:0;color:var(--navy);}
+  .ia-card-titulo{font-weight:700;color:var(--navy);margin:6px 0 4px;}
+  .ia-texto{font-size:13px;color:var(--slate);line-height:1.55;}
+  .ia-detalhe{font-size:12.5px;color:var(--slate);line-height:1.55;background:var(--bg);border-radius:8px;padding:10px;margin-top:8px;}
+  .ia-acao{margin-top:8px;font-weight:600;color:var(--green);}
+  .ia-ver{background:none;border:none;color:var(--navy);font-size:12px;font-weight:600;text-decoration:underline;cursor:pointer;padding:6px 0 0;font-family:'Inter',sans-serif;}
+  /* MINHA CONTA: segurança */
+  .mc-passos{font-size:13px;color:var(--slate);line-height:1.7;padding-left:20px;margin-bottom:12px;}
+  .mc-chave{font-family:monospace;font-size:16px;letter-spacing:1px;background:var(--bg);border:1px dashed var(--border);border-radius:8px;padding:10px;margin:6px 0;word-break:break-all;color:var(--navy);}
+  @media(max-width:768px){
+    .ia-botao{right:12px;bottom:calc(76px + env(safe-area-inset-bottom));padding:10px 14px;font-size:12px;}
+    .hi-colunas{grid-template-columns:1fr;}
+    .hi-barra{grid-template-columns:100px 1fr 34px;}
+    .mn-galhos{grid-template-columns:1fr;}
+  }
+
   /* LOADING */
   .loading-overlay{display:none;position:fixed;inset:0;background:rgba(15,31,61,0.7);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:16px;}
   .loading-overlay.show{display:flex;}
@@ -324,6 +412,7 @@
     </div>
     <div class="field"><label>Usuário ou e-mail</label><input type="text" id="login-user" placeholder="Digite seu usuário ou e-mail"></div>
     <div class="field"><label>Senha</label><input type="password" id="login-pass" placeholder="••••••••"></div>
+    <div class="field" id="login-2fa-box" style="display:none"><label>Código de verificação</label><input type="text" id="login-codigo" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="6 números do aplicativo autenticador"></div>
     <button class="btn-primary" onclick="doLogin()">Entrar com segurança</button>
     <div class="auth-note">🔒 Dados protegidos — acesso restrito por senha</div>
     <div style="text-align:center;margin-top:12px">
@@ -365,10 +454,10 @@
   <div style="background:#fff;border-radius:16px;padding:32px;width:90%;max-width:460px;margin:40px auto;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
     <div style="font-family:'DM Serif Display',serif;font-size:22px;color:var(--navy);margin-bottom:4px">🔗 Links de cadastro</div>
     <div style="font-size:12px;color:var(--slate-light);margin-bottom:20px">Escolha o nível, copie o link e envie pelo WhatsApp. Quem se cadastrar entra <strong>sem responsável</strong> — depois é só abrir <strong>Todos os Apoiadores</strong>, editar o cadastro e escolher embaixo de quem ele fica.</div>
-    <button class="nav-item" onclick="copiarLinkNivel(1,'Liderança')" style="width:100%;justify-content:flex-start;background:linear-gradient(135deg,#0F1F3D,#1a3562);color:#fff;border-radius:10px;margin-bottom:10px;padding:14px"><span>👑</span> Copiar link de <strong style="margin-left:4px">Liderança</strong> <span style="margin-left:auto;font-size:11px;opacity:.8">Nível 1 · com login</span></button>
-    <button class="nav-item" onclick="copiarLinkNivel(2,'Nível 2')" style="width:100%;justify-content:flex-start;background:linear-gradient(135deg,#276749,#1a4a32);color:#fff;border-radius:10px;margin-bottom:10px;padding:14px"><span>🔗</span> Copiar link de <strong style="margin-left:4px">Nível 2</strong> <span style="margin-left:auto;font-size:11px;opacity:.8">com login</span></button>
-    <button class="nav-item" onclick="copiarLinkNivel(3,'Nível 3')" style="width:100%;justify-content:flex-start;background:linear-gradient(135deg,#276749,#1a4a32);color:#fff;border-radius:10px;margin-bottom:10px;padding:14px"><span>🔗</span> Copiar link de <strong style="margin-left:4px">Nível 3</strong> <span style="margin-left:auto;font-size:11px;opacity:.8">com login</span></button>
-    <button class="nav-item" onclick="copiarLinkNivel(4,'Nível 4')" style="width:100%;justify-content:flex-start;background:linear-gradient(135deg,#8a6d1f,#6b5417);color:#fff;border-radius:10px;margin-bottom:16px;padding:14px"><span>🔗</span> Copiar link de <strong style="margin-left:4px">Nível 4</strong> <span style="margin-left:auto;font-size:11px;opacity:.8">só contato, sem login</span></button>
+    <button class="nav-item" onclick="copiarLinkNivel(1,'Liderança')" style="width:100%;justify-content:flex-start;background:linear-gradient(135deg,#0F1F3D,#1a3562);color:#fff;border-radius:10px;margin-bottom:10px;padding:14px"><span>👑</span> Copiar link de <strong style="margin-left:4px">Líder</strong> <span style="margin-left:auto;font-size:11px;opacity:.8">nível 1 · com login</span></button>
+    <button class="nav-item" onclick="copiarLinkNivel(2,'Coordenador')" style="width:100%;justify-content:flex-start;background:linear-gradient(135deg,#276749,#1a4a32);color:#fff;border-radius:10px;margin-bottom:10px;padding:14px"><span>🔗</span> Copiar link de <strong style="margin-left:4px">Coordenador</strong> <span style="margin-left:auto;font-size:11px;opacity:.8">nível 2 · com login</span></button>
+    <button class="nav-item" onclick="copiarLinkNivel(3,'Mobilizador')" style="width:100%;justify-content:flex-start;background:linear-gradient(135deg,#276749,#1a4a32);color:#fff;border-radius:10px;margin-bottom:10px;padding:14px"><span>🔗</span> Copiar link de <strong style="margin-left:4px">Mobilizador</strong> <span style="margin-left:auto;font-size:11px;opacity:.8">nível 3 · com login</span></button>
+    <button class="nav-item" onclick="copiarLinkNivel(4,'Apoiador')" style="width:100%;justify-content:flex-start;background:linear-gradient(135deg,#8a6d1f,#6b5417);color:#fff;border-radius:10px;margin-bottom:16px;padding:14px"><span>🔗</span> Copiar link de <strong style="margin-left:4px">Apoiador</strong> <span style="margin-left:auto;font-size:11px;opacity:.8">nível 4 · só contato, sem login</span></button>
     <button onclick="fecharLinksCadastro()" style="width:100%;padding:12px;background:#f0f0f0;border:none;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif">Fechar</button>
   </div>
 </div>
@@ -400,6 +489,7 @@
       <div class="field"><label>Zona Eleitoral *</label><input type="text" id="auto-zona" placeholder="000" inputmode="numeric"></div>
       <div class="field"><label>Seção Eleitoral *</label><input type="text" id="auto-secao" placeholder="0000" inputmode="numeric"></div>
     </div>
+    <div id="auto-extra" class="form-grid"></div>
     <div id="auto-login-box" style="display:none">
       <div class="config-section-title" style="margin-top:8px">🔑 Crie seu acesso ao sistema</div>
       <p style="font-size:12px;color:var(--slate-light);margin:-4px 0 12px">Com este login e senha você vai entrar no sistema para cadastrar e acompanhar a sua própria rede de apoiadores.</p>
@@ -495,7 +585,9 @@
         <button class="nav-item" onclick="showPage('grafico')"><span>📈</span> Gráficos da Rede</button>
         <button class="nav-item" onclick="showPage('mapa')" data-short="Mapa"><span>🗺️</span> Mapa da Rede</button>
         <button class="nav-item" onclick="showPage('mapa-mental')" data-short="Mental"><span>🧠</span> Mapa Mental</button>
+        <button class="nav-item" onclick="showPage('nichos')" data-short="Nichos"><span>🎯</span> Mapa de Nichos</button>
         <button class="nav-item" onclick="showPage('apuracao')" data-short="Apuração"><span>🗳️</span> Apuração ao Vivo</button>
+        <button class="nav-item" onclick="showPage('historico')" data-short="Histórico"><span>📊</span> Desempenho Histórico</button>
         <button class="nav-item" onclick="showPage('usuarios')"><span>🔑</span> Usuários</button>
         <button class="nav-item" onclick="showPage('configuracoes')"><span>⚙️</span> Configurações</button>
         <button class="nav-item" onclick="showPage('minha-conta')"><span>👤</span> Minha Conta</button>
@@ -560,6 +652,15 @@
 </div>
 
 <div class="toast" id="toast"></div>
+<!-- COPILOTO DE IA — botão flutuante + painel lateral (só na visão do candidato) -->
+<button id="ia-botao" class="ia-botao" onclick="iaAbrir()" style="display:none" title="Copiloto de IA"><span>🤖</span> Me ajuda a entender isso</button>
+<div id="ia-painel" class="ia-painel" aria-hidden="true">
+  <div class="ia-cabeca">
+    <div><div class="ia-titulo">🤖 Copiloto da rede</div><div class="ia-sub">Lê os números da sua rede e diz, em linguagem simples, onde reforçar.</div></div>
+    <button class="ia-fechar" onclick="iaFechar()" aria-label="Fechar">✕</button>
+  </div>
+  <div id="ia-corpo" class="ia-corpo"></div>
+</div>
 <div class="watermark">© Adriana Souza — RedeApoio — Todos os direitos reservados</div>
 
 <script>
@@ -577,7 +678,9 @@ async function api(path, opts = {}) {
   try { data = await resp.json(); } catch {}
   if (!resp.ok) {
     if (resp.status === 401 && currentUser) doLogout();
-    throw new Error((data && data.error) || 'Erro na requisição.');
+    const erro = new Error((data && data.error) || 'Erro na requisição.');
+    erro.dados = data;
+    throw erro;
   }
   return data;
 }
@@ -832,11 +935,16 @@ function verificarAutoCadastro() {
     const aplicarContexto = (data) => {
       const desc = document.getElementById('auto-descricao');
       if(_autoCandidatoId && _autoNivel) {
-        desc.innerHTML = `Rede de apoio — <strong>${data.nome}</strong> · você entrará no <strong>Nível ${data.novoNivel}</strong>, sem responsável definido.`;
+        desc.innerHTML = `Rede de apoio — <strong>${data.nome}</strong> · você entrará como <strong>${papel(data.novoNivel)}</strong> (nível ${data.novoNivel}), sem responsável definido.`;
       } else {
-        desc.innerHTML = `Quem está te convidando: <strong>${data.nome}</strong> — você entrará na rede dele(a), no <strong>Nível ${data.novoNivel}</strong>.<br><span style="color:#c53030">Se não foi ${data.nome} quem te chamou, não preencha: peça o link de quem te convidou.</span>`;
+        desc.innerHTML = `Quem está te convidando: <strong>${data.nome}</strong> — você entrará na rede dele(a) como <strong>${papel(data.novoNivel)}</strong> (nível ${data.novoNivel}).<br><span style="color:#c53030">Se não foi ${data.nome} quem te chamou, não preencha: peça o link de quem te convidou.</span>`;
       }
       _versaoTermoAutocadastro = data.versaoTermo || null;
+      // Nichos da campanha vêm junto com o convite: quem se cadastra pelo link
+      // ainda não tem sessão para buscá-los.
+      document.getElementById('auto-extra').innerHTML =
+        campoMetaHtml('auto', null, data.novoNivel, 'Quantos votos você acredita conseguir na sua zona/seção.') +
+        campoNichosHtml('auto', [], data.nichos || []);
       _autoCriaLogin = !!data.criaLogin;
       document.getElementById('auto-login-box').style.display = _autoCriaLogin ? 'block' : 'none';
       const aviso = document.getElementById('auto-aviso-link');
@@ -901,6 +1009,14 @@ async function salvarAutoCadastro() {
     return;
   }
 
+  const erroNicho = faltaNicho('auto');
+  if(erroNicho) {
+    res.style.display = 'block';
+    res.style.background = '#fff5f5'; res.style.border = '1px solid #c53030'; res.style.color = '#c53030';
+    res.innerHTML = '⚠️ ' + erroNicho;
+    return;
+  }
+
   let login = null, senha = null;
   if(_autoCriaLogin) {
     login = document.getElementById('auto-login').value.trim().toLowerCase();
@@ -919,6 +1035,7 @@ async function salvarAutoCadastro() {
       titulo: titulo || null, zona: zona || null, secao: secao || null,
       lgpd_aceite: true, lgpd_versao: _versaoTermoAutocadastro,
       login, senha,
+      nichos: lerNichos('auto'), meta_votos: lerMeta('auto'),
     })});
     res.style.display = 'block';
     res.style.background = '#e6f4ec'; res.style.border = '1px solid #276749'; res.style.color = '#276749';
@@ -1063,13 +1180,23 @@ async function doLogin() {
   const senha   = document.getElementById('login-pass').value;
   if(!usuario||!senha){showToast('Preencha usuário e senha.','error');return;}
 
+  // Verificação em duas etapas: o campo do código só aparece quando o
+  // servidor pede (precisa2fa), e a tentativa seguinte manda os três juntos.
+  const caixa2fa = document.getElementById('login-2fa-box');
+  const codigo = caixa2fa.style.display !== 'none' ? document.getElementById('login-codigo').value.replace(/\D/g,'') : undefined;
   showLoading('Verificando acesso...');
   try {
-    const data = await api('/auth/login', { method:'POST', body: JSON.stringify({ login: usuario, senha, perfil: currentAuthTab }) });
+    const data = await api('/auth/login', { method:'POST', body: JSON.stringify({ login: usuario, senha, perfil: currentAuthTab, codigo }) });
     _senhaLoginUsada = senha;
+    caixa2fa.style.display = 'none';
+    document.getElementById('login-codigo').value = '';
     await entrarNaApp(data.user);
     showToast('Bem-vindo(a), '+data.user.nome+'!','success');
   } catch(e){
+    if(e.dados && e.dados.precisa2fa){
+      caixa2fa.style.display = 'block';
+      setTimeout(()=>document.getElementById('login-codigo').focus(), 50);
+    }
     showToast(e.message || 'Usuário ou senha incorretos.', 'error');
   } finally {
     hideLoading();
@@ -1087,6 +1214,10 @@ function doLogout(){
   document.getElementById('auth-screen').style.display='flex';
   document.getElementById('login-user').value='';
   document.getElementById('login-pass').value='';
+  document.getElementById('login-2fa-box').style.display='none';
+  document.getElementById('login-codigo').value='';
+  iaFechar();
+  iaAtualizarBotao();
 }
 
 // ══════════════════════════════════════════
@@ -1096,6 +1227,7 @@ async function carregarApoiadores() {
   showLoading('Carregando rede...');
   try { APOIADORES = await api('/apoiadores' + wsQuery()); }
   catch(e) { showToast(e.message, 'error'); }
+  await carregarNichos();
   redeFiltroL1 = null; redeFiltroL2 = null;
   hideLoading();
 }
@@ -1168,7 +1300,7 @@ function atualizarBottomNav(){
 // sistema não mostrar uma tela em branco quando alguém digita um endereço de
 // outro perfil na barra do navegador.
 const PAGINAS_POR_PAPEL = {
-  candidato: ['dashboard','rede','apoiadores','exportar','grafico','mapa','mapa-mental','apuracao','usuarios','configuracoes','minha-conta'],
+  candidato: ['dashboard','rede','apoiadores','exportar','grafico','mapa','mapa-mental','nichos','apuracao','historico','usuarios','configuracoes','minha-conta'],
   lideranca: ['dashboard','minha-rede','cadastrar','minha-conta'],
   apoiador:  ['dashboard','minha-rede','cadastrar','minha-conta'],
   admin:     ['vagas','minha-conta'],
@@ -1226,15 +1358,18 @@ function showPage(page) {
     case 'mapa':          c.innerHTML=renderMapa(); setTimeout(carregarMapa,50); break;
     case 'mapa-mental':   c.innerHTML=renderMapaMental(); setTimeout(()=>{ mmLigarGestos(); mmIniciar(); },50); break;
     case 'apuracao':      c.innerHTML=renderApuracao(); setTimeout(apIniciar,50); break;
+    case 'nichos':        c.innerHTML=renderNichos(); break;
+    case 'historico':     c.innerHTML=renderHistorico(); setTimeout(hiIniciar,50); break;
     case 'minha-rede':    c.innerHTML=renderMinhaRede(); break;
     case 'cadastrar':     c.innerHTML=renderCadastrar(); break;
-    case 'minha-conta':   c.innerHTML=renderMinhaConta(); break;
+    case 'minha-conta':   c.innerHTML=renderMinhaConta(); setTimeout(mcCarregarSeguranca,50); break;
     case 'usuarios':      c.innerHTML=renderUsuarios(); setTimeout(carregarListaUsuarios,50); break;
     case 'configuracoes': c.innerHTML=renderConfiguracoes(); break;
     case 'vagas':         c.innerHTML=renderVagas(); setTimeout(carregarVagas,50); break;
     case 'busca-pessoa':  c.innerHTML=renderBuscaPessoa(); break;
     case 'logs':          c.innerHTML=renderLogs(); setTimeout(iniciarLogs,50); break;
   }
+  iaAtualizarBotao();
 }
 
 // ══════════════════════════════════════════
@@ -1251,10 +1386,10 @@ function renderDashboard(){
     <div class="page-header"><h1>Dashboard Geral</h1><p>Rede de ${CONFIG.candidatoNome} — dados em tempo real</p></div>
     <div class="stats-grid">
       <div class="stat-card"><div class="stat-label">Total na Rede</div><div class="stat-value">${total}</div><div class="stat-sub">apoiadores cadastrados</div></div>
-      <div class="stat-card"><div class="stat-label">Lideranças — Nível 1</div><div class="stat-value">${n1}</div><div class="stat-sub">limite: ${CONFIG.limiteNivel1} cada</div></div>
-      <div class="stat-card"><div class="stat-label">Nível 2</div><div class="stat-value">${n2}</div><div class="stat-sub">limite: ${CONFIG.limiteNivel2} cada</div></div>
-      <div class="stat-card"><div class="stat-label">Nível 3</div><div class="stat-value">${n3}</div><div class="stat-sub">limite: ${CONFIG.limiteNivel3} cada</div></div>
-      <div class="stat-card"><div class="stat-label">Nível 4 — Base</div><div class="stat-value">${n4}</div><div class="stat-sub">limite: ${CONFIG.limiteNivel4} cada</div></div>
+      <div class="stat-card"><div class="stat-label">Líderes · nível 1</div><div class="stat-value">${n1}</div><div class="stat-sub">limite: ${CONFIG.limiteNivel1} cada</div></div>
+      <div class="stat-card"><div class="stat-label">Coordenadores · nível 2</div><div class="stat-value">${n2}</div><div class="stat-sub">limite: ${CONFIG.limiteNivel2} cada</div></div>
+      <div class="stat-card"><div class="stat-label">Mobilizadores · nível 3</div><div class="stat-value">${n3}</div><div class="stat-sub">limite: ${CONFIG.limiteNivel3} cada</div></div>
+      <div class="stat-card"><div class="stat-label">Apoiadores · base</div><div class="stat-value">${n4}</div><div class="stat-sub">limite: ${CONFIG.limiteNivel4} cada</div></div>
     </div>
     <div class="card">
       <div class="card-header"><div class="card-title">Por Zona Eleitoral</div>
@@ -1360,7 +1495,66 @@ function botaoInfo(id){
     + ` onclick="event.stopPropagation();showDetail('${id}')">i</button>`;
 }
 
+// Tela 2 da especificação: a mesma rede vista por hierarquia (a pirâmide),
+// por nicho ou por território. Não é tela nova — é o mesmo painel com um
+// seletor de agrupamento sobre os mesmos dados.
+let visaoRede = 'hierarquia';   // 'hierarquia' | 'nicho' | 'territorio'
+function setVisaoRede(v){ visaoRede = v; showPage('rede'); }
+function seletorVisaoRede(){
+  const b = (id, rot) => `<button class="btn-sm ${visaoRede===id?'btn-navy':'btn-outline'}" onclick="setVisaoRede('${id}')">${rot}</button>`;
+  return `<div class="rede-visoes">${b('hierarquia','🏛️ Ver por hierarquia')}${b('nicho','🎯 Ver por nicho')}${b('territorio','📍 Ver por território')}</div>`;
+}
+// Nicho e meta no cartão da pirâmide (o que a especificação pede em cada nó).
+function extraNo(a){
+  const meta = a.nivel <= 3 && a.meta_votos != null ? `<div class="pn-meta">🎯 meta ${a.meta_votos.toLocaleString('pt-BR')}</div>` : '';
+  const chips = NICHOS.length ? chipsNichos(a) : '';
+  return (chips ? `<div class="nicho-linha">${chips}</div>` : '') + meta;
+}
+
+const REDE_MAX_POR_GRUPO = 60;
+function linhaPessoaRede(a){
+  return `<div class="rg-pessoa" onclick="showDetail('${a.id}')">
+    <span class="rg-nome">${escapeHtml(a.nome)}</span>${nivelBadge(a.nivel)}
+    <span class="rg-info">${escapeHtml([a.regiao, a.zona ? 'zona '+a.zona : null].filter(x=>x && x!=='—').join(' · ') || '—')}</span>
+    ${a.nivel<=3 && a.meta_votos!=null ? `<span class="rg-meta">🎯 ${a.meta_votos.toLocaleString('pt-BR')}</span>` : ''}
+    ${visaoRede==='territorio' ? `<span class="nicho-linha">${chipsNichos(a)}</span>` : ''}
+  </div>`;
+}
+function renderRedeAgrupada(){
+  const porNicho = visaoRede === 'nicho';
+  const grupos = new Map();
+  for(const a of APOIADORES){
+    for(const k of (porNicho ? nichoNomesDe(a) : [zonaDe(a)])){
+      if(!grupos.has(k)) grupos.set(k, []);
+      grupos.get(k).push(a);
+    }
+  }
+  const lista = [...grupos.entries()].sort((x,y)=> (x[0]===NICHO_SEM||x[0]===ZONA_VAZIA) - (y[0]===NICHO_SEM||y[0]===ZONA_VAZIA) || y[1].length - x[1].length);
+  const vazio = porNicho && !NICHOS.length
+    ? `<div class="card"><div class="empty-state"><div class="icon">🎯</div><p>Nenhum nicho criado ainda. Crie os nichos da campanha em <a href="#/nichos" onclick="showPage('nichos');return false">Nichos</a> e marque as pessoas neles.</p></div></div>` : '';
+  return `
+  <div class="page-header"><h1>Rede de Apoio</h1><p>${APOIADORES.length} pessoas · ${porNicho ? 'agrupadas por nicho (quem está em mais de um nicho aparece em cada um)' : 'agrupadas por zona eleitoral'}</p></div>
+  ${seletorVisaoRede()}
+  ${vazio || lista.map(([nome, gente])=>{
+    const meta = gente.reduce((t,a)=>t+(a.nivel<=3&&a.meta_votos?a.meta_votos:0),0);
+    const lider = gente.filter(a=>a.nivel<=2).length;
+    const ordenada = [...gente].sort((x,y)=>x.nivel-y.nivel || x.nome.localeCompare(y.nome,'pt-BR'));
+    const cor = porNicho ? corNicho(nome) : 'var(--navy)';
+    return `<div class="card rg-grupo">
+      <div class="rg-topo">
+        <div class="rg-titulo"><span class="rg-bola" style="background:${cor}"></span>${porNicho ? escapeHtml(nome) : (nome===ZONA_VAZIA ? '⚠️ Sem zona informada' : 'Zona ' + escapeHtml(nome))}</div>
+        <div class="rg-numeros"><b>${gente.length}</b> pessoas · <b>${lider}</b> líderes/coord. ${meta?`· 🎯 meta <b>${meta.toLocaleString('pt-BR')}</b>`:''}</div>
+      </div>
+      <div class="rg-papeis">${[1,2,3,4].map(n=>{ const q=gente.filter(a=>a.nivel===n).length; return q?`<span>${PAPEIS_PLURAL[n]}: <b>${q}</b></span>`:''; }).join('')}
+        ${!porNicho && nome!==ZONA_VAZIA && !lider ? '<span class="rg-alerta">sem Líder nem Coordenador nesta zona</span>' : ''}</div>
+      <div class="rg-lista">${ordenada.slice(0, REDE_MAX_POR_GRUPO).map(linhaPessoaRede).join('')}
+        ${ordenada.length > REDE_MAX_POR_GRUPO ? `<div class="rg-mais">e mais ${ordenada.length - REDE_MAX_POR_GRUPO} — use Todos os Apoiadores para ver a lista completa.</div>` : ''}</div>
+    </div>`;
+  }).join('')}`;
+}
+
 function renderRede(){
+  if(visaoRede !== 'hierarquia') return renderRedeAgrupada();
   const n1=APOIADORES.filter(a=>a.nivel===1);
   let n2=APOIADORES.filter(a=>a.nivel===2);
   let n3=APOIADORES.filter(a=>a.nivel===3);
@@ -1383,23 +1577,24 @@ function renderRede(){
 
   return `
   <div class="page-header"><h1>Rede de Apoio</h1><p>Pirâmide 4 níveis — ${CONFIG.limiteNivel1} / ${CONFIG.limiteNivel2} / ${CONFIG.limiteNivel3} / ${CONFIG.limiteNivel4} · clique numa liderança ou apoiador para filtrar a rede dele</p></div>
+  ${seletorVisaoRede()}
   ${(redeFiltroL1||redeFiltroL2||redeFiltroL3) ? `
   <div class="card" style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:#fdf5e0;border-color:var(--gold)">
     <span style="font-size:13px;color:#8a6a10;font-weight:600">🔍 Mostrando só a rede de ${nomeL1?`<strong>${nomeL1}</strong>`:''}${nomeL2?` → <strong>${nomeL2}</strong>`:''}${nomeL3?` → <strong>${nomeL3}</strong>`:''}</span>
     <button class="btn-sm btn-outline" onclick="limparFiltroRede()">✕ Limpar filtro</button>
   </div>` : ''}
   <div class="card">
-    <div class="pyr-level"><div class="pyr-level-label">🏆 Nível 1 — Lideranças (${n1.length})</div>
-      <div class="pyr-nodes">${n1.map(a=>`<div class="pyr-node tem-info level-1${String(redeFiltroL1)===String(a.id)?' pyr-node-active':''}" onclick="filtrarRedeL1('${a.id}')">${botaoInfo(a.id)}<div class="pn-name">${a.nome}</div><div class="pn-region">${a.regiao||'—'}</div><div class="pn-count">↳ ${APOIADORES.filter(x=>String(x.parent_id)===String(a.id)).length} apoiadores</div></div>`).join('')||'<p style="color:var(--slate-light);font-size:13px">Nenhuma liderança cadastrada.</p>'}</div>
+    <div class="pyr-level"><div class="pyr-level-label">🏆 Líderes · nível 1 (${n1.length})</div>
+      <div class="pyr-nodes">${n1.map(a=>`<div class="pyr-node tem-info level-1${String(redeFiltroL1)===String(a.id)?' pyr-node-active':''}" onclick="filtrarRedeL1('${a.id}')">${botaoInfo(a.id)}<div class="pn-name">${a.nome}</div><div class="pn-region">${a.regiao||'—'}</div>${extraNo(a)}<div class="pn-count">↳ ${APOIADORES.filter(x=>String(x.parent_id)===String(a.id)).length} apoiadores</div></div>`).join('')||'<p style="color:var(--slate-light);font-size:13px">Nenhuma liderança cadastrada.</p>'}</div>
     </div>
-    <div class="pyr-level"><div class="pyr-level-label">🔵 Nível 2 — Apoiadores (${n2.length})</div>
-      <div class="pyr-nodes">${n2.map(a=>`<div class="pyr-node tem-info level-2${String(redeFiltroL2)===String(a.id)?' pyr-node-active':''}" onclick="filtrarRedeL2('${a.id}')">${botaoInfo(a.id)}<div class="pn-name">${a.nome}</div><div class="pn-region">${a.regiao||'—'}</div><div class="pn-count">↳ ${APOIADORES.filter(x=>String(x.parent_id)===String(a.id)).length} apoiadores</div></div>`).join('')||`<p style="color:var(--slate-light);font-size:13px">${redeFiltroL1?'Essa liderança ainda não tem apoiadores de nível 2.':'Nenhum apoiador nível 2.'}</p>`}</div>
+    <div class="pyr-level"><div class="pyr-level-label">🔵 Coordenadores · nível 2 (${n2.length})</div>
+      <div class="pyr-nodes">${n2.map(a=>`<div class="pyr-node tem-info level-2${String(redeFiltroL2)===String(a.id)?' pyr-node-active':''}" onclick="filtrarRedeL2('${a.id}')">${botaoInfo(a.id)}<div class="pn-name">${a.nome}</div><div class="pn-region">${a.regiao||'—'}</div>${extraNo(a)}<div class="pn-count">↳ ${APOIADORES.filter(x=>String(x.parent_id)===String(a.id)).length} apoiadores</div></div>`).join('')||`<p style="color:var(--slate-light);font-size:13px">${redeFiltroL1?'Essa liderança ainda não tem apoiadores de nível 2.':'Nenhum apoiador nível 2.'}</p>`}</div>
     </div>
-    <div class="pyr-level"><div class="pyr-level-label">⚪ Nível 3 (${n3.length})</div>
-      <div class="pyr-nodes">${n3.map(a=>`<div class="pyr-node tem-info level-3${String(redeFiltroL3)===String(a.id)?' pyr-node-active':''}" onclick="filtrarRedeL3('${a.id}')">${botaoInfo(a.id)}<div class="pn-name">${a.nome}</div><div class="pn-region">${a.regiao||'—'}</div><div class="pn-count">↳ ${APOIADORES.filter(x=>String(x.parent_id)===String(a.id)).length} apoiadores</div></div>`).join('')||`<p style="color:var(--slate-light);font-size:13px">${redeFiltroL2?'Esse apoiador ainda não tem apoiadores de nível 3.':'Nenhum apoiador nível 3.'}</p>`}</div>
+    <div class="pyr-level"><div class="pyr-level-label">⚪ Mobilizadores · nível 3 (${n3.length})</div>
+      <div class="pyr-nodes">${n3.map(a=>`<div class="pyr-node tem-info level-3${String(redeFiltroL3)===String(a.id)?' pyr-node-active':''}" onclick="filtrarRedeL3('${a.id}')">${botaoInfo(a.id)}<div class="pn-name">${a.nome}</div><div class="pn-region">${a.regiao||'—'}</div>${extraNo(a)}<div class="pn-count">↳ ${APOIADORES.filter(x=>String(x.parent_id)===String(a.id)).length} apoiadores</div></div>`).join('')||`<p style="color:var(--slate-light);font-size:13px">${redeFiltroL2?'Esse apoiador ainda não tem apoiadores de nível 3.':'Nenhum apoiador nível 3.'}</p>`}</div>
     </div>
-    <div class="pyr-level"><div class="pyr-level-label">◽ Nível 4 — Base (${n4.length})</div>
-      <div class="pyr-nodes">${n4.map(a=>`<div class="pyr-node level-4" onclick="showDetail('${a.id}')"><div class="pn-name">${a.nome}</div><div class="pn-region">${a.regiao||'—'}</div></div>`).join('')||`<p style="color:var(--slate-light);font-size:13px">${redeFiltroL3?'Esse apoiador ainda não tem apoiadores de nível 4.':'Nenhum apoiador nível 4.'}</p>`}</div>
+    <div class="pyr-level"><div class="pyr-level-label">◽ Apoiadores · base (${n4.length})</div>
+      <div class="pyr-nodes">${n4.map(a=>`<div class="pyr-node level-4" onclick="showDetail('${a.id}')"><div class="pn-name">${a.nome}</div><div class="pn-region">${a.regiao||'—'}</div>${extraNo(a)}</div>`).join('')||`<p style="color:var(--slate-light);font-size:13px">${redeFiltroL3?'Esse apoiador ainda não tem apoiadores de nível 4.':'Nenhum apoiador nível 4.'}</p>`}</div>
     </div>
   </div>`;
 }
@@ -1419,16 +1614,21 @@ function renderApoiadores(){
       <input class="search-input" id="search-inp" placeholder="🔍 Buscar nome ou região..." oninput="filterTable()">
       <select id="filter-nivel" class="search-input" style="max-width:160px;flex:none" onchange="filterTable()">
         <option value="">Todos os níveis</option>
-        <option value="1">Nível 1</option><option value="2">Nível 2</option><option value="3">Nível 3</option><option value="4">Nível 4</option>
+        <option value="1">Líderes</option><option value="2">Coordenadores</option><option value="3">Mobilizadores</option><option value="4">Apoiadores</option>
       </select>
+      ${NICHOS.length ? `<select id="filter-nicho" class="search-input" style="max-width:200px;flex:none" onchange="filterTable()">
+        <option value="">Todos os nichos</option>
+        ${NICHOS.map(n=>`<option value="${n.id}">${escapeHtml(n.nome)}</option>`).join('')}
+        <option value="__sem">${NICHO_SEM}</option>
+      </select>` : ''}
       ${papelEfetivo()==='candidato'?`<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--slate);white-space:nowrap;cursor:pointer"><input type="checkbox" id="filter-semresp" onchange="filterTable()"> ⚠️ Sem responsável</label>`:''}
     </div>
     <div class="table-wrap">
       <table><thead><tr><th>Nome</th><th>Região</th><th>Nível</th><th>Telefone</th><th>Nascimento</th><th>Título</th><th>Zona</th><th>Seção</th><th>Ações</th></tr></thead>
       <tbody id="apoiadores-tbody">
         ${APOIADORES.map(a=>`
-          <tr data-nome="${a.nome.toLowerCase()}" data-regiao="${(a.regiao||'').toLowerCase()}" data-nivel="${a.nivel}" data-semresp="${(!a.parent_id && a.nivel !== 1)?'1':'0'}">
-            <td onclick="showDetail('${a.id}')" style="cursor:pointer"><strong>${a.nome}</strong>${(papelEfetivo()==='candidato' && !a.parent_id && a.nivel !== 1)?' <span class="badge" style="background:#fff5f5;color:#c53030;border:1px solid #c53030;font-size:10px">sem responsável</span>':''}</td>
+          <tr data-nome="${a.nome.toLowerCase()}" data-regiao="${(a.regiao||'').toLowerCase()}" data-nivel="${a.nivel}" data-semresp="${(!a.parent_id && a.nivel !== 1)?'1':'0'}" data-nichos="${(a.nichos||[]).join(' ') || '__sem'}">
+            <td onclick="showDetail('${a.id}')" style="cursor:pointer"><strong>${a.nome}</strong>${NICHOS.length && (a.nichos||[]).length ? `<div class="nicho-linha">${chipsNichos(a)}</div>` : ''}${(papelEfetivo()==='candidato' && !a.parent_id && a.nivel !== 1)?' <span class="badge" style="background:#fff5f5;color:#c53030;border:1px solid #c53030;font-size:10px">sem responsável</span>':''}</td>
             <td onclick="showDetail('${a.id}')" style="cursor:pointer"><span class="region-tag">${a.regiao}</span></td>
             <td onclick="showDetail('${a.id}')" style="cursor:pointer">${nivelBadge(a.nivel)}</td>
             <td onclick="showDetail('${a.id}')" style="cursor:pointer">${a.telefone}</td>
@@ -1504,11 +1704,14 @@ function filterTable(){
   const n=document.getElementById('filter-nivel').value;
   const semRespEl=document.getElementById('filter-semresp');
   const soSemResp=semRespEl&&semRespEl.checked;
+  const nichoEl=document.getElementById('filter-nicho');
+  const nicho=nichoEl?nichoEl.value:'';
   document.querySelectorAll('#apoiadores-tbody tr').forEach(tr=>{
     const mQ=!q||tr.dataset.nome.includes(q)||tr.dataset.regiao.includes(q);
     const mN=!n||tr.dataset.nivel===n;
     const mS=!soSemResp||tr.dataset.semresp==='1';
-    tr.style.display=(mQ&&mN&&mS)?'':'none';
+    const mC=!nicho||(tr.dataset.nichos||'').split(' ').includes(nicho);
+    tr.style.display=(mQ&&mN&&mS&&mC)?'':'none';
   });
 }
 
@@ -1554,7 +1757,7 @@ function renderExportar(){
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       ${[1,2,3,4].map(n=>{
         const qtd = APOIADORES.filter(a=>a.nivel===n).length;
-        return `<button class="btn-sm btn-outline" ${qtd?'':'disabled style="opacity:.45"'} onclick="exportar(APOIADORES.filter(a=>a.nivel===${n}),'nivel-${n}','Nível ${n}')">Nível ${n} (${qtd})</button>`;
+        return `<button class="btn-sm btn-outline" ${qtd?'':'disabled style="opacity:.45"'} onclick="exportar(APOIADORES.filter(a=>a.nivel===${n}),'nivel-${n}','${PAPEIS_PLURAL[n]}')">${PAPEIS_PLURAL[n]} (${qtd})</button>`;
       }).join('')}
     </div>
   </div>
@@ -1584,6 +1787,11 @@ function exportarPorChave(campo, valor){
 
 function exportar(dados, nomeArquivo, rotulo){
   if(!dados.length){ showToast('Nada para exportar nesse recorte.','error'); return; }
+  // O arquivo é montado aqui no navegador; sem este aviso o servidor nunca
+  // saberia que houve exportação — e ela precisa aparecer no registro de acessos.
+  api('/conta/evento' + wsQuery(), { method:'POST', body: JSON.stringify({
+    acao:'dados.exportar', formato: formatoExport, recorte: rotulo || nomeArquivo, total: dados.length,
+  })}).catch(()=>{});
   if(formatoExport==='csv') return exportCSV(dados, nomeArquivo + '.csv');
   if(formatoExport==='xlsx') return exportXLSX(dados, nomeArquivo, rotulo);
   return exportPDF(dados, nomeArquivo, rotulo);
@@ -1611,7 +1819,7 @@ function renderMinhaRede(){
     const rotulo = n === myNivel + 1 ? 'Meus apoiadores diretos' : 'Apoiadores da minha rede';
     return `
     <div class="card">
-      <div class="card-header"><div class="card-title">${rotulo} — Nível ${n} (${gente.length})</div></div>
+      <div class="card-header"><div class="card-title">${rotulo} — ${PAPEIS_PLURAL[n]} (${gente.length})</div></div>
       <table><thead><tr><th>Nome</th><th>Cadastrado por</th><th>Região</th><th>Telefone</th><th>Nascimento</th><th>Ações</th></tr></thead>
       <tbody>${gente.map(a => `
         <tr>
@@ -1643,7 +1851,7 @@ function renderCadastrar(){
   if(novoNivel>4) return `<div class="page-header"><h1>Cadastrar Novo Apoiador</h1></div><div class="card"><div class="empty-state"><div class="icon">🔒</div><p>Nível máximo atingido.</p></div></div>`;
   if(count>=limite) return `<div class="page-header"><h1>Cadastrar Novo Apoiador</h1></div><div class="card"><div class="empty-state"><div class="icon">🔒</div><p>Limite de <strong>${limite}</strong> apoiadores atingido.</p></div></div>`;
   return `
-  <div class="page-header"><h1>Cadastrar Novo Apoiador</h1><p>Nível ${novoNivel} — Vaga ${count+1} de ${limite}</p></div>
+  <div class="page-header"><h1>Cadastrar Novo Apoiador</h1><p>${papel(novoNivel)} (nível ${novoNivel}) — Vaga ${count+1} de ${limite}</p></div>
   <div class="card">
     <div class="form-grid">
       <div class="field full"><label>Nome Completo *</label><input type="text" id="c-nome" placeholder="Nome completo"></div>
@@ -1663,6 +1871,8 @@ function renderCadastrar(){
       <div class="field"><label>Nº Título Eleitoral</label><input type="text" id="c-titulo" placeholder="0000000000000" inputmode="numeric" maxlength="12"></div>
       <div class="field"><label>Zona Eleitoral</label><input type="text" id="c-zona" placeholder="000" inputmode="numeric"></div>
       <div class="field"><label>Seção Eleitoral</label><input type="text" id="c-secao" placeholder="0000" inputmode="numeric"></div>
+      ${campoMetaHtml('c', null, novoNivel)}
+      ${campoNichosHtml('c')}
     </div>
     <div class="form-actions" style="display:flex;gap:10px;margin-top:8px">
       <button class="btn-sm btn-outline" onclick="showPage('dashboard')">Cancelar</button>
@@ -1719,7 +1929,7 @@ function renderUsuarios(){
       </div>
       <div class="field"><label>Confirmar Senha *</label><input type="password" id="nu-senha2" placeholder="Repita a senha"></div>
       <div class="field"><label>Perfil *</label>
-        <select id="nu-role"><option value="">Selecione...</option><option value="lideranca">Liderança (Nível 1)</option><option value="apoiador-2">Apoiador (Nível 2)</option><option value="apoiador-3">Apoiador (Nível 3)</option></select>
+        <select id="nu-role"><option value="">Selecione...</option><option value="lideranca">Líder (nível 1)</option><option value="apoiador-2">Coordenador (nível 2)</option><option value="apoiador-3">Mobilizador (nível 3)</option></select>
       </div>
       <div class="field"><label>Telefone</label><input type="tel" id="nu-tel" placeholder="(67) 00000-0000"></div>
       <div class="field"><label>E-mail</label><input type="email" id="nu-email" placeholder="para recuperação de senha"></div>
@@ -1737,6 +1947,8 @@ function renderUsuarios(){
       <div class="field"><label>Nº Título Eleitoral</label><input type="text" id="nu-titulo" placeholder="0000000000000" inputmode="numeric" maxlength="12"></div>
       <div class="field"><label>Zona Eleitoral</label><input type="text" id="nu-zona" placeholder="000" inputmode="numeric"></div>
       <div class="field"><label>Seção Eleitoral</label><input type="text" id="nu-secao" placeholder="0000" inputmode="numeric"></div>
+      ${campoMetaHtml('nu', null, 1)}
+      ${campoNichosHtml('nu')}
     </div>
     <button class="btn-sm btn-navy" onclick="criarUsuario()" style="margin-top:8px">➕ Criar Usuário</button>
   </div>
@@ -1864,10 +2076,10 @@ function renderConfiguracoes(){
     <div class="config-row"><span class="config-label">Nome do Candidato</span><input class="config-input" id="cfg-candidatoNome" value="${CONFIG.candidatoNome}"></div>
     <div class="config-row"><span class="config-label">Idealizadora</span><input class="config-input" id="cfg-idealizadora" value="${CONFIG.idealizadora}"></div>
     <div class="config-section-title" style="margin-top:24px">📊 Limites da Pirâmide</div>
-    <div class="config-row"><span class="config-label">Nível 1 — Lideranças</span><input class="config-input config-input-num" id="cfg-lim1" type="number" value="${CONFIG.limiteNivel1}"></div>
-    <div class="config-row"><span class="config-label">Nível 2 — Apoiadores</span><input class="config-input config-input-num" id="cfg-lim2" type="number" value="${CONFIG.limiteNivel2}"></div>
-    <div class="config-row"><span class="config-label">Nível 3</span><input class="config-input config-input-num" id="cfg-lim3" type="number" value="${CONFIG.limiteNivel3}"></div>
-    <div class="config-row"><span class="config-label">Nível 4 — Base</span><input class="config-input config-input-num" id="cfg-lim4" type="number" value="${CONFIG.limiteNivel4}"></div>
+    <div class="config-row"><span class="config-label">Líderes (nível 1)</span><input class="config-input config-input-num" id="cfg-lim1" type="number" value="${CONFIG.limiteNivel1}"></div>
+    <div class="config-row"><span class="config-label">Coordenadores (nível 2)</span><input class="config-input config-input-num" id="cfg-lim2" type="number" value="${CONFIG.limiteNivel2}"></div>
+    <div class="config-row"><span class="config-label">Mobilizadores (nível 3)</span><input class="config-input config-input-num" id="cfg-lim3" type="number" value="${CONFIG.limiteNivel3}"></div>
+    <div class="config-row"><span class="config-label">Apoiadores da base (nível 4)</span><input class="config-input config-input-num" id="cfg-lim4" type="number" value="${CONFIG.limiteNivel4}"></div>
     <div style="display:flex;gap:10px;margin-top:24px">
       <button class="btn-sm btn-navy" onclick="salvarConfig()">💾 Salvar</button>
     </div>
@@ -1935,7 +2147,8 @@ function renderMinhaConta(){
     <div class="card-header"><div class="card-title">📄 Termo de Consentimento (LGPD)</div></div>
     <p style="font-size:13px;color:var(--slate-light);margin-bottom:12px">Releia a qualquer momento o termo que você aceitou ao acessar o sistema.</p>
     <button class="btn-sm btn-outline" onclick="abrirTermoLeitura()">📄 Ler termo completo</button>
-  </div>`;
+  </div>
+  <div id="mc-seguranca"></div>`;
 }
 
 // Mostra a mensagem numa caixa que fica na tela até a próxima tentativa —
@@ -2018,16 +2231,19 @@ function baseGrafico(){
 }
 function chaveGrupo(){
   if(cidadeFoco) return bairroDe;   // dentro de uma cidade, o detalhe é o bairro
+  if(grupoGrafico==='nicho') return nichoNomesDe;
   if(grupoGrafico==='zona') return zonaDe;
   if(grupoGrafico==='cidade') return cidadeDe;
   return bairroDe;
 }
 function rotuloGrupo(){
   if(cidadeFoco) return 'bairro';
+  if(grupoGrafico==='nicho') return 'nicho';
   return grupoGrafico==='zona' ? 'zona eleitoral' : (grupoGrafico==='cidade' ? 'cidade' : 'bairro');
 }
 function tituloColuna(){
   if(cidadeFoco) return 'Bairro';
+  if(grupoGrafico==='nicho') return 'Nicho';
   return grupoGrafico==='zona' ? 'Zona Eleitoral' : (grupoGrafico==='cidade' ? 'Cidade' : 'Bairro');
 }
 
@@ -2072,6 +2288,7 @@ function renderGrafico(){
         ${aba('cidade','🏙️ Cidade',grupoGrafico,'setGrupoGrafico')}
         ${aba('bairro','🏘️ Bairro',grupoGrafico,'setGrupoGrafico')}
         ${aba('zona','🗳️ Zona Eleitoral',grupoGrafico,'setGrupoGrafico')}
+        ${NICHOS.length ? aba('nicho','🎯 Nicho',grupoGrafico,'setGrupoGrafico') : ''}
       </div>
     </div>
     ${cidadeFoco ? `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px">
@@ -2379,7 +2596,7 @@ function orgDesenhar(){
       style="border-color:${cor};${ehRaiz?`background:${cor};`:''}"
       ${temFilhos?`onclick="orgAlternar('${no.id}',event)"`:''}>
       <div class="org-nome">${escapeHtml(no.nome)}</div>
-      <div class="org-sub">${ehRaiz?'Candidato':`Nível ${no.nivel}${no.regiao?' · '+escapeHtml(no.regiao):''}`}</div>
+      <div class="org-sub">${ehRaiz?'Candidato':`${papel(no.nivel)}${no.regiao?' · '+escapeHtml(no.regiao):''}`}</div>
       ${temFilhos?`<span class="org-tag" style="background:${cor}">${no.fechado?'+'+no.total:no.filhos.length}</span>`:''}
       ${ehRaiz?'':`<button class="org-info" onclick="event.stopPropagation();showDetail('${no.id}')" title="Ver ficha">i</button>`}
     </div>`;
@@ -4051,10 +4268,22 @@ const LOG_ACOES = {
   'config.limites':            ['⚙️','Alterou os limites da pirâmide'],
   'mapa.criar':                ['🧠','Criou um mapa mental'],
   'mapa.excluir':              ['🗑','Excluiu um mapa mental'],
+  'nicho.criar':               ['🎯','Criou um nicho'],
+  'nicho.excluir':             ['🗑','Excluiu um nicho'],
+  'apuracao.configurar':       ['🗳️','Configurou a apuração ao vivo'],
+  'apuracao.importar':         ['📋','Colou resultado da apuração'],
+  'historico.configurar':      ['📊','Configurou o desempenho histórico'],
+  'ia.gerar':                  ['🤖','Pediu leitura ao copiloto de IA'],
+  'workspace.abrir':           ['🗝️','Suporte abriu a campanha'],
+  'dados.exportar':            ['📥','Exportou dados da rede'],
+  'seguranca.2fa_ligado':      ['🛡️','Ligou a verificação em duas etapas'],
+  'seguranca.2fa_desligado':   ['⚠️','Desligou a verificação em duas etapas'],
+  'seguranca.suporte_ligado':  ['🔓','Liberou o acesso do suporte'],
+  'seguranca.suporte_desligado':['🔒','Bloqueou o acesso do suporte'],
 };
 
 const LOG_CAMPOS = { nome:'nome', telefone:'telefone', nascimento:'nascimento', endereco:'endereço',
-  regiao:'bairro', cidade:'cidade', estado:'estado', titulo:'título', zona:'zona', secao:'seção',
+  regiao:'bairro', cidade:'cidade', estado:'estado', titulo:'título', zona:'zona', secao:'seção', meta_votos:'meta de votos',
   login:'login', email:'e-mail', plano:'plano', periodo_contrato:'período', data_desativacao:'desativação' };
 
 function logValor(v){
@@ -4262,15 +4491,17 @@ function editarApoiador(id) {
           <div class="field"><label>Nº Título Eleitoral</label><input type="text" id="ed-titulo" value="${a.titulo||''}" placeholder="0000000000000" inputmode="numeric" maxlength="12"></div>
           <div class="field"><label>Zona Eleitoral</label><input type="text" id="ed-zona" value="${a.zona||''}" placeholder="000" inputmode="numeric"></div>
           <div class="field"><label>Seção Eleitoral</label><input type="text" id="ed-secao" value="${a.secao||''}" placeholder="0000" inputmode="numeric"></div>
+          ${campoMetaHtml('ed', a.meta_votos, a.nivel)}
+          ${campoNichosHtml('ed', a.nichos||[])}
         </div>
         ${((papelEfetivo()==='candidato'||currentRole==='lideranca') && a.nivel !== 1) ? `
         <div class="config-section-title" style="margin-top:16px">🗂️ Responsável na pirâmide${a.parent_id?'':' <span style="color:#c53030;font-weight:600">· sem responsável</span>'}</div>
         <div class="form-grid">
           <div class="field"><label>Nível</label>
             <select id="ed-nivel" onchange="atualizarResponsavelSelect('${id}')">
-              <option value="2" ${a.nivel===2?'selected':''}>Nível 2</option>
-              <option value="3" ${a.nivel===3?'selected':''}>Nível 3</option>
-              <option value="4" ${a.nivel===4?'selected':''}>Nível 4</option>
+              <option value="2" ${a.nivel===2?'selected':''}>Coordenador (nível 2)</option>
+              <option value="3" ${a.nivel===3?'selected':''}>Mobilizador (nível 3)</option>
+              <option value="4" ${a.nivel===4?'selected':''}>Apoiador (nível 4)</option>
             </select>
           </div>
           <div class="field"><label>Responsável por</label><select id="ed-parent"></select></div>
@@ -4326,6 +4557,8 @@ async function salvarEdicao(id) {
   if(!nome) { alert('Nome é obrigatório.'); return; }
   const nascDigitado = document.getElementById('ed-nasc').value.trim();
   if(nascDigitado && !dataParaISO(nascDigitado)){ showToast('Data de nascimento inválida — use dia/mês/ano, ex: 07/03/1958.','error'); return; }
+  const erroNicho = faltaNicho('ed');
+  if(erroNicho){ showToast(erroNicho,'error'); return; }
   const body = {
     nome,
     telefone: document.getElementById('ed-tel').value.trim() || null,
@@ -4337,6 +4570,8 @@ async function salvarEdicao(id) {
     titulo: document.getElementById('ed-titulo').value.trim() || null,
     zona: document.getElementById('ed-zona').value.trim() || null,
     secao: document.getElementById('ed-secao').value.trim() || null,
+    nichos: lerNichos('ed'),
+    meta_votos: lerMeta('ed'),
   };
   const nivelSel = document.getElementById('ed-nivel');
   const parentSel = document.getElementById('ed-parent');
@@ -4377,11 +4612,14 @@ async function salvarApoiador(){
   const sec=document.getElementById('c-secao').value.trim();
   if(!nome||!tel||!nascDigitado||!reg){showToast('Preencha os campos obrigatórios.','error');return;}
   if(!nasc){showToast('Data de nascimento inválida — use dia/mês/ano, ex: 07/03/1958.','error');return;}
+  const erroNicho = faltaNicho('c');
+  if(erroNicho){ showToast(erroNicho,'error'); return; }
   showLoading('Salvando...');
   try {
     await api('/apoiadores', { method:'POST', body: JSON.stringify({
       nome, telefone:tel, nascimento:nasc, regiao:reg,
       endereco:endereco||null, cidade:cidade||null, estado:uf||null, titulo:tit||null, zona:zon||null, secao:sec||null,
+      nichos: lerNichos('c'), meta_votos: lerMeta('c'),
     })});
     await carregarApoiadores();
     hideLoading();
@@ -4416,6 +4654,8 @@ async function criarUsuario(){
   if(!nome||!login||!senha||!perfil){showToast('Preencha todos os campos.','error');return;}
   if(senha!==senha2){showToast('As senhas não coincidem.','error');return;}
   if(senha.length<4){showToast('Senha muito curta.','error');return;}
+  const erroNicho = faltaNicho('nu');
+  if(erroNicho){ showToast(erroNicho,'error'); return; }
   showLoading('Criando usuário...');
   let result;
   try {
@@ -4423,6 +4663,7 @@ async function criarUsuario(){
       nome, login, senha, perfil, nivel: nivelEscolhido, telefone: tel || null, email: email || null,
       endereco: endereco || null, regiao: regiao || null, cidade: cidade || null, estado: uf || null,
       titulo: titulo || null, zona: zona || null, secao: secao || null,
+      nichos: lerNichos('nu'), meta_votos: lerMeta('nu'),
       as: workspaceAdmin?.id,
     })});
   } catch(e) {
@@ -4522,7 +4763,9 @@ function showDetail(id){
   document.getElementById('modal-detail-body').innerHTML=`
     <div class="detail-row"><span class="detail-key">Nome</span><span class="detail-val">${a.nome}</span></div>
     <div class="detail-row"><span class="detail-key">Região</span><span class="detail-val"><span class="region-tag">${a.regiao}</span></span></div>
-    <div class="detail-row"><span class="detail-key">Nível</span><span class="detail-val">${nivelBadge(a.nivel)}</span></div>
+    <div class="detail-row"><span class="detail-key">Papel</span><span class="detail-val">${nivelBadge(a.nivel)} <span style="font-size:11px;color:var(--slate-light)">nível ${a.nivel}</span></span></div>
+    ${NICHOS.length ? `<div class="detail-row"><span class="detail-key">Nichos</span><span class="detail-val">${chipsNichos(a) || '<span style="color:var(--slate-light)">nenhum</span>'}</span></div>` : ''}
+    ${a.nivel <= 3 ? `<div class="detail-row"><span class="detail-key">Meta de votos</span><span class="detail-val">${a.meta_votos==null ? '<span style="color:var(--slate-light)">não declarada</span>' : a.meta_votos.toLocaleString('pt-BR')}</span></div>` : ''}
     ${a.login ? `<div class="detail-row"><span class="detail-key">Login de acesso</span><span class="detail-val"><code style="background:#f0f2f8;padding:2px 8px;border-radius:4px;font-size:12px">${a.login}</code></span></div>` : ''}
     <div class="detail-row"><span class="detail-key">Telefone</span><span class="detail-val ${canSee?'':'sensitive'}" onclick="this.classList.toggle('revealed')">${a.telefone}</span></div>
     <div class="detail-row"><span class="detail-key">Endereço</span><span class="detail-val ${canSee?'':'sensitive'}" onclick="this.classList.toggle('revealed')">${a.endereco||'—'}</span></div>
@@ -4548,7 +4791,8 @@ function zonaDe(a){ const z=String(a.zona||'').trim(); return z || ZONA_VAZIA; }
 function bairroDe(a){ const b=String(a.regiao||'').trim(); return b || 'Não informado'; }
 function contarPor(lista, fn){
   const m = new Map();
-  lista.forEach(a=>{ const k=fn(a); m.set(k,(m.get(k)||0)+1); });
+  // A chave pode ser uma lista: quem está em dois nichos conta nos dois.
+  lista.forEach(a=>{ [].concat(fn(a)).forEach(k=>m.set(k,(m.get(k)||0)+1)); });
   return [...m.entries()].sort((x,y)=> y[1]-x[1] || x[0].localeCompare(y[0],'pt-BR'));
 }
 function slug(s){
@@ -4963,7 +5207,7 @@ function exportJSON(){
   showToast('JSON exportado!','success');
 }
 
-function nivelBadge(n){const m={1:['badge-gold','Nível 1'],2:['badge-navy','Nível 2'],3:['badge','Nível 3'],4:['badge','Nível 4']};const[cls,lbl]=m[n]||['badge','—'];return `<span class="badge ${cls}">${lbl}</span>`;}
+function nivelBadge(n){const m={1:['badge-gold','Líder'],2:['badge-navy','Coordenador'],3:['badge','Mobilizador'],4:['badge','Apoiador']};const[cls,lbl]=m[n]||['badge','—'];return `<span class="badge ${cls}" title="Nível ${n}">${lbl}</span>`;}
 function formatDate(d){
   if(!d) return '—';
   try {
@@ -4973,6 +5217,64 @@ function formatDate(d){
     return `${day}/${m}/${y}`;
   } catch { return String(d); }
 }
+// ══════════════════════════════════════════
+//  PAPÉIS, NICHOS E META DE VOTOS
+// ══════════════════════════════════════════
+// Os quatro níveis ganharam nome (especificação do mapa mental de nichos):
+// a hierarquia é a mesma, só passa a ser dita como a campanha fala. O número
+// do nível continua aparecendo entre parênteses onde ajuda a se localizar.
+const PAPEIS = {1:'Líder', 2:'Coordenador', 3:'Mobilizador', 4:'Apoiador'};
+const PAPEIS_PLURAL = {1:'Líderes', 2:'Coordenadores', 3:'Mobilizadores', 4:'Apoiadores'};
+function papel(n){ return PAPEIS[n] || '—'; }
+
+// Nichos temáticos da campanha (Educação, Saúde...). Carregados com a rede.
+let NICHOS = [];
+async function carregarNichos(){
+  try { NICHOS = await api('/nichos' + wsQuery()); } catch(e) { NICHOS = []; }
+}
+const NICHO_SEM = 'Sem nicho';
+function nichosDe(a){ return (a.nichos||[]).map(id=>NICHOS.find(n=>n.id===id)).filter(Boolean); }
+function nichoNomesDe(a){ const l = nichosDe(a).map(n=>n.nome); return l.length ? l : [NICHO_SEM]; }
+function corNicho(nome){ const n = NICHOS.find(x=>x.nome===nome); return n ? (n.cor||'#0f1f3d') : '#a0aec0'; }
+function chipsNichos(a){
+  return nichosDe(a).map(n=>`<span class="nicho-chip" style="--c:${n.cor||'#0f1f3d'}">${escapeHtml(n.nome)}</span>`).join('');
+}
+
+// Campo de escolha de nicho nos formulários: botões que ligam/desligam, em
+// vez de caixas de marcar — no celular é o que se acerta com o dedo.
+function campoNichosHtml(prefixo, selecionados, lista){
+  const nichos = lista || NICHOS;
+  if(!nichos.length) return '';
+  const sel = selecionados || [];
+  return `<div class="field full"><label>Nichos — áreas de interesse *</label>
+    <div class="nicho-escolha" id="${prefixo}-nichos">${nichos.map(n=>`<button type="button" class="nicho-opcao${sel.includes(n.id)?' sel':''}" data-nicho="${n.id}" style="--c:${n.cor||'#0f1f3d'}" onclick="this.classList.toggle('sel')">${escapeHtml(n.nome)}</button>`).join('')}</div>
+    <div style="font-size:11px;color:var(--slate-light);margin-top:4px">Toque em um ou mais.</div></div>`;
+}
+function lerNichos(prefixo){
+  const box = document.getElementById(prefixo+'-nichos');
+  if(!box) return undefined;
+  return [...box.querySelectorAll('.nicho-opcao.sel')].map(b=>b.dataset.nicho);
+}
+// Devolve a mensagem de erro, ou null se está tudo certo.
+function faltaNicho(prefixo){
+  const l = lerNichos(prefixo);
+  return (l !== undefined && !l.length) ? 'Escolha pelo menos um nicho (área de interesse).' : null;
+}
+
+// Meta de votos: Líder, Coordenador e Mobilizador. Campo numérico que NÃO
+// reescreve o valor a cada tecla (regra do teclado de celular — ver mascaraLogin).
+function campoMetaHtml(prefixo, valor, nivel, dica){
+  if(nivel && nivel > 3) return '';
+  return `<div class="field"><label>Meta de votos</label><input type="text" id="${prefixo}-meta" inputmode="numeric" maxlength="8" autocomplete="off" value="${valor==null?'':valor}" placeholder="Ex.: 50">
+    <div style="font-size:11px;color:var(--slate-light);margin-top:4px">${dica || 'Quantos votos essa pessoa acredita entregar na zona/seção dela.'}</div></div>`;
+}
+function lerMeta(prefixo){
+  const el = document.getElementById(prefixo+'-meta');
+  if(!el) return undefined;
+  const v = el.value.replace(/\D/g,'');
+  return v === '' ? null : Number(v);
+}
+
 // ══════════════════════════════════════════
 //  APURAÇÃO AO VIVO
 // ══════════════════════════════════════════
@@ -5110,6 +5412,7 @@ function apPainel(){
         </tr>`;}).join('') || `<tr><td colspan="5" class="ap-meta">Nenhum cadastrado com zona eleitoral.</td></tr>`}</tbody>
     </table></div>
   </div>
+  ${apHtmlMetas(d)}
   <div class="card">
     <div class="card-header"><div class="card-title">Por seção</div></div>
     <div class="table-wrap" style="overflow-x:auto"><table class="ap-tabela">
@@ -5282,6 +5585,444 @@ async function apSalvarConfig(){
     if(corpo.ativo) apBuscarAgora();
   } catch(e){ hideLoading(); showToast(e.message, 'error'); }
 }
+// ── Meta × resultado (Telas 3 e 4) ─────────────────────────────────────────
+// Antes da eleição mostra só a meta somada (a expectativa); com urnas
+// apuradas, o confronto. O voto de cada um é secreto: o "resultado" de um
+// responsável são os votos do candidato nas urnas onde ele e a equipe dele votam.
+function apStatusMeta(votos, meta, apuradas){
+  if(!apuradas) return { cls:'ap-st-cinza', txt:'aguardando urnas', pct:null };
+  const pct = meta ? Math.round(votos/meta*100) : (votos ? 100 : 0);
+  if(pct >= 100) return { cls:'ap-st-verde', txt:'entregou', pct };
+  if(pct >= 70)  return { cls:'ap-st-amarelo', txt:'ficou perto', pct };
+  return { cls:'ap-st-vermelho', txt:'muito abaixo', pct };
+}
+function apHtmlMetas(d){
+  const m = d.metas;
+  if(!m) return '';
+  const porZona = m.porZona.filter(z=>!AP.zona || z.zona===AP.zona);
+  const pr = m.porResponsavel.filter(r=>!AP.zona || r.zona===AP.zona);
+  if(!pr.length) return '';
+  const comMeta = pr.filter(r=>r.meta!=null);
+  const semMeta = pr.length - comMeta.length;
+  const metaTotal = comMeta.reduce((t,r)=>t+r.meta,0);
+  const ranking = comMeta.map(r=>({ ...r, st: apStatusMeta(r.votos, r.meta, r.urnasApuradas) }))
+    .sort((a,b)=> (b.st.pct==null?-1:b.st.pct) - (a.st.pct==null?-1:a.st.pct) || b.meta - a.meta);
+  const pill = st => `<span class="ap-st ${st.cls}">${st.pct==null?'':st.pct+'% · '}${st.txt}</span>`;
+  return `<div class="card">
+    <div class="card-header"><div class="card-title">🎯 Meta prometida × resultado</div></div>
+    <p class="ap-meta" style="margin:-10px 0 14px">Meta declarada por Líderes, Coordenadores e Mobilizadores: <b>${apNum(metaTotal)}</b> votos${semMeta?` · <b>${semMeta}</b> ainda sem meta declarada`:''}. Verde entregou, amarelo ficou perto (70% ou mais), vermelho ficou muito abaixo.</p>
+    ${porZona.length ? `<div class="table-wrap" style="overflow-x:auto;margin-bottom:18px"><table>
+      <thead><tr><th>Zona</th><th>Meta somada</th><th>Votos na zona</th><th>Situação</th></tr></thead>
+      <tbody>${porZona.map(z=>{ const st=apStatusMeta(z.votosZona, z.meta, z.secoesApuradas); return `<tr>
+        <td><b>${apZona(z.zona)}</b></td><td>${apNum(z.meta)} <span class="ap-meta">(${z.pessoasComMeta} pessoa${z.pessoasComMeta>1?'s':''})</span></td>
+        <td>${z.secoesApuradas?apNum(z.votosZona):'—'}${z.secoesApuradas && z.secoesApuradas<z.secoesTotal?' <span class="ap-meta">(parcial)</span>':''}</td><td>${pill(st)}</td></tr>`; }).join('')}</tbody>
+    </table></div>` : ''}
+    <div class="card-title" style="font-size:14px;margin-bottom:8px">Ranking por responsável</div>
+    <div class="table-wrap" style="overflow-x:auto"><table>
+      <thead><tr><th>#</th><th>Nome</th><th>Papel</th><th>Zona</th><th>Meta</th><th>Votos nas urnas da equipe</th><th>Situação</th></tr></thead>
+      <tbody>${ranking.map((r,i)=>`<tr>
+        <td>${r.st.pct==null?'—':i+1}</td><td><b>${escapeHtml(r.nome)}</b>${r.equipe?`<div class="ap-meta">equipe de ${r.equipe}</div>`:''}</td>
+        <td>${nivelBadge(r.nivel)}</td><td>${r.zona?apZona(r.zona):'—'}</td><td>${apNum(r.meta)}</td>
+        <td>${r.urnasTotal ? `${apNum(r.votos)} <span class="ap-meta">(${r.urnasApuradas} de ${r.urnasTotal} urnas)</span>` : '<span class="ap-meta">ninguém da equipe com seção</span>'}</td>
+        <td>${pill(r.st)}</td></tr>`).join('') || `<tr><td colspan="7" class="ap-meta">Ninguém declarou meta ainda. A meta é preenchida no cadastro ou na edição de cada Líder, Coordenador e Mobilizador.</td></tr>`}</tbody>
+    </table></div>
+  </div>`;
+}
+
+// ══════════════════════════════════════════
+//  MAPA DE NICHOS
+// ══════════════════════════════════════════
+// Os nichos atravessam a rede inteira: a mesma pessoa tem papel (hierarquia),
+// território e um ou mais nichos. Esta tela cria os nichos da campanha e
+// mostra o "mapa mental" deles — quanto da rede está em cada área, com que
+// papéis, onde, e com quanta meta de votos.
+const CORES_NICHO = ['#0f1f3d','#c8a84b','#276749','#c53030','#6b8ed6','#8b5cf6','#ea580c','#0891b2','#be185d','#65a30d'];
+let nichoCorNova = null;
+
+function top3(gente, fn){
+  return contarPor(gente, fn).filter(([k])=>k!==ZONA_VAZIA && k!=='Não informado').slice(0,3);
+}
+function renderNichos(){
+  const total = APOIADORES.length;
+  const corLivre = CORES_NICHO.find(c=>!NICHOS.some(n=>n.cor===c)) || CORES_NICHO[0];
+  if(!nichoCorNova) nichoCorNova = corLivre;
+  const galhos = [...NICHOS.map(n=>({ id:n.id, nome:n.nome, cor:n.cor||'#0f1f3d' })), { id:null, nome:NICHO_SEM, cor:'#a0aec0' }].map(n=>{
+    const gente = APOIADORES.filter(a=> n.id ? (a.nichos||[]).includes(n.id) : !(a.nichos||[]).length);
+    return { ...n, gente };
+  }).filter(g=>g.id || g.gente.length);
+  const maior = Math.max(1, ...galhos.map(g=>g.gente.length));
+  return `
+  <div class="page-header ap-topo"><div><h1>Mapa de Nichos</h1><p>Áreas de interesse da rede — cada pessoa pode estar em mais de uma. Os nichos aparecem no cadastro de todo mundo.</p></div>
+    <button class="btn-sm btn-navy" onclick="iaAbrir()">🤖 Me ajuda a entender isso</button></div>
+  <div class="card">
+    <div class="card-header"><div class="card-title">Nichos da campanha (${NICHOS.length})</div></div>
+    <div class="nicho-novo">
+      <input type="text" id="nicho-novo-nome" class="ap-select" maxlength="40" placeholder="Ex.: Educação, Saúde, Inclusão, Esporte..." autocomplete="off" onkeydown="if(event.key==='Enter')nichoCriar()">
+      <div class="nicho-cores">${CORES_NICHO.map(c=>`<button type="button" class="nicho-cor${c===nichoCorNova?' sel':''}" style="background:${c}" onclick="nichoCorNova='${c}';showPage('nichos')" aria-label="cor"></button>`).join('')}</div>
+      <button class="btn-sm btn-navy" onclick="nichoCriar()">➕ Criar nicho</button>
+    </div>
+    ${NICHOS.length ? `<div class="nicho-gestao">${NICHOS.map(n=>`
+      <div class="nicho-item">
+        <span class="nicho-chip" style="--c:${n.cor||'#0f1f3d'}">${escapeHtml(n.nome)}</span>
+        <span class="ap-meta">${APOIADORES.filter(a=>(a.nichos||[]).includes(n.id)).length} pessoas</span>
+        <span style="flex:1"></span>
+        <select class="nicho-trocacor" onchange="nichoSalvar('${n.id}', null, this.value)" aria-label="Cor">${CORES_NICHO.map(c=>`<option value="${c}" ${c===n.cor?'selected':''} style="background:${c};color:#fff">■ cor</option>`).join('')}</select>
+        <button class="btn-sm btn-outline" style="padding:5px 10px;font-size:11px" onclick="nichoRenomear('${n.id}','${escapeAttr(n.nome)}')">✏️ Renomear</button>
+        <button class="btn-del" onclick="nichoExcluir('${n.id}','${escapeAttr(n.nome)}')">🗑</button>
+      </div>`).join('')}</div>`
+    : `<p class="ap-meta">Nenhum nicho ainda. Enquanto a campanha não criar nichos, o cadastro continua igual a antes; depois de criados, todo cadastro novo passa a pedir pelo menos um.</p>`}
+  </div>
+  ${NICHOS.length ? `
+  <div class="mapa-nichos">
+    <div class="mn-centro"><div class="mn-centro-nome">${escapeHtml(CONFIG.candidatoNome || currentUser?.nome || 'Candidato')}</div><div class="mn-centro-num">${total} pessoas na rede</div></div>
+    <div class="mn-galhos">${galhos.map(g=>{
+      const meta = g.gente.reduce((t,a)=>t+(a.nivel<=3&&a.meta_votos?a.meta_votos:0),0);
+      const zonas = top3(g.gente, zonaDe), bairros = top3(g.gente, bairroDe);
+      return `<div class="mn-galho" style="--c:${g.cor}">
+        <div class="mn-nome">${escapeHtml(g.nome)}</div>
+        <div class="mn-num"><b>${g.gente.length}</b> pessoas · ${total?Math.round(g.gente.length/total*100):0}% da rede</div>
+        <div class="mn-barra"><div style="width:${Math.round(g.gente.length/maior*100)}%"></div></div>
+        <div class="mn-papeis">${[1,2,3,4].map(n=>`<span title="${PAPEIS_PLURAL[n]}">${PAPEIS[n][0]} <b>${g.gente.filter(a=>a.nivel===n).length}</b></span>`).join('')}</div>
+        ${meta?`<div class="mn-linha">🎯 meta somada <b>${meta.toLocaleString('pt-BR')}</b></div>`:''}
+        ${zonas.length?`<div class="mn-linha">🗳️ ${zonas.map(([z,q])=>`zona ${escapeHtml(z)} (${q})`).join(', ')}</div>`:''}
+        ${bairros.length?`<div class="mn-linha">🏘️ ${bairros.map(([b,q])=>`${escapeHtml(b)} (${q})`).join(', ')}</div>`:''}
+        ${g.gente.length?`<button class="btn-sm btn-outline mn-ver" onclick="visaoRede='nicho';showPage('rede')">Ver as pessoas</button>`:''}
+      </div>`;
+    }).join('')}</div>
+  </div>` : ''}`;
+}
+async function nichoCriar(){
+  const el = document.getElementById('nicho-novo-nome');
+  const nome = el.value.trim();
+  if(!nome){ showToast('Dê um nome ao nicho.','error'); return; }
+  try {
+    await api('/nichos' + wsQuery(), { method:'POST', body: JSON.stringify({ nome, cor: nichoCorNova }) });
+    nichoCorNova = null;
+    await carregarNichos();
+    showToast(`Nicho "${nome}" criado.`);
+    showPage('nichos');
+  } catch(e){ showToast(e.message, 'error'); }
+}
+async function nichoSalvar(id, nome, cor){
+  const atual = NICHOS.find(n=>n.id===id);
+  try {
+    await api(`/nichos/${id}${wsQuery()}`, { method:'PUT', body: JSON.stringify({ nome: nome || atual.nome, cor: cor || atual.cor }) });
+    await carregarNichos();
+    showPage('nichos');
+  } catch(e){ showToast(e.message, 'error'); }
+}
+function nichoRenomear(id, nomeAtual){
+  const novo = prompt('Novo nome do nicho:', nomeAtual);
+  if(novo && novo.trim() && novo.trim() !== nomeAtual) nichoSalvar(id, novo.trim(), null);
+}
+async function nichoExcluir(id, nome){
+  const qtd = APOIADORES.filter(a=>(a.nichos||[]).includes(id)).length;
+  if(!confirm(`Excluir o nicho "${nome}"?${qtd?`\n\n${qtd} pessoa(s) deixam de estar nele (continuam na rede).`:''}`)) return;
+  try {
+    await api(`/nichos/${id}${wsQuery()}`, { method:'DELETE' });
+    await carregarApoiadores();
+    showToast(`Nicho "${nome}" excluído.`);
+    showPage('nichos');
+  } catch(e){ showToast(e.message, 'error'); }
+}
+// ══════════════════════════════════════════
+//  DESEMPENHO ELEITORAL HISTÓRICO (Tela 5)
+// ══════════════════════════════════════════
+// Resultado oficial de uma eleição passada, município a município, lado a
+// lado com a rede que o candidato tem hoje em cada um.
+const HI = { dados:null, eleicoes:null, cargos:{}, municipios:null, editando:false };
+
+function renderHistorico(){
+  return `
+  <div class="page-header ap-topo">
+    <div><h1>Desempenho histórico</h1><p>Votos de uma eleição passada, por município, comparados com a rede de hoje</p></div>
+    <button class="btn-sm btn-navy" onclick="iaAbrir()">🤖 Me ajuda a entender isso</button>
+  </div>
+  <div id="hi-corpo"><div class="card"><p class="ap-meta">Carregando...</p></div></div>
+  <div id="hi-detalhe"></div>`;
+}
+async function hiIniciar(){ HI.editando = false; await hiCarregar(); }
+async function hiCarregar(){
+  const c = document.getElementById('hi-corpo'); if(!c) return;
+  c.innerHTML = `<div class="card"><p class="ap-meta">Buscando o resultado oficial no TSE... (a primeira vez de cada município demora alguns segundos)</p></div>`;
+  try { HI.dados = await api('/historico' + wsQuery()); }
+  catch(e){ c.innerHTML = `<div class="card"><p style="color:var(--red)">${escapeHtml(e.message)}</p></div>`; return; }
+  if(!HI.dados.config) HI.editando = true;
+  hiDesenhar();
+}
+function hiDesenhar(){ if(paginaAtual!=='historico') return; HI.editando ? hiForm() : hiPainel(); }
+
+async function hiForm(){
+  const c = document.getElementById('hi-corpo'); if(!c) return;
+  if(!HI.eleicoes){
+    try { const r = await api('/historico/eleicoes' + wsQuery()); HI.eleicoes = r.eleicoes; HI.cargos = r.cargos; }
+    catch(e){ c.innerHTML = `<div class="card"><p style="color:var(--red)">${escapeHtml(e.message)}</p></div>`; return; }
+  }
+  const cfg = (HI.dados && HI.dados.config) || {};
+  const atual = cfg.ciclo ? `${cfg.ciclo}|${cfg.eleicao}` : '';
+  const ufSug = cfg.uf ? cfg.uf.toUpperCase() : ((contarPor(APOIADORES.filter(a=>a.estado), a=>String(a.estado).trim().toUpperCase())[0]||[])[0] || '');
+  c.innerHTML = `<div class="card">
+    <div class="card-header"><div class="card-title">📊 Qual eleição usar como referência</div></div>
+    <div class="form-grid">
+      <div class="field full"><label>Eleição</label><select id="hi-f-el" onchange="hiTrocouEleicao()">
+        ${HI.eleicoes.map(e=>`<option value="${e.ciclo}|${e.eleicao}" ${`${e.ciclo}|${e.eleicao}`===atual?'selected':''}>${escapeHtml(e.nome)}</option>`).join('')}
+      </select></div>
+      <div class="field"><label>Cargo</label><select id="hi-f-cargo"></select></div>
+      <div class="field"><label>Estado</label><select id="hi-f-uf">${AP_UFS.map(u=>`<option value="${u.toLowerCase()}" ${u===ufSug?'selected':''}>${u}</option>`).join('')}</select></div>
+      <div class="field"><label>Número do candidato naquela eleição</label><input id="hi-f-num" inputmode="numeric" maxlength="5" autocomplete="off" value="${escapeHtml(cfg.numero||'')}" placeholder="ex.: 45123"></div>
+    </div>
+    <p class="ap-meta">Se o candidato não concorreu a nada, escolha a eleição e o número de alguém de referência (um aliado, por exemplo) — a comparação com a rede continua valendo.</p>
+    <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+      <button class="btn-sm btn-navy" onclick="hiSalvar()">💾 Salvar e carregar</button>
+      ${HI.dados && HI.dados.config ? `<button class="btn-sm btn-outline" onclick="HI.editando=false;hiDesenhar()">Cancelar</button>` : ''}
+    </div>
+  </div>`;
+  hiTrocouEleicao(cfg.cargo);
+}
+function hiTrocouEleicao(cargoAtual){
+  const [ciclo, eleicao] = document.getElementById('hi-f-el').value.split('|');
+  const el = HI.eleicoes.find(e=>e.ciclo===ciclo && e.eleicao===eleicao);
+  const sel = document.getElementById('hi-f-cargo');
+  const antes = cargoAtual || sel.value;
+  sel.innerHTML = el.cargos.map(k=>`<option value="${k}" ${k===antes?'selected':''}>${HI.cargos[k]||k}</option>`).join('');
+}
+async function hiSalvar(){
+  const [ciclo, eleicao] = document.getElementById('hi-f-el').value.split('|');
+  const corpo = { ciclo, eleicao, cargo: document.getElementById('hi-f-cargo').value, uf: document.getElementById('hi-f-uf').value,
+    numero: document.getElementById('hi-f-num').value.replace(/\D/g,'') };
+  showLoading('Salvando...');
+  try { await api('/historico/config' + wsQuery(), { method:'PUT', body: JSON.stringify(corpo) }); }
+  catch(e){ hideLoading(); showToast(e.message,'error'); return; }
+  hideLoading();
+  HI.editando = false; HI.municipios = null;
+  const d = document.getElementById('hi-detalhe'); if(d) d.innerHTML = '';
+  await hiCarregar();
+}
+
+function hiPainel(){
+  const c = document.getElementById('hi-corpo'); if(!c) return;
+  const d = HI.dados, cfg = d.config;
+  const linhas = [...(d.municipios||[])];
+  c.innerHTML = `
+  ${d.erro ? `<div class="ap-aviso ap-aviso-erro">${escapeHtml(d.erro)}</div>` : ''}
+  <div class="ap-barra-topo">
+    <span class="ap-meta"><b>${escapeHtml(cfg.nomeCargo||cfg.cargo)}</b> · nº ${escapeHtml(cfg.numero)} · ${String(cfg.uf).toUpperCase()} · ${escapeHtml(cfg.nomeEleicao||'')}</span>
+    <span style="flex:1"></span>
+    <select id="hi-outro" class="ap-select" onfocus="hiListarMunicipios()" onchange="if(this.value)hiAbrir(this.value)"><option value="">Abrir outro município...</option></select>
+    <button class="btn-sm btn-outline" onclick="HI.editando=true;hiDesenhar()">⚙️ Trocar eleição</button>
+  </div>
+  ${d.semMunicipio ? `<div class="ap-aviso">⚠️ <b>${d.semMunicipio}</b> cadastro(s) sem cidade reconhecida neste estado (cidade em branco, escrita diferente ou de outro estado) — ficam fora da comparação.</div>` : ''}
+  ${d.foraDoLimite ? `<div class="ap-aviso">A rede está em mais municípios do que a tela carrega de uma vez; os ${d.foraDoLimite} com menos gente ficaram de fora. Use "Abrir outro município".</div>` : ''}
+  <div class="card">
+    <div class="card-header"><div class="card-title">Municípios onde a rede está hoje</div></div>
+    <p class="ap-meta" style="margin:-10px 0 14px">Clique num município para ver concorrentes, perfil de nicho e onde falta liderança. Muitos votos por pessoa da rede e poucas lideranças costumam indicar espaço para crescer a rede ali.</p>
+    <div class="table-wrap" style="overflow-x:auto"><table>
+      <thead><tr><th>Município</th><th>Rede hoje</th><th>Líderes/Coord.</th><th>Votos</th><th>Posição</th><th>Votos por pessoa da rede</th><th>1º colocado</th></tr></thead>
+      <tbody>${linhas.map(m=>{ const r=m.resultado; return `<tr class="ap-linha-zona" onclick="hiAbrir('${m.codigo}')">
+        <td><b>${escapeHtml(m.nome)}</b></td><td>${apNum(m.cadastrados)}</td>
+        <td>${m.liderancas ? apNum(m.liderancas) : '<span class="ap-st ap-st-vermelho">nenhum</span>'}</td>
+        <td>${r ? apNum(r.votos) : '<span class="ap-meta">sem dado</span>'}</td>
+        <td>${r && r.posicao ? `${r.posicao}º de ${r.totalCandidatos}${r.eleito?' ✅':''}` : '—'}</td>
+        <td>${r && m.cadastrados ? (r.votos/m.cadastrados).toLocaleString('pt-BR',{maximumFractionDigits:1}) : '—'}</td>
+        <td>${r && r.primeiro ? `${escapeHtml(r.primeiro.nome||r.primeiro.numero)} <span class="ap-meta">${apNum(r.primeiro.votos)}</span>` : (r && r.posicao===1 ? '<b>o próprio candidato</b>' : '—')}</td>
+      </tr>`; }).join('') || `<tr><td colspan="7" class="ap-meta">Nenhum cadastro da rede com cidade deste estado.</td></tr>`}</tbody>
+    </table></div>
+  </div>`;
+}
+async function hiListarMunicipios(){
+  if(HI.municipios) return;
+  try { HI.municipios = await api('/historico/municipios' + wsQuery()); } catch(e){ HI.municipios = []; }
+  const sel = document.getElementById('hi-outro');
+  if(sel) sel.innerHTML = `<option value="">Abrir outro município...</option>` + HI.municipios.map(m=>`<option value="${m.codigo}">${escapeHtml(m.nome)}</option>`).join('');
+}
+async function hiAbrir(codigo){
+  const box = document.getElementById('hi-detalhe'); if(!box) return;
+  box.innerHTML = `<div class="card"><p class="ap-meta">Carregando o município...</p></div>`;
+  box.scrollIntoView({ behavior:'smooth', block:'start' });
+  let d;
+  try { d = await api(`/historico/municipio/${codigo}${wsQuery()}`); }
+  catch(e){ box.innerHTML = `<div class="card"><p style="color:var(--red)">${escapeHtml(e.message)}</p></div>`; return; }
+  const r = d.resultado, rede = d.rede;
+  const semLid = (lista) => lista.filter(t=>!t.liderancas);
+  const barras = (lista) => { const mx = Math.max(1, ...lista.map(x=>x.qtd)); return lista.map(x=>`<div class="hi-barra"><span>${escapeHtml(x.nome)}</span><div><i style="width:${Math.round(x.qtd/mx*100)}%;background:${corNicho(x.nome)}"></i></div><b>${x.qtd}</b></div>`).join(''); };
+  box.innerHTML = `<div class="card">
+    <div class="card-header"><div class="card-title">📍 ${escapeHtml(d.municipio.nome)}</div><button class="btn-sm btn-outline" onclick="document.getElementById('hi-detalhe').innerHTML=''">Fechar</button></div>
+    ${d.semResultado ? `<div class="ap-aviso">O TSE não tem resultado deste cargo neste município nessa eleição.</div>` : ''}
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-label">Votos na eleição</div><div class="stat-value">${r?apNum(r.votos):'—'}</div><div class="stat-sub">${r && r.aptos ? `${apNum(r.aptos)} eleitores aptos` : ''}</div></div>
+      <div class="stat-card"><div class="stat-label">Posição local</div><div class="stat-value">${r&&r.posicao?r.posicao+'º':'—'}</div><div class="stat-sub">${r?`de ${r.totalCandidatos} candidatos`:''}</div></div>
+      <div class="stat-card"><div class="stat-label">Rede hoje</div><div class="stat-value">${apNum(rede.cadastrados)}</div><div class="stat-sub">${rede.porNivel.map(n=>`${PAPEIS[n.nivel][0]} ${n.qtd}`).join(' · ')}</div></div>
+      <div class="stat-card ap-card-cob"><div class="stat-label">Para passar o de cima</div><div class="stat-value">${r && r.acima ? apNum(r.acima.votos - r.votos) : (r && r.posicao===1 ? '1º' : '—')}</div><div class="stat-sub">${r && r.acima ? `votos a mais que ${escapeHtml(r.acima.nome||r.acima.numero)}` : ''}</div></div>
+    </div>
+    ${d.concorrentes.length ? `<div class="card-title" style="font-size:14px;margin:6px 0 8px">Concorrentes</div>
+    <div class="table-wrap" style="overflow-x:auto"><table>
+      <thead><tr><th>Posição</th><th>Candidato</th><th>Partido</th><th>Votos</th></tr></thead>
+      <tbody>${d.concorrentes.map(x=>`<tr${x.eu?' class="hi-eu"':''}><td>${x.posicao||'—'}º</td><td><b>${escapeHtml(x.nome || 'nº '+x.numero)}</b> <span class="ap-meta">${x.numero}</span>${x.eleito?' ✅':''}${x.eu?' <span class="badge badge-gold">referência</span>':''}</td><td>${escapeHtml(x.partido||'—')}</td><td>${apNum(x.votos)}</td></tr>`).join('')}</tbody>
+    </table></div>` : ''}
+    <div class="hi-colunas">
+      <div><div class="card-title" style="font-size:14px;margin:16px 0 8px">Perfil de nicho da rede aqui</div>${rede.cadastrados ? barras(rede.porNicho) : '<p class="ap-meta">Ninguém da rede neste município ainda.</p>'}</div>
+      <div><div class="card-title" style="font-size:14px;margin:16px 0 8px">Presença territorial</div>
+        ${rede.cadastrados ? `
+        <p class="ap-meta">Bairros com gente da rede e <b>sem Líder nem Coordenador</b>: ${semLid(rede.bairros).length ? semLid(rede.bairros).slice(0,15).map(b=>`<span class="ap-st ap-st-vermelho">${escapeHtml(b.nome)} (${b.cadastrados})</span>`).join(' ') : '<b>nenhum</b> ✅'}</p>
+        <p class="ap-meta" style="margin-top:8px">Zonas eleitorais sem liderança formal: ${semLid(rede.zonas).length ? semLid(rede.zonas).map(z=>`<span class="ap-st ap-st-vermelho">zona ${escapeHtml(z.nome)} (${z.cadastrados})</span>`).join(' ') : '<b>nenhuma</b> ✅'}</p>`
+        : '<p class="ap-meta">Sem rede aqui: todo o município é território a abrir.</p>'}
+      </div>
+    </div>
+  </div>`;
+}
+// ══════════════════════════════════════════
+//  COPILOTO DE IA
+// ══════════════════════════════════════════
+// Painel lateral com 3 a 5 alertas em linguagem simples. A IA lê só um resumo
+// com contagens (nenhum dado pessoal sai do servidor). A última leitura fica
+// guardada: abrir o painel não gasta chamada, só o botão de gerar gasta.
+const IA = { dados:null, gerando:false };
+const IA_TIPOS = {
+  vazio_territorial:    ['📍','Vazio territorial'],
+  desequilibrio_nicho:  ['⚖️','Desequilíbrio de nicho'],
+  meta_irrealista:      ['🎯','Meta fora da realidade'],
+  gargalo_hierarquico:  ['🧱','Gargalo na hierarquia'],
+  padrao_pos_eleicao:   ['🗳️','Padrão depois da eleição'],
+  diagnostico_historico:['📊','Diagnóstico histórico'],
+};
+function iaAtualizarBotao(){
+  const b = document.getElementById('ia-botao');
+  if(b) b.style.display = (currentUser && papelEfetivo()==='candidato') ? 'flex' : 'none';
+}
+async function iaAbrir(){
+  document.getElementById('ia-painel').classList.add('aberto');
+  document.getElementById('ia-painel').setAttribute('aria-hidden','false');
+  document.getElementById('ia-corpo').innerHTML = '<p class="ap-meta">Carregando...</p>';
+  try { IA.dados = await api('/ia' + wsQuery()); }
+  catch(e){ IA.dados = null; document.getElementById('ia-corpo').innerHTML = `<p style="color:var(--red)">${escapeHtml(e.message)}</p>`; return; }
+  iaDesenhar();
+}
+function iaFechar(){
+  const p = document.getElementById('ia-painel');
+  if(p){ p.classList.remove('aberto'); p.setAttribute('aria-hidden','true'); }
+}
+function iaDesenhar(){
+  const c = document.getElementById('ia-corpo'); if(!c || !IA.dados) return;
+  const d = IA.dados;
+  if(!d.configurado){
+    c.innerHTML = `<div class="ap-aviso">O copiloto ainda não foi ativado neste servidor: falta a chave da API da Anthropic. Assim que ela for configurada, este painel passa a funcionar — nada mais precisa mudar.</div>`;
+    return;
+  }
+  const u = d.ultimo;
+  const quando = u ? new Date(u.gerado_em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : null;
+  c.innerHTML = `
+    <button class="btn-sm btn-navy" style="width:100%" onclick="iaGerar()" ${IA.gerando||d.usadasHoje>=d.limite?'disabled':''}>${IA.gerando?'Lendo a sua rede... (leva uns segundos)':(u?'🔄 Gerar leitura nova':'✨ Ler a minha rede')}</button>
+    <p class="ap-meta" style="margin:8px 0 14px;text-align:center">${quando?`Última leitura: ${quando} · `:''}${d.usadasHoje} de ${d.limite} leituras hoje</p>
+    ${u ? (u.insights||[]).map((i,k)=>{ const [ic, rot] = IA_TIPOS[i.tipo] || ['💡','Leitura']; return `
+      <div class="ia-card">
+        <div class="ia-tipo">${ic} ${rot}${i.territorio_ou_nicho_afetado?` · <span>${escapeHtml(i.territorio_ou_nicho_afetado)}</span>`:''}</div>
+        <div class="ia-card-titulo">${escapeHtml(i.titulo||'')}</div>
+        <div class="ia-texto">${escapeHtml(i.texto)}</div>
+        <div class="ia-detalhe" id="ia-det-${k}" style="display:none">${escapeHtml(i.detalhe||'')}${i.acao_sugerida?`<div class="ia-acao">👉 ${escapeHtml(i.acao_sugerida)}</div>`:''}</div>
+        <button class="ia-ver" onclick="const e=document.getElementById('ia-det-${k}');const v=e.style.display==='none';e.style.display=v?'block':'none';this.textContent=v?'esconder detalhe':'ver detalhe'">ver detalhe</button>
+      </div>`; }).join('') : `<p class="ap-meta">Clique no botão para o copiloto ler a sua rede: quantos em cada papel, nicho e território, metas e — se configurados — a apuração e o desempenho histórico.</p>`}
+    <p class="ap-meta" style="margin-top:14px;line-height:1.5">A IA não decide nada: ela só traduz os números da sua rede. Nenhum nome, telefone ou título de eleitor é enviado a ela.</p>`;
+}
+async function iaGerar(){
+  IA.gerando = true; iaDesenhar();
+  try {
+    const r = await api('/ia/gerar' + wsQuery(), { method:'POST' });
+    IA.dados.ultimo = { gerado_em: r.gerado_em, insights: r.insights };
+    IA.dados.usadasHoje++;
+  } catch(e){ showToast(e.message, 'error'); }
+  IA.gerando = false; iaDesenhar();
+}
+
+// ══════════════════════════════════════════
+//  SEGURANÇA DA CONTA (Minha Conta)
+// ══════════════════════════════════════════
+async function mcCarregarSeguranca(){
+  const el = document.getElementById('mc-seguranca'); if(!el) return;
+  let s; try { s = await api('/conta/seguranca'); } catch(e){ return; }
+  const ehCand = currentRole === 'candidato';
+  el.innerHTML = `
+  <div class="card">
+    <div class="card-header"><div class="card-title">🛡️ Verificação em duas etapas</div>${s.totpAtivo?'<span class="badge badge-green">ligada</span>':'<span class="badge">desligada</span>'}</div>
+    <p style="font-size:13px;color:var(--slate-light);margin-bottom:12px">Além da senha, o login pede um código de 6 números que muda a cada 30 segundos no aplicativo autenticador do seu celular (Google Authenticator, Microsoft Authenticator ou Authy). Mesmo que alguém descubra a sua senha, não entra sem o seu celular.</p>
+    <div id="mc-2fa">${s.totpAtivo ? `
+      <div class="form-grid">
+        <div class="field"><label>Senha atual</label><input type="password" id="mc-2fa-senha"></div>
+        <div class="field"><label>Código do aplicativo</label><input type="text" id="mc-2fa-cod" inputmode="numeric" maxlength="6" autocomplete="one-time-code"></div>
+      </div>
+      <button class="btn-sm btn-outline" style="color:var(--red)" onclick="mc2faDesativar()">Desligar a verificação</button>` : `
+      <div class="form-grid"><div class="field"><label>Senha atual</label><input type="password" id="mc-2fa-senha" placeholder="Confirme com a sua senha"></div></div>
+      <button class="btn-sm btn-navy" onclick="mc2faIniciar()">Ligar a verificação em duas etapas</button>`}
+    </div>
+  </div>
+  ${ehCand ? `
+  <div class="card">
+    <div class="card-header"><div class="card-title">🔐 Acesso do suporte à sua campanha</div></div>
+    <label style="display:flex;gap:10px;align-items:flex-start;font-size:13px;color:var(--slate);cursor:pointer">
+      <input type="checkbox" style="margin-top:3px" ${s.suporteAdmin?'checked':''} onchange="mcSuporte(this.checked)">
+      <span><b>Permitir que o suporte da plataforma abra a minha campanha</b> para ajudar com cadastros e ajustes. Desligado, ninguém de fora — nem o administrador — consegue ver os dados da sua rede. Cada vez que o suporte entra, fica registrado aqui embaixo.</span>
+    </label>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="card-title">📜 Registro de acessos à campanha</div><button class="btn-sm btn-outline" onclick="mcCarregarAcessos()">🔄 Atualizar</button></div>
+    <div id="mc-acessos"><p class="ap-meta">Carregando...</p></div>
+  </div>` : ''}`;
+  if(ehCand) mcCarregarAcessos();
+}
+async function mc2faIniciar(){
+  const senhaAtual = document.getElementById('mc-2fa-senha').value;
+  if(!senhaAtual){ showToast('Digite a sua senha atual.','error'); return; }
+  let r;
+  try { r = await api('/conta/2fa/iniciar', { method:'POST', body: JSON.stringify({ senhaAtual }) }); }
+  catch(e){ showToast(e.message,'error'); return; }
+  document.getElementById('mc-2fa').innerHTML = `
+    <ol class="mc-passos">
+      <li>Instale um aplicativo autenticador no celular (Google Authenticator, Microsoft Authenticator ou Authy).</li>
+      <li>No celular, toque em <a href="${r.link}" class="btn-sm btn-outline" style="display:inline-block;padding:4px 10px">Abrir no aplicativo</a> — ou, no aplicativo, escolha "digitar chave" e use esta chave:<div class="mc-chave">${r.segredo.match(/.{1,4}/g).join(' ')}</div></li>
+      <li>Digite abaixo o código de 6 números que apareceu no aplicativo.</li>
+    </ol>
+    <div class="form-grid"><div class="field"><label>Código do aplicativo</label><input type="text" id="mc-2fa-cod" inputmode="numeric" maxlength="6" autocomplete="one-time-code"></div></div>
+    <button class="btn-sm btn-navy" onclick="mc2faAtivar()">Confirmar e ligar</button>`;
+}
+async function mc2faAtivar(){
+  const codigo = document.getElementById('mc-2fa-cod').value.replace(/\D/g,'');
+  try { await api('/conta/2fa/ativar', { method:'POST', body: JSON.stringify({ codigo }) }); }
+  catch(e){ showToast(e.message,'error'); return; }
+  showToast('Verificação em duas etapas ligada. No próximo login, o sistema vai pedir o código.');
+  mcCarregarSeguranca();
+}
+async function mc2faDesativar(){
+  const senhaAtual = document.getElementById('mc-2fa-senha').value;
+  const codigo = document.getElementById('mc-2fa-cod').value.replace(/\D/g,'');
+  try { await api('/conta/2fa/desativar', { method:'POST', body: JSON.stringify({ senhaAtual, codigo }) }); }
+  catch(e){ showToast(e.message,'error'); return; }
+  showToast('Verificação em duas etapas desligada.');
+  mcCarregarSeguranca();
+}
+async function mcSuporte(permitir){
+  try {
+    await api('/conta/suporte', { method:'PUT', body: JSON.stringify({ permitir }) });
+    showToast(permitir ? 'Suporte liberado para abrir a sua campanha.' : 'Pronto: o suporte não consegue mais abrir a sua campanha.');
+    mcCarregarAcessos();
+  } catch(e){ showToast(e.message,'error'); mcCarregarSeguranca(); }
+}
+async function mcCarregarAcessos(){
+  const el = document.getElementById('mc-acessos'); if(!el) return;
+  let lista; try { lista = await api('/conta/acessos'); } catch(e){ el.innerHTML = `<p style="color:var(--red)">${escapeHtml(e.message)}</p>`; return; }
+  const detalhe = (ev) => {
+    const d = ev.detalhes || {};
+    if(ev.acao==='dados.exportar') return `${escapeHtml(d.recorte||'')} · ${escapeHtml(String(d.formato||'').toUpperCase())} · ${d.total ?? '?'} pessoas`;
+    if(ev.acao==='login.falha') return escapeHtml(d.motivo||'');
+    return '';
+  };
+  el.innerHTML = lista.length ? `<div class="table-wrap" style="overflow-x:auto"><table>
+    <thead><tr><th>Quando</th><th>Quem</th><th>O quê</th><th>Detalhe</th><th>IP</th></tr></thead>
+    <tbody>${lista.map(ev=>{ const [ic, rot] = LOG_ACOES[ev.acao] || ['•', ev.acao]; return `<tr>
+      <td style="white-space:nowrap">${new Date(ev.ocorrido_em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'})}</td>
+      <td>${escapeHtml(ev.ator_nome||'—')}${ev.como_admin||ev.acao==='workspace.abrir'?' <span class="badge badge-gold">suporte</span>':''}</td>
+      <td>${ic} ${escapeHtml(rot)}</td><td class="ap-meta">${detalhe(ev)}</td><td class="ap-meta">${escapeHtml(ev.ip||'')}</td></tr>`; }).join('')}</tbody>
+  </table></div>` : '<p class="ap-meta">Nenhum acesso registrado ainda.</p>';
+}
+
 function escapeAttr(s){return String(s).replace(/'/g,"\\'").replace(/"/g,'&quot;');}
 
 // formatDate mostra só o dia — no log a hora é essencial ("quem mexeu nisso

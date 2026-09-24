@@ -10,6 +10,7 @@ const { nivelUsuario } = require('../utils/nivelUsuario');
 const mail = require('../services/mail');
 const asyncHandler = require('../utils/asyncHandler');
 const { registrar } = require('../utils/auditoria');
+const totp = require('../utils/totp');
 
 const router = express.Router();
 
@@ -54,6 +55,24 @@ router.post('/login', asyncHandler(async (req, res) => {
       candidatoId: user.perfil === 'candidato' ? user.id : user.criado_por || null,
     });
     return res.status(401).json({ error: 'Usuário ou senha incorretos.' });
+  }
+
+  // Verificação em duas etapas, para quem ligou. A senha já foi conferida:
+  // a tela pede o código e reenvia login + senha + código juntos.
+  if (user.totp_ativo) {
+    const codigo = String(req.body.codigo || '').replace(/\D/g, '');
+    if (!codigo) {
+      return res.status(401).json({ error: 'Digite o código de 6 números do seu aplicativo autenticador.', precisa2fa: true });
+    }
+    if (!totp.verificar(user.totp_segredo, codigo)) {
+      await registrar(req, {
+        acao: 'login.falha', alvoTipo: 'sessao', alvoId: user.id, alvoNome: user.nome,
+        detalhes: { motivo: 'código de verificação incorreto', login: user.login },
+        ator: { id: user.id, nome: user.nome, perfil: user.perfil },
+        candidatoId: user.perfil === 'candidato' ? user.id : user.criado_por || null,
+      });
+      return res.status(401).json({ error: 'Código incorreto. Confira no aplicativo e digite o número que está aparecendo agora.', precisa2fa: true });
+    }
   }
 
   // Contrato encerrado: bloqueia o candidato E toda a rede criada por ele

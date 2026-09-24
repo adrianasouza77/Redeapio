@@ -108,7 +108,18 @@ function votosNoBU(texto, cargo, numero) {
   return achouCargo ? 0 : null;
 }
 
-// Busca o BU de uma seção. null = ainda não divulgado.
+// Totais da urna impressos no BU. Primeira ocorrência: o BU repete os aptos
+// no rodapé de cada cargo, com o mesmo valor.
+function totaisDoBU(texto) {
+  const num = (re) => { const m = texto.match(re); return m ? Number(m[1]) : null; };
+  return {
+    aptos: num(/Eleitores aptos\s+(\d+)/),
+    comparecimento: num(/Comparecimento\s+(\d+)/),
+  };
+}
+
+// Busca o BU de uma seção. null = ainda não divulgado; senão
+// { votos, aptos, comparecimento }.
 async function buscarSecao({ ciclo, pleito, uf, municipio, zona, secao, cargo, numero }) {
   const p6 = pad(pleito, 6);
   const pasta = `${BASE}/${ciclo}/arquivo-urna/${pleito}/dados/${uf}/${municipio}/${zona}/${secao}`;
@@ -126,7 +137,65 @@ async function buscarSecao({ ciclo, pleito, uf, municipio, zona, secao, cargo, n
   if (votos === null) {
     throw new Error(`O cargo "${cargo}" não aparece no boletim de urna. Confira o cargo na configuração.`);
   }
-  return votos;
+  return { votos, ...totaisDoBU(texto) };
 }
 
-module.exports = { pad4, listarPleitos, configSecoes, buscarSecao, votosNoBU };
+// ─── Resultado consolidado por município (eleições passadas) ────────────────
+// Um arquivo por município × cargo com TODOS os candidatos, os votos e a
+// posição no ranking local ("seq"). Dois formatos convivem no portal:
+//   -u.json → carg[].agr[].par[].cand[] com nome e partido (eleição estadual e municipal)
+//   -v.json → abr[].cand[] só com número, mas com eleitores aptos e comparecimento
+// ("seq" nos dois NÃO é a posição por votos — ver abaixo.)
+// Presidente (2022) só tem o -v; os demais têm os dois. Tenta o -u primeiro
+// pelo nome, e completa aptos/comparecimento com o -v quando existir.
+async function resultadoMunicipio({ ciclo, eleicao, uf, municipio, cargo }) {
+  const base = `${BASE}/${ciclo}/${eleicao}/dados/${uf}/${uf}${municipio}-c${pad(cargo, 4)}-e${pad(eleicao, 6)}`;
+  const [u, v] = await Promise.all([baixar(`${base}-u.json`).catch(() => null), baixar(`${base}-v.json`).catch(() => null)]);
+  let candidatos = [];
+  if (u && Array.isArray(u.carg)) {
+    for (const c of u.carg) {
+      for (const agr of c.agr || []) {
+        for (const par of agr.par || []) {
+          for (const cand of par.cand || []) {
+            candidatos.push({
+              numero: String(cand.n), nome: cand.nmu || cand.nm || null, partido: par.sg || null,
+              votos: Number(cand.vap) || 0, posicao: Number(cand.seq) || null, eleito: /^s$/i.test(cand.e || ''),
+            });
+          }
+        }
+      }
+    }
+  }
+  const abr = v && Array.isArray(v.abr) ? v.abr[0] : null;
+  if (!candidatos.length && abr) {
+    candidatos = (abr.cand || []).map((cand) => ({
+      numero: String(cand.n), nome: null, partido: null,
+      votos: Number(cand.vap) || 0, posicao: Number(cand.seq) || null, eleito: /^s$/i.test(cand.e || ''),
+    }));
+  }
+  if (!candidatos.length) return null;
+  // A posição é calculada aqui, pelos votos. O "seq" do TSE parece ranking,
+  // mas não é: no arquivo de vereador de Dourados/2024 a candidata com 2.992
+  // votos vinha com seq 30 e o de 2.375 com seq 33 — a ordem é outra (lista
+  // de eleitos). Empate de votos divide a mesma posição.
+  candidatos.sort((a, b) => b.votos - a.votos);
+  candidatos.forEach((c, i) => {
+    c.posicao = i > 0 && c.votos === candidatos[i - 1].votos ? candidatos[i - 1].posicao : i + 1;
+  });
+  return {
+    candidatos,
+    aptos: abr && abr.e ? Number(abr.e) : null,
+    comparecimento: abr && abr.c ? Number(abr.c) : null,
+  };
+}
+
+// Municípios de um estado naquela eleição (lista oficial, com código TSE).
+async function municipiosEleicao(ciclo, eleicao, uf) {
+  const j = await comCache(`cm:${ciclo}:${eleicao}`, 24, () => baixar(`${BASE}/${ciclo}/${eleicao}/config/mun-e${pad(eleicao, 6)}-cm.json`));
+  if (!j) return [];
+  const estado = (j.abr || []).find((a) => String(a.cd).toLowerCase() === uf);
+  return (estado?.mu || []).map((m) => ({ codigo: m.cd, nome: m.nm }))
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+}
+
+module.exports = { pad4, listarPleitos, configSecoes, buscarSecao, votosNoBU, resultadoMunicipio, municipiosEleicao };

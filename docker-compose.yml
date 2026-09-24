@@ -70,6 +70,11 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-}
+      # Copiloto de IA ("Me ajuda a entender isso"). A chave é da conta da dona
+      # do sistema na Anthropic — quem paga o uso. Sem ela, o resto do sistema
+      # funciona normalmente e o botão do copiloto avisa que falta ativar.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      IA_MODELO: ${IA_MODELO:-claude-sonnet-5}
       # Só necessárias para rodar migrate.sh (importação única do Supabase).
       # Adicione no Portainer só na hora da migração; depois de rodar e
       # rotacionar a service_role key no Supabase, remova estas duas daqui

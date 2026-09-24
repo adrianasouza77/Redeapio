@@ -50,6 +50,9 @@ app.use('/api/conta', require('./routes/conta'));
 app.use('/api/config', require('./routes/config'));
 app.use('/api/mapas', require('./routes/mapas'));
 app.use('/api/apuracao', require('./routes/apuracao'));
+app.use('/api/nichos', require('./routes/nichos'));
+app.use('/api/historico', require('./routes/historico'));
+app.use('/api/ia', require('./routes/ia'));
 
 const frontendDir = process.env.FRONTEND_DIR || path.join(__dirname, '..', '..', 'frontend');
 app.use(express.static(frontendDir));

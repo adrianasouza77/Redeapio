@@ -418,3 +418,109 @@ CREATE TABLE IF NOT EXISTS apuracao_secoes (
   apurado_em    TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (candidato_id, ciclo, pleito, zona, secao)
 );
+
+-- ─── Nichos temáticos (o "mapa mental de nichos") ───────────────────────────
+-- Área de interesse de cada pessoa da rede (Educação, Saúde, Inclusão...),
+-- definida livremente por cada candidato. É uma dimensão independente de
+-- papel e território: uma pessoa pode estar em vários nichos, e isso permite
+-- cruzar depois ("a zona 18 é quase toda Saúde").
+CREATE TABLE IF NOT EXISTS nichos (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  candidato_id  UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  nome          TEXT NOT NULL,
+  cor           TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- Nome único por campanha, sem diferenciar maiúscula ("saúde" = "Saúde").
+CREATE UNIQUE INDEX IF NOT EXISTS idx_nichos_nome ON nichos (candidato_id, lower(nome));
+
+-- Ligação N:N. Apagar o nicho ou a pessoa apaga só a ligação.
+CREATE TABLE IF NOT EXISTS apoiador_nichos (
+  apoiador_id  UUID NOT NULL REFERENCES apoiadores(id) ON DELETE CASCADE,
+  nicho_id     UUID NOT NULL REFERENCES nichos(id) ON DELETE CASCADE,
+  PRIMARY KEY (apoiador_id, nicho_id)
+);
+CREATE INDEX IF NOT EXISTS idx_apoiador_nichos_nicho ON apoiador_nichos (nicho_id);
+
+-- Meta de votos que Líder, Coordenador e Mobilizador (níveis 1 a 3) dizem
+-- conseguir entregar. NULL = ainda não declarou; o apoiador da base (nível 4)
+-- não tem meta.
+ALTER TABLE apoiadores ADD COLUMN IF NOT EXISTS meta_votos INT;
+DO $$ BEGIN
+  ALTER TABLE apoiadores ADD CONSTRAINT apoiadores_meta_votos_check CHECK (meta_votos IS NULL OR meta_votos BETWEEN 0 AND 10000000);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- Eleitores aptos e comparecimento da seção, lidos do mesmo BU. Totais
+-- públicos da urna — servem ao copiloto para apontar meta maior do que o
+-- número de gente que vota naquela zona.
+ALTER TABLE apuracao_secoes ADD COLUMN IF NOT EXISTS aptos INT;
+ALTER TABLE apuracao_secoes ADD COLUMN IF NOT EXISTS comparecimento INT;
+
+-- ─── Desempenho eleitoral histórico ─────────────────────────────────────────
+-- Qual eleição passada do candidato usar como referência (Tela 5).
+CREATE TABLE IF NOT EXISTS historico_config (
+  candidato_id  UUID PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
+  ciclo         TEXT NOT NULL,
+  eleicao       TEXT NOT NULL,
+  uf            TEXT NOT NULL,
+  cargo         TEXT NOT NULL,
+  numero        TEXT NOT NULL,
+  atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Resultado oficial por município, de TODOS os candidatos do cargo (é o que
+-- dá a posição no ranking e os concorrentes). Dado público do TSE, igual para
+-- qualquer campanha — por isso não tem candidato_id: é cache compartilhado,
+-- baixado uma vez e reaproveitado.
+CREATE TABLE IF NOT EXISTS resultado_urna (
+  ciclo         TEXT NOT NULL,
+  eleicao       TEXT NOT NULL,
+  municipio     TEXT NOT NULL,
+  cargo         TEXT NOT NULL,
+  numero        TEXT NOT NULL,
+  nome          TEXT,
+  partido       TEXT,
+  votos         INT  NOT NULL,
+  posicao       INT,
+  eleito        BOOLEAN,
+  fonte         TEXT NOT NULL DEFAULT 'TSE',
+  importado_em  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (ciclo, eleicao, municipio, cargo, numero)
+);
+
+-- Totais do município naquela eleição (eleitores aptos, comparecimento).
+CREATE TABLE IF NOT EXISTS resultado_urna_municipio (
+  ciclo          TEXT NOT NULL,
+  eleicao        TEXT NOT NULL,
+  municipio      TEXT NOT NULL,
+  cargo          TEXT NOT NULL,
+  aptos          INT,
+  comparecimento INT,
+  importado_em   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (ciclo, eleicao, municipio, cargo)
+);
+
+-- ─── Copiloto de IA ─────────────────────────────────────────────────────────
+-- Cada leitura gerada fica guardada: reabrir o painel mostra a última sem
+-- pagar outra chamada, e o histórico permite limitar quantas por dia.
+CREATE TABLE IF NOT EXISTS ia_insights (
+  id              BIGSERIAL PRIMARY KEY,
+  candidato_id    UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  gerado_em       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  modelo          TEXT,
+  resumo          JSONB NOT NULL DEFAULT '{}'::jsonb,
+  insights        JSONB NOT NULL DEFAULT '[]'::jsonb,
+  tokens_entrada  INT,
+  tokens_saida    INT
+);
+CREATE INDEX IF NOT EXISTS idx_ia_insights_candidato ON ia_insights (candidato_id, gerado_em DESC);
+
+-- ─── Segurança ──────────────────────────────────────────────────────────────
+-- O candidato decide se o suporte (administrador da plataforma) pode abrir a
+-- campanha dele. Padrão "pode", para nenhuma campanha em andamento perder o
+-- suporte de repente; quem desligar fica fora do workspace e da busca global.
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS suporte_admin BOOLEAN NOT NULL DEFAULT true;
+-- Verificação em duas etapas (código do aplicativo autenticador). Opcional.
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS totp_segredo TEXT;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS totp_ativo BOOLEAN NOT NULL DEFAULT false;

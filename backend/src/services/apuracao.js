@@ -25,11 +25,12 @@ async function carregarConfig(candidatoId) {
 // poder comparar os cadastrados com o voto da ZONA inteira.
 async function montarUniverso(cfg) {
   const { rows: rede } = await pool.query(
-    `SELECT zona, secao, estado FROM (${SQL_ARVORE_CANDIDATO}) r`, [cfg.candidato_id]
+    `SELECT id, nome, nivel, parent_id, cadastrado_por, meta_votos, zona, secao, estado FROM (${SQL_ARVORE_CANDIDATO}) r`, [cfg.candidato_id]
   );
   const mapa = await tse.configSecoes(cfg.ciclo, cfg.pleito, cfg.uf);
 
   const secoesRede = new Map();   // "zona|principal" → { cadastrados, agregadas }
+  const onde = new Map();         // id da pessoa → { zona, urna } (quem entra na conta)
   const zonas = new Map();        // zona → { cadastrados, secoes: Set de principais }
   const alertas = { semZona: 0, semSecao: 0, foraDaUf: 0, foraDoMunicipio: 0, secaoInexistente: 0 };
 
@@ -48,6 +49,7 @@ async function montarUniverso(cfg) {
     const local = s && mapa ? mapa.secoes.get(`${z}|${s}`) : null;
     if (local && cfg.municipio && local.municipio !== cfg.municipio) { alertas.foraDoMunicipio++; continue; }
     zonaDe(z).cadastrados++;
+    onde.set(a.id, { zona: z, urna: null });
     if (!s) { alertas.semSecao++; continue; }
     // Seção que não existe na lista oficial é erro de digitação no cadastro:
     // conta na zona, mas não vira linha de seção que nunca vai ser apurada.
@@ -59,6 +61,7 @@ async function montarUniverso(cfg) {
     }
     const item = secoesRede.get(chave);
     item.cadastrados++;
+    onde.get(a.id).urna = chave;
     if (principal !== s) item.agregadas.add(s);
   }
 
@@ -78,12 +81,12 @@ async function montarUniverso(cfg) {
       zonas.get(it.zona).secoes.add(it.secao);
     }
   }
-  return { secoesRede, zonas, urnas, alertas, mapaPublicado: !!mapa, municipios: mapa ? mapa.municipios : [] };
+  return { rede, onde, secoesRede, zonas, urnas, alertas, mapaPublicado: !!mapa, municipios: mapa ? mapa.municipios : [] };
 }
 
 async function resultados(cfg) {
   const { rows } = await pool.query(
-    `SELECT zona, secao, votos, fonte FROM apuracao_secoes
+    `SELECT zona, secao, votos, fonte, aptos, comparecimento FROM apuracao_secoes
       WHERE candidato_id = $1 AND ciclo = $2 AND pleito = $3`,
     [cfg.candidato_id, cfg.ciclo, cfg.pleito]
   );
@@ -123,15 +126,62 @@ async function painel(candidatoId) {
   }).sort((a, b) => a.zona.localeCompare(b.zona) || a.secao.localeCompare(b.secao));
 
   const zonas = [...u.zonas.entries()].map(([zona, z]) => {
-    let votosZona = 0; let apuradas = 0;
+    let votosZona = 0; let apuradas = 0; let aptos = 0; let comparecimento = 0;
     for (const s of z.secoes) {
       const r = res.get(`${zona}|${s}`);
-      if (r) { votosZona += r.votos; apuradas++; }
+      if (r) { votosZona += r.votos; apuradas++; aptos += r.aptos || 0; comparecimento += r.comparecimento || 0; }
     }
-    return { zona, cadastrados: z.cadastrados, secoesTotal: z.secoes.size, secoesApuradas: apuradas, votosZona };
+    return { zona, cadastrados: z.cadastrados, secoesTotal: z.secoes.size, secoesApuradas: apuradas, votosZona, aptos, comparecimento };
   }).sort((a, b) => a.zona.localeCompare(b.zona));
 
-  return { config: publicarConfig(cfg, u.municipios), mapaPublicado: u.mapaPublicado, alertas: u.alertas, secoes, zonas };
+  return { config: publicarConfig(cfg, u.municipios), mapaPublicado: u.mapaPublicado, alertas: u.alertas, secoes, zonas, metas: calcularMetas(u, res, zonas) };
+}
+
+// Meta prometida × resultado (Telas 3 e 4 da especificação).
+//  - Por zona: soma das metas de quem mora na zona × votos do candidato na zona inteira.
+//  - Por responsável: a meta da pessoa × votos nas urnas onde ela e toda a
+//    equipe abaixo dela votam. É a leitura mais justa possível sem saber em
+//    quem cada um votou (e isso ninguém sabe: o voto é secreto). A mesma urna
+//    conta uma vez só, mesmo com várias pessoas da equipe nela.
+function calcularMetas(u, res, zonas) {
+  const comMeta = (a) => a.nivel >= 1 && a.nivel <= 3;
+  const porZona = zonas.map((z) => {
+    let meta = 0; let pessoas = 0;
+    for (const a of u.rede) {
+      if (!comMeta(a) || a.meta_votos == null) continue;
+      if (u.onde.get(a.id)?.zona !== z.zona) continue;
+      meta += a.meta_votos; pessoas++;
+    }
+    return { zona: z.zona, meta, pessoasComMeta: pessoas, votosZona: z.votosZona, secoesApuradas: z.secoesApuradas, secoesTotal: z.secoesTotal };
+  }).filter((z) => z.pessoasComMeta > 0);
+
+  // Filhos na pirâmide: mesma regra da árvore do sistema (parent_id, ou quem
+  // cadastrou quando o cadastro ficou sem responsável).
+  const filhos = new Map();
+  for (const a of u.rede) {
+    const pai = a.parent_id || a.cadastrado_por;
+    if (!pai || pai === a.id) continue;
+    if (!filhos.has(pai)) filhos.set(pai, []);
+    filhos.get(pai).push(a.id);
+  }
+  const porResponsavel = u.rede.filter(comMeta).map((a) => {
+    const vistos = new Set([a.id]);
+    const pilha = [a.id];
+    while (pilha.length) {
+      for (const f of filhos.get(pilha.pop()) || []) {
+        if (!vistos.has(f)) { vistos.add(f); pilha.push(f); }
+      }
+    }
+    const urnas = new Set();
+    for (const id of vistos) { const o = u.onde.get(id); if (o && o.urna) urnas.add(o.urna); }
+    let votos = 0; let apuradas = 0;
+    for (const k of urnas) { const r = res.get(k); if (r) { votos += r.votos; apuradas++; } }
+    return {
+      id: a.id, nome: a.nome, nivel: a.nivel, zona: u.onde.get(a.id)?.zona || null, meta: a.meta_votos,
+      equipe: vistos.size - 1, urnasTotal: urnas.size, urnasApuradas: apuradas, votos,
+    };
+  });
+  return { porZona, porResponsavel };
 }
 
 // Uma rodada de busca no TSE para um candidato. Primeiro as seções que têm
@@ -164,14 +214,14 @@ async function rodada(candidatoId) {
       const trabalhador = async () => {
         while (i < lote.length) {
           const [, urna] = lote[i++];
-          const votos = await tse.buscarSecao({ ...cfg, ...urna });
-          if (votos === null) continue;
+          const bu = await tse.buscarSecao({ ...cfg, ...urna });
+          if (bu === null) continue;
           // DO NOTHING: resultado colado à mão (plano B) não é sobrescrito.
           await pool.query(
-            `INSERT INTO apuracao_secoes (candidato_id, ciclo, pleito, zona, secao, municipio, votos, fonte)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,'tse')
+            `INSERT INTO apuracao_secoes (candidato_id, ciclo, pleito, zona, secao, municipio, votos, fonte, aptos, comparecimento)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,'tse',$8,$9)
              ON CONFLICT (candidato_id, ciclo, pleito, zona, secao) DO NOTHING`,
-            [candidatoId, cfg.ciclo, cfg.pleito, urna.zona, urna.secao, urna.municipio, votos]
+            [candidatoId, cfg.ciclo, cfg.pleito, urna.zona, urna.secao, urna.municipio, bu.votos, bu.aptos, bu.comparecimento]
           );
           novas++;
         }

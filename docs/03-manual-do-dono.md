@@ -25,11 +25,18 @@ de um mesmo candidato.
 
 ```
 Candidato
-   └── Nível 1 — Liderança          (tem login)
-         └── Nível 2 — Apoiador     (tem login)
-               └── Nível 3          (tem login)
-                     └── Nível 4    (SEM login — só contato)
+   └── Nível 1 — Líder              (tem login)
+         └── Nível 2 — Coordenador  (tem login)
+               └── Nível 3 — Mobilizador (tem login)
+                     └── Nível 4 — Apoiador (SEM login — só contato)
 ```
+
+Líder, Coordenador e Mobilizador podem declarar uma **meta de votos** (no
+cadastro ou na edição). Cada pessoa também pode ser marcada em um ou mais
+**nichos** — áreas de interesse que o próprio candidato cria em
+**Mapa de Nichos** (Educação, Saúde...). Enquanto a campanha não cria nenhum
+nicho, o cadastro continua igual; depois de criado o primeiro, todo cadastro
+novo passa a pedir pelo menos um.
 
 Quem está no nível 4 não acessa o sistema: é o fim da linha, cadastrado apenas
 como contato da campanha.
@@ -117,6 +124,19 @@ Agrupa por nome parecido. O sistema já bloqueia telefone e título de eleitor
 repetidos dentro da mesma rede no momento do cadastro; esta tela pega os que
 entraram antes dessa trava ou com dados ligeiramente diferentes.
 
+### Segurança de cada campanha (Minha Conta)
+
+O candidato encontra em **Minha Conta**:
+
+- **Verificação em duas etapas** — o login passa a pedir também o código do
+  aplicativo autenticador do celular. Opcional; recomendado para o candidato,
+  que vê a rede inteira.
+- **Acesso do suporte à campanha** — ligado por padrão. Se o candidato
+  desligar, a Central de Vagas não abre mais o workspace dele e a busca global
+  deixa de mostrar a rede dele. Para voltar a dar suporte, ele religa ali.
+- **Registro de acessos** — cada entrada no sistema, cada exportação e cada
+  vez que o suporte abriu a campanha, com data e IP.
+
 ### Exportar os dados
 
 **Candidato → Exportar Dados** (CSV para Excel, ou JSON).
@@ -136,6 +156,22 @@ do ar por 10 a 30 segundos a cada atualização.
 | `TERMO_VERSAO` | Versão do termo LGPD. **Ver abaixo** |
 | `LIMITE_NIVEL1` a `LIMITE_NIVEL4` | Padrão de limites para candidatos que nunca personalizaram |
 | `JWT_SECRET` | Segredo das sessões. Trocar desloga todo mundo (útil se vazar) |
+| `ANTHROPIC_API_KEY` | Chave da API da Anthropic que liga o **copiloto de IA** ("Me ajuda a entender isso"). **Quem é dono da chave paga o uso.** Sem ela, todo o resto funciona e o copiloto avisa que falta ativar |
+| `IA_MODELO` | Modelo usado pelo copiloto. Padrão `claude-sonnet-5` (o que a especificação pede) |
+| `IA_LIMITE_DIA` | Leituras do copiloto por campanha por dia. Padrão 30 — é o teto de gasto |
+
+### Ligar o copiloto de IA
+
+1. A dona do sistema cria a chave em **console.anthropic.com → API Keys**
+   (a cobrança vai para a conta dela).
+2. No Portainer, em **Environment variables**, adicione
+   `ANTHROPIC_API_KEY` com a chave (começa com `sk-ant-`).
+3. **Update the stack.** Pronto: o botão "🤖 Me ajuda a entender isso" passa a
+   gerar a leitura.
+
+Cada leitura custa uma chamada à API. O copiloto guarda a última leitura
+(reabrir o painel não gasta nada) e respeita o `IA_LIMITE_DIA`. Nenhum nome,
+telefone ou título de eleitor é enviado à IA — só contagens da rede.
 
 ### Forçar todo mundo a aceitar o termo de novo
 

@@ -7,6 +7,7 @@ const { buscarDuplicidade } = require('../utils/duplicidade');
 const { limitesDoCandidato } = require('../utils/limites');
 const { hash } = require('../utils/password');
 const { termoVersaoAtual } = require('../config');
+const { nichosDoCandidato, prepararNichos, gravarNichos, prepararMeta } = require('../utils/nichos');
 
 const router = express.Router();
 
@@ -114,13 +115,13 @@ router.get('/lideranca/:id', asyncHandler(async (req, res) => {
   if (!ctx) return res.status(404).json({ error: 'Link inválido.' });
   const erro = erroDoContexto(ctx);
   if (erro) return res.status(409).json({ error: erro });
-  res.json({ nome: ctx.nomeRede, versaoTermo: termoVersaoAtual, criaLogin: ctx.criaLogin, novoNivel: ctx.novoNivel });
+  res.json({ nome: ctx.nomeRede, versaoTermo: termoVersaoAtual, criaLogin: ctx.criaLogin, novoNivel: ctx.novoNivel, nichos: await nichosDoCandidato(ctx.candidatoId) });
 }));
 
 router.get('/convite', asyncHandler(async (req, res) => {
   const ctx = await contextoConviteCandidato(req.query.candidato, req.query.nivel);
   if (!ctx) return res.status(404).json({ error: 'Link inválido.' });
-  res.json({ nome: ctx.nomeRede, versaoTermo: termoVersaoAtual, criaLogin: ctx.criaLogin, novoNivel: ctx.novoNivel });
+  res.json({ nome: ctx.nomeRede, versaoTermo: termoVersaoAtual, criaLogin: ctx.criaLogin, novoNivel: ctx.novoNivel, nichos: await nichosDoCandidato(ctx.candidatoId) });
 }));
 
 router.post('/autocadastro', asyncHandler(async (req, res) => {
@@ -154,6 +155,10 @@ router.post('/autocadastro', asyncHandler(async (req, res) => {
   if (dup) {
     return res.status(409).json({ error: `Já existe um cadastro com esse ${dup.campo} nesta rede (${dup.nome}). Se você acha que isso é um engano, fale com quem enviou o link.` });
   }
+  const nichos = await prepararNichos(candidatoId, req.body.nichos, { criacao: true });
+  if (nichos.erro) return res.status(400).json({ error: nichos.erro });
+  const meta = prepararMeta(req.body.meta_votos, novoNivel);
+  if (meta.erro) return res.status(400).json({ error: meta.erro });
 
   // No modo pessoal, respeita o limite de apoiadores que o candidato configurou
   // para o nível de quem enviou o link (mesma regra do cadastro autenticado).
@@ -203,9 +208,9 @@ router.post('/autocadastro', asyncHandler(async (req, res) => {
       // parent_id já apontava para o dono do link. No modo candidato os dois
       // valores são iguais, então nada muda por lá.
       await client.query(
-        `INSERT INTO apoiadores (id, nome, telefone, nascimento, regiao, endereco, cidade, estado, titulo, zona, secao, nivel, parent_id, cadastrado_por, lgpd_aceite, lgpd_aceite_em, lgpd_versao)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,true,now(),$15)`,
-        [novoId, nome, telefone, nascimento, regiao, endereco || null, cidade || null, estado || null, titulo || null, zona || null, secao || null, novoNivel, parentId, cadastradoPor, termoVersaoAtual]
+        `INSERT INTO apoiadores (id, nome, telefone, nascimento, regiao, endereco, cidade, estado, titulo, zona, secao, nivel, parent_id, cadastrado_por, lgpd_aceite, lgpd_aceite_em, lgpd_versao, meta_votos)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,true,now(),$15,$16)`,
+        [novoId, nome, telefone, nascimento, regiao, endereco || null, cidade || null, estado || null, titulo || null, zona || null, secao || null, novoNivel, parentId, cadastradoPor, termoVersaoAtual, meta.meta ?? null]
       );
       await client.query(
         `INSERT INTO termos_aceite (usuario_id, versao_termo, ip, user_agent) VALUES ($1,$2,$3,$4)`,
@@ -225,6 +230,7 @@ router.post('/autocadastro', asyncHandler(async (req, res) => {
       );
     }
 
+    await gravarNichos(client, novoId, nichos.ids);
     await client.query('COMMIT');
     // O "ator" aqui é a própria pessoa que preencheu o formulário — não há
     // sessão. O candidato do workspace vem do link, não do contexto da
