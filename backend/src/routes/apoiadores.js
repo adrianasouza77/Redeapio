@@ -738,7 +738,7 @@ router.post('/', requireRole('lideranca', 'apoiador'), asyncHandler(async (req, 
   }
   const nichos = await prepararNichos(resolverCandidatoId(req.user), req.body.nichos, { criacao: true });
   if (nichos.erro) return res.status(400).json({ error: nichos.erro });
-  const meta = prepararMeta(req.body.meta_votos, novoNivel);
+  const meta = prepararMeta(req.body.meta_votos, novoNivel, { criacao: true });
   if (meta.erro) return res.status(400).json({ error: meta.erro });
 
   const { rows } = await pool.query(

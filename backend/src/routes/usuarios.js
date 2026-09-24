@@ -59,7 +59,7 @@ router.post('/', requireRole('candidato', 'admin'), asyncHandler(async (req, res
   const temFicha = perfil === 'lideranca' || perfil === 'apoiador';
   const nichos = temFicha ? await prepararNichos(req.effectiveId, req.body.nichos, { criacao: true }) : { ids: undefined };
   if (nichos.erro) return res.status(400).json({ error: nichos.erro });
-  const meta = prepararMeta(req.body.meta_votos, 1);
+  const meta = temFicha ? prepararMeta(req.body.meta_votos, 1, { criacao: true }) : { meta: undefined };
   if (meta.erro) return res.status(400).json({ error: meta.erro });
 
   const client = await pool.connect();

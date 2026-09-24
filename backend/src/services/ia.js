@@ -160,19 +160,35 @@ async function montarResumo(candidatoId) {
     desempenho_historico: null,
   };
 
-  // Apuração (se configurada): capacidade = quem compareceu para votar na zona;
-  // e, com urnas apuradas, o resultado pós-eleição por zona.
+  // Apuração (se configurada): a capacidade é o total de eleitores aptos das
+  // urnas (o "total de votantes históricos" da especificação), por zona e por
+  // seção de cada responsável; com urnas apuradas, vem também o resultado
+  // pós-eleição por zona. Comparecimento não entra: não é guardado.
   const cfgAp = await apuracao.carregarConfig(candidatoId);
   if (cfgAp) {
     const p = await apuracao.painel(candidatoId).catch(() => null);
     if (p && p.zonas) {
       const metaZona = new Map((p.metas?.porZona || []).map((z) => [z.zona, z]));
-      resumo.metas_vs_capacidade = p.zonas.filter((z) => metaZona.has(z.zona)).map((z) => ({
+      const porZona = p.zonas.filter((z) => metaZona.has(z.zona)).map((z) => ({
         territorio: `Zona ${z.zona.replace(/^0/, '')}`,
         meta: metaZona.get(z.zona).meta,
         cadastrados: z.cadastrados,
-        total_votantes_historico: z.secoesApuradas === z.secoesTotal && z.comparecimento ? z.comparecimento : null,
+        total_votantes_historico: z.secoesApuradas === z.secoesTotal && z.aptos ? z.aptos : null,
       }));
+      // Por seção: a meta de cada Líder/Coordenador/Mobilizador contra os
+      // eleitores aptos das seções onde ele e a equipe votam. Sem nome — só
+      // papel e seções. Os mais apertados primeiro, no máximo 30.
+      const porSecao = (p.metas?.porResponsavel || [])
+        .filter((r) => r.meta && r.aptosSecoes)
+        .sort((x, y) => y.meta / y.aptosSecoes - x.meta / x.aptosSecoes)
+        .slice(0, 30)
+        .map((r) => ({
+          territorio: `${r.secoes.length > 1 ? 'Seções' : 'Seção'} ${r.secoes.join(', ')} (Zona ${String(r.zona || '').replace(/^0/, '') || '?'})`,
+          papel_responsavel: ({ 1: 'Líder', 2: 'Coordenador', 3: 'Mobilizador' })[r.nivel],
+          meta: r.meta,
+          total_votantes_historico: r.aptosSecoes,
+        }));
+      resumo.metas_vs_capacidade = [...porZona, ...porSecao];
       const apuradas = p.zonas.filter((z) => z.secoesApuradas > 0);
       if (apuradas.length) {
         const pr = p.metas?.porResponsavel || [];

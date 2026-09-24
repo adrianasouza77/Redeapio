@@ -28,15 +28,19 @@ Candidato
    └── Nível 1 — Líder              (tem login)
          └── Nível 2 — Coordenador  (tem login)
                └── Nível 3 — Mobilizador (tem login)
-                     └── Nível 4 — Apoiador (SEM login — só contato)
+                     └── Nível 4 — Apoiador Orgânico (SEM login — só contato)
 ```
 
-Líder, Coordenador e Mobilizador podem declarar uma **meta de votos** (no
-cadastro ou na edição). Cada pessoa também pode ser marcada em um ou mais
+Líder, Coordenador e Mobilizador **precisam** declarar uma **meta de votos**
+(no cadastro; quem já existia sem meta passa a ter que informar na próxima
+vez que a ficha for editada). Cada pessoa também é marcada em um ou mais
 **nichos** — áreas de interesse que o próprio candidato cria em
-**Mapa de Nichos** (Educação, Saúde...). Enquanto a campanha não cria nenhum
-nicho, o cadastro continua igual; depois de criado o primeiro, todo cadastro
-novo passa a pedir pelo menos um.
+**Mapa Mental → Nichos da rede** (Educação, Saúde...). Enquanto a campanha não
+cria nenhum nicho, o cadastro continua igual; depois de criado o primeiro,
+todo cadastro novo passa a pedir pelo menos um.
+
+Quem entra pelo **link geral do candidato** como Apoiador Orgânico pode dizer,
+se quiser, "quem te indicou?" — o nome aparece na ficha da pessoa.
 
 Quem está no nível 4 não acessa o sistema: é o fim da linha, cadastrado apenas
 como contato da campanha.

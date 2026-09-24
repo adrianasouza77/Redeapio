@@ -46,12 +46,18 @@ async function gravarNichos(db, apoiadorId, ids) {
   }
 }
 
-// Meta de votos: só Líder, Coordenador e Mobilizador (níveis 1 a 3) declaram.
-// undefined = não mexer; null = sem meta.
-function prepararMeta(entrada, nivel) {
-  if (entrada === undefined) return { meta: undefined };
-  if (nivel === 4) return { meta: null };
-  if (entrada === null || entrada === '') return { meta: null };
+// Meta de votos: só Líder, Coordenador e Mobilizador (níveis 1 a 3) declaram,
+// e para eles é OBRIGATÓRIA (especificação: "obrigatório para
+// Líder/Coordenador/Mobilizador"). No cadastro precisa vir; na edição, se a
+// tela mandou o campo, não pode vir vazio — quem ainda não tinha meta passa a
+// ter que informar na primeira vez que alguém edita a ficha.
+// undefined (só na edição) = não mexer.
+function prepararMeta(entrada, nivel, { criacao = false } = {}) {
+  if (nivel === 4) return { meta: entrada === undefined ? undefined : null };
+  if (entrada === undefined && !criacao) return { meta: undefined };
+  if (entrada === undefined || entrada === null || entrada === '') {
+    return { erro: 'Informe a meta de votos: quantos votos essa pessoa acredita entregar.' };
+  }
   const n = Number(String(entrada).replace(/\D/g, ''));
   if (!Number.isInteger(n) || n < 0 || n > 10000000) return { erro: 'Meta de votos inválida.' };
   return { meta: n };

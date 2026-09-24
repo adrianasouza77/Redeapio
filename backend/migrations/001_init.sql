@@ -451,11 +451,19 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
--- Eleitores aptos e comparecimento da seção, lidos do mesmo BU. Totais
--- públicos da urna — servem ao copiloto para apontar meta maior do que o
--- número de gente que vota naquela zona.
+-- Eleitores aptos da seção (tamanho do eleitorado da urna), lido do mesmo BU.
+-- É o "total de votantes históricos" que a especificação usa para apontar
+-- meta irrealista. Comparecimento NÃO é guardado: a especificação da apuração
+-- proíbe coletar dado de comparecimento — aptos diz quantos podem votar ali,
+-- não quem foi votar.
 ALTER TABLE apuracao_secoes ADD COLUMN IF NOT EXISTS aptos INT;
-ALTER TABLE apuracao_secoes ADD COLUMN IF NOT EXISTS comparecimento INT;
+
+-- "Quem te indicou?" — campo opcional do Apoiador Orgânico que entra pelo
+-- link geral do candidato (especificação, Tela 1). Texto livre, porque o
+-- formulário é público: oferecer a lista de nomes da rede para escolher
+-- exporia a rede inteira a quem abrisse o link. Vazio = orgânico puro. O
+-- candidato lê o nome na ficha e, se quiser, pendura a pessoa sob quem indicou.
+ALTER TABLE apoiadores ADD COLUMN IF NOT EXISTS indicado_por_texto TEXT;
 
 -- ─── Desempenho eleitoral histórico ─────────────────────────────────────────
 -- Qual eleição passada do candidato usar como referência (Tela 5).
@@ -489,17 +497,30 @@ CREATE TABLE IF NOT EXISTS resultado_urna (
   PRIMARY KEY (ciclo, eleicao, municipio, cargo, numero)
 );
 
--- Totais do município naquela eleição (eleitores aptos, comparecimento).
+-- Eleitores aptos do município naquela eleição.
 CREATE TABLE IF NOT EXISTS resultado_urna_municipio (
   ciclo          TEXT NOT NULL,
   eleicao        TEXT NOT NULL,
   municipio      TEXT NOT NULL,
   cargo          TEXT NOT NULL,
   aptos          INT,
-  comparecimento INT,
   importado_em   TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (ciclo, eleicao, municipio, cargo)
 );
+
+-- Uma versão anterior (que chegou a ir para o GitHub) gravava também o
+-- comparecimento. A especificação da apuração proíbe guardar esse dado,
+-- então o que tiver sido gravado é apagado. A coluna não é removida
+-- (nada de DROP neste arquivo); fica vazia e nenhum código a lê. O WHERE
+-- deixa de casar depois da primeira execução.
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'apuracao_secoes' AND column_name = 'comparecimento') THEN
+    UPDATE apuracao_secoes SET comparecimento = NULL WHERE comparecimento IS NOT NULL;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'resultado_urna_municipio' AND column_name = 'comparecimento') THEN
+    UPDATE resultado_urna_municipio SET comparecimento = NULL WHERE comparecimento IS NOT NULL;
+  END IF;
+END $$;
 
 -- ─── Copiloto de IA ─────────────────────────────────────────────────────────
 -- Cada leitura gerada fica guardada: reabrir o painel mostra a última sem

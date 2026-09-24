@@ -108,18 +108,16 @@ function votosNoBU(texto, cargo, numero) {
   return achouCargo ? 0 : null;
 }
 
-// Totais da urna impressos no BU. Primeira ocorrência: o BU repete os aptos
-// no rodapé de cada cargo, com o mesmo valor.
+// Eleitores aptos da urna, impresso no BU (primeira ocorrência: o BU repete o
+// número no rodapé de cada cargo). O BU também traz o comparecimento, mas ele
+// é ignorado de propósito: a especificação da apuração proíbe guardar dado de
+// comparecimento.
 function totaisDoBU(texto) {
-  const num = (re) => { const m = texto.match(re); return m ? Number(m[1]) : null; };
-  return {
-    aptos: num(/Eleitores aptos\s+(\d+)/),
-    comparecimento: num(/Comparecimento\s+(\d+)/),
-  };
+  const m = texto.match(/Eleitores aptos\s+(\d+)/);
+  return { aptos: m ? Number(m[1]) : null };
 }
 
-// Busca o BU de uma seção. null = ainda não divulgado; senão
-// { votos, aptos, comparecimento }.
+// Busca o BU de uma seção. null = ainda não divulgado; senão { votos, aptos }.
 async function buscarSecao({ ciclo, pleito, uf, municipio, zona, secao, cargo, numero }) {
   const p6 = pad(pleito, 6);
   const pasta = `${BASE}/${ciclo}/arquivo-urna/${pleito}/dados/${uf}/${municipio}/${zona}/${secao}`;
@@ -144,10 +142,11 @@ async function buscarSecao({ ciclo, pleito, uf, municipio, zona, secao, cargo, n
 // Um arquivo por município × cargo com TODOS os candidatos, os votos e a
 // posição no ranking local ("seq"). Dois formatos convivem no portal:
 //   -u.json → carg[].agr[].par[].cand[] com nome e partido (eleição estadual e municipal)
-//   -v.json → abr[].cand[] só com número, mas com eleitores aptos e comparecimento
+//   -v.json → abr[].cand[] só com número, mas com os eleitores aptos
 // ("seq" nos dois NÃO é a posição por votos — ver abaixo.)
 // Presidente (2022) só tem o -v; os demais têm os dois. Tenta o -u primeiro
-// pelo nome, e completa aptos/comparecimento com o -v quando existir.
+// pelo nome, e completa os aptos com o -v quando existir (o -v também traz
+// comparecimento, que não é lido — ver totaisDoBU).
 async function resultadoMunicipio({ ciclo, eleicao, uf, municipio, cargo }) {
   const base = `${BASE}/${ciclo}/${eleicao}/dados/${uf}/${uf}${municipio}-c${pad(cargo, 4)}-e${pad(eleicao, 6)}`;
   const [u, v] = await Promise.all([baixar(`${base}-u.json`).catch(() => null), baixar(`${base}-v.json`).catch(() => null)]);
@@ -185,7 +184,6 @@ async function resultadoMunicipio({ ciclo, eleicao, uf, municipio, cargo }) {
   return {
     candidatos,
     aptos: abr && abr.e ? Number(abr.e) : null,
-    comparecimento: abr && abr.c ? Number(abr.c) : null,
   };
 }
 

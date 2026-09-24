@@ -157,8 +157,13 @@ router.post('/autocadastro', asyncHandler(async (req, res) => {
   }
   const nichos = await prepararNichos(candidatoId, req.body.nichos, { criacao: true });
   if (nichos.erro) return res.status(400).json({ error: nichos.erro });
-  const meta = prepararMeta(req.body.meta_votos, novoNivel);
+  const meta = prepararMeta(req.body.meta_votos, novoNivel, { criacao: true });
   if (meta.erro) return res.status(400).json({ error: meta.erro });
+  // Só no link geral do candidato (sem emissor) e na base: é quem entrou sem
+  // indicação pessoal de ninguém da rede. No link pessoal o indicador já é o dono do link.
+  const indicadoPor = !emissorId && novoNivel === 4
+    ? (String(req.body.indicado_por || '').trim().replace(/\s+/g, ' ').slice(0, 120) || null)
+    : null;
 
   // No modo pessoal, respeita o limite de apoiadores que o candidato configurou
   // para o nível de quem enviou o link (mesma regra do cadastro autenticado).
@@ -219,9 +224,9 @@ router.post('/autocadastro', asyncHandler(async (req, res) => {
     } else {
       // Nível 4 (base): só um contato na pirâmide, sem login.
       const { rows: aRows } = await client.query(
-        `INSERT INTO apoiadores (nome, telefone, nascimento, regiao, endereco, cidade, estado, titulo, zona, secao, nivel, parent_id, cadastrado_por, lgpd_aceite, lgpd_aceite_em, lgpd_versao)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,true,now(),$14) RETURNING id`,
-        [nome, telefone, nascimento, regiao, endereco || null, cidade || null, estado || null, titulo || null, zona || null, secao || null, novoNivel, parentId, cadastradoPor, termoVersaoAtual]
+        `INSERT INTO apoiadores (nome, telefone, nascimento, regiao, endereco, cidade, estado, titulo, zona, secao, nivel, parent_id, cadastrado_por, lgpd_aceite, lgpd_aceite_em, lgpd_versao, indicado_por_texto)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,true,now(),$14,$15) RETURNING id`,
+        [nome, telefone, nascimento, regiao, endereco || null, cidade || null, estado || null, titulo || null, zona || null, secao || null, novoNivel, parentId, cadastradoPor, termoVersaoAtual, indicadoPor]
       );
       novoId = aRows[0].id;
       await client.query(

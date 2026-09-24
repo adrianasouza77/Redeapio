@@ -288,12 +288,19 @@ Eleitoral"). Três dimensões independentes de cada pessoa: **papel** (nível),
 **território** (cidade/bairro/zona/seção, que já existiam) e **nicho**.
 
 - **Papéis**: os níveis 1–4 passaram a se chamar Líder, Coordenador,
-  Mobilizador e Apoiador (`PAPEIS` no frontend). É só nome: a pirâmide, os
-  limites e as permissões não mudaram.
-- **`nichos`** (`candidato_id`, `nome`, `cor`) — criados pelo candidato em
-  "Mapa de Nichos"; nome único por campanha sem diferenciar maiúscula.
+  Mobilizador e Apoiador Orgânico (`PAPEIS` no frontend). É só nome: a
+  pirâmide, os limites e as permissões não mudaram.
+- **`nichos`** (`candidato_id`, `nome`, `cor`) — criados pelo candidato na aba
+  **Mapa Mental → Nichos da rede** (a especificação manda os nichos para a aba
+  já existente); nome único por campanha sem diferenciar maiúscula.
 - **`apoiador_nichos`** — N:N; apagar nicho ou pessoa apaga só a ligação.
-- **`apoiadores.meta_votos`** — só níveis 1–3; quem desce para o nível 4 perde a meta.
+- **`apoiadores.meta_votos`** — **obrigatória** para os níveis 1–3 (regra da
+  especificação): o cadastro recusa sem ela; na edição, se o campo vier vazio,
+  também recusa. Quem desce para o nível 4 perde a meta.
+- **`apoiadores.indicado_por_texto`** — "Quem te indicou?", opcional, só no
+  link geral do candidato para o nível 4. Texto livre de propósito: o
+  formulário é público, e oferecer a lista de nomes da rede para escolher
+  exporia a rede a quem abrisse o link.
 
 `utils/nichos.js` concentra a regra, usada pelos quatro caminhos de cadastro
 (painel da liderança, tela de usuários, link público, edição):
@@ -325,8 +332,12 @@ candidatos do cargo (`services/historico.js`). `resultado_urna` não tem
 baixado uma vez e reaproveitado (eleição encerrada não muda).
 
 - Fonte: `<ciclo>/<eleicao>/dados/<uf>/<uf><mun>-c<cargo>-e<eleicao>-u.json`
-  (com nome e partido) e `-v.json` (aptos e comparecimento; o único que
-  existe para presidente). Eleições conferidas: 2024 (619/620) e 2022 (544–547).
+  (com nome e partido) e `-v.json` (eleitores aptos; o único que existe para
+  presidente). Eleições conferidas: 2024 (619/620) e 2022 (544–547).
+- **Comparecimento não é guardado em lugar nenhum** — a especificação da
+  apuração proíbe. Só os eleitores aptos (tamanho do eleitorado), que é o
+  "total de votantes históricos" usado para apontar meta irrealista, por
+  zona e pelas seções de cada responsável.
 - **A posição é calculada pelos votos.** O campo `seq` do TSE parece ranking
   mas não é — em Dourados/2024 a vereadora com 2.992 votos vinha com `seq` 30.
 - A rede é casada com o município pelo **nome da cidade sem acento**, dentro

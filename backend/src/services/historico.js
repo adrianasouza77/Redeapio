@@ -43,10 +43,10 @@ async function resultadoDoMunicipio(cfg, municipio) {
   );
   if (rows.length) {
     const { rows: tot } = await pool.query(
-      'SELECT aptos, comparecimento FROM resultado_urna_municipio WHERE ciclo = $1 AND eleicao = $2 AND municipio = $3 AND cargo = $4',
+      'SELECT aptos FROM resultado_urna_municipio WHERE ciclo = $1 AND eleicao = $2 AND municipio = $3 AND cargo = $4',
       chave
     );
-    return { candidatos: rows, aptos: tot[0]?.aptos ?? null, comparecimento: tot[0]?.comparecimento ?? null };
+    return { candidatos: rows, aptos: tot[0]?.aptos ?? null };
   }
   const r = await tse.resultadoMunicipio({ ciclo: cfg.ciclo, eleicao: cfg.eleicao, uf: cfg.uf, municipio, cargo: cfg.cargo });
   if (!r) return null;
@@ -61,9 +61,9 @@ async function resultadoDoMunicipio(cfg, municipio) {
       );
     }
     await client.query(
-      `INSERT INTO resultado_urna_municipio (ciclo, eleicao, municipio, cargo, aptos, comparecimento)
-       VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING`,
-      [...chave, r.aptos, r.comparecimento]
+      `INSERT INTO resultado_urna_municipio (ciclo, eleicao, municipio, cargo, aptos)
+       VALUES ($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`,
+      [...chave, r.aptos]
     );
     await client.query('COMMIT');
   } catch (e) {
