@@ -343,6 +343,50 @@ estruturada em JSON (`output_config.format`). **Nenhum nome, telefone ou
 título sai do servidor.** Cada leitura é gravada (reabrir o painel não gasta
 chamada) e há teto diário por campanha (`IA_LIMITE_DIA`). Sem
 `ANTHROPIC_API_KEY`, tudo funciona e o painel avisa que falta ativar.
+Segue o princípio [a IA nunca age sozinha](#ia-aprovacao-humana): só produz
+alertas para leitura.
+
+### <a id="ia-aprovacao-humana"></a>Princípio obrigatório: a IA nunca age sozinha
+
+Regra de arquitetura definida pela dona do sistema (set/2026), com base na
+**Resolução TSE 23.748/2026**, em vigor para as eleições de 2026: nenhuma ação
+de IA no RedeApoio pode agir, publicar ou enviar nada por conta própria. Se o
+sistema disparar ou publicar algo gerado por IA sem aprovação humana, o
+candidato que usa a plataforma corre risco jurídico-eleitoral — e isso cai
+sobre a credibilidade da plataforma. **Não há exceção**, nem "só desta vez",
+nem para envio agendado.
+
+**A regra:**
+
+1. Toda saída de IA é **rascunho** (conteúdo) ou **alerta** (leitura). Nunca
+   um efeito.
+2. Efeito prático — enviar mensagem, publicar, disparar em massa, gravar ou
+   alterar dado da rede — só acontece **depois** que uma pessoa aprovar
+   aquele item específico.
+3. A aprovação fica **registrada**: quem aprovou e quando.
+
+**Situação hoje:** o Copiloto (`services/ia.js`) já está dentro da regra — ele
+só gera alertas para leitura. Nenhuma rota dele envia, publica ou altera a
+rede; a única escrita é guardar a própria leitura em `ia_insights`.
+
+**Padrão para qualquer módulo novo com IA** (a começar pela comunicação em
+massa):
+
+- tabela própria com `status` (`rascunho` → `aprovado` | `descartado`) — o
+  conteúdo gerado nasce sempre `rascunho`;
+- `aprovado_por` (id de `usuarios`) e `aprovado_em` (timestamp), preenchidos
+  **pelo servidor** a partir da sessão, nunca vindos do navegador;
+- o que é aprovado é o **texto exato** que será enviado: editou depois de
+  aprovar, volta a `rascunho` e precisa de nova aprovação;
+- a rota que produz o efeito (enviar, publicar) **recusa** qualquer item que
+  não esteja `aprovado`, e confere isso no banco, não em parâmetro da tela;
+- a aprovação entra também no log de auditoria (`registrar`, ação
+  `ia.aprovar`), que sobrevive à exclusão do item;
+- nada de job, laço de fundo ou agendamento que pegue saída de IA e aja com
+  ela sem passar por esse estado `aprovado`.
+
+Se uma funcionalidade nova "precisar" pular a aprovação, a resposta é não —
+leve à dona do sistema antes de escrever código.
 
 ### Segurança (seção 9 da especificação)
 

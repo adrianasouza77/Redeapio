@@ -9,6 +9,13 @@ const historico = require('./historico');
 // linguagem simples, para candidato sem bagagem de gestão. A IA não decide
 // nada e não inventa dado — só lê um RESUMO que montamos aqui.
 //
+// REGRA OBRIGATÓRIA (CLAUDE.md, regra 7; Resolução TSE 23.748/2026): saída de
+// IA é sempre alerta ou rascunho, nunca efeito. Este arquivo só LÊ a rede e
+// devolve texto para a tela; a única escrita é guardar a leitura em
+// ia_insights. Nunca acrescente aqui nada que envie, publique ou altere a
+// rede a partir da resposta da IA — isso exige aprovação humana registrada
+// (padrão em docs/04-referencia-tecnica.md#ia-aprovacao-humana).
+//
 // O resumo leva só contagens e nomes de território/nicho. Nenhum nome,
 // telefone ou título de eleitor de apoiador sai do servidor: a pergunta é
 // sobre a forma da rede, e mandar dado pessoal para fora não ajudaria em nada

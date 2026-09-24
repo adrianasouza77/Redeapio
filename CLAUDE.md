@@ -50,6 +50,16 @@ tudo isso é deliberado.
 6. **Não modernize o frontend.** Arquivo único com `onclick` inline é escolha
    de projeto: introduzir build quebra o fluxo de deploy.
 
+7. **IA nunca age sozinha.** Nada que a IA gera pode publicar, enviar,
+   gravar na rede ou disparar qualquer efeito sem uma pessoa aprovar antes.
+   Toda saída de IA é **rascunho ou alerta**; o efeito só acontece depois de
+   aprovação humana **registrada (quem aprovou e quando)**. Vale para o
+   Copiloto e para qualquer módulo futuro — em especial a comunicação em
+   massa. Exigência da dona do sistema com base na Resolução TSE 23.748/2026:
+   disparo de conteúdo de IA sem aprovação expõe o candidato a risco
+   eleitoral. Detalhes e o padrão a seguir em
+   [`docs/04-referencia-tecnica.md`](docs/04-referencia-tecnica.md#ia-aprovacao-humana).
+
 ## Convenções
 
 - Comentários de código e mensagens de commit **em português**, explicando o
