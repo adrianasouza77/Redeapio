@@ -199,14 +199,11 @@ const SQL_BUSCA_PESSOA = `
   SELECT p.*, c.nome AS candidato_nome, c.login AS candidato_login
   FROM pessoas p
   LEFT JOIN usuarios c ON c.id = p.candidato_id
-  -- Campanha que desligou o acesso do suporte fica fora da busca também:
-  -- senão a busca global seria uma porta dos fundos para a mesma lista.
-  WHERE c.suporte_admin IS NOT FALSE
-    AND (p.nome ILIKE $1
+  WHERE p.nome ILIKE $1
      OR lower(COALESCE(p.login, '')) LIKE lower($1)
      OR lower(COALESCE(p.email, '')) LIKE lower($1)
      OR ($2 <> '' AND regexp_replace(COALESCE(p.telefone, ''), '[^0-9]', '', 'g') LIKE $2)
-     OR ($2 <> '' AND regexp_replace(COALESCE(p.titulo, ''), '[^0-9]', '', 'g') LIKE $2))
+     OR ($2 <> '' AND regexp_replace(COALESCE(p.titulo, ''), '[^0-9]', '', 'g') LIKE $2)
   ORDER BY lower(p.nome), p.created_at
   LIMIT 300
 `;

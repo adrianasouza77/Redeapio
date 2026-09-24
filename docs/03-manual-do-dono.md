@@ -131,11 +131,13 @@ O candidato encontra em **Minha Conta**:
 - **Verificação em duas etapas** — o login passa a pedir também o código do
   aplicativo autenticador do celular. Opcional; recomendado para o candidato,
   que vê a rede inteira.
-- **Acesso do suporte à campanha** — ligado por padrão. Se o candidato
-  desligar, a Central de Vagas não abre mais o workspace dele e a busca global
-  deixa de mostrar a rede dele. Para voltar a dar suporte, ele religa ali.
 - **Registro de acessos** — cada entrada no sistema, cada exportação e cada
   vez que o suporte abriu a campanha, com data e IP.
+
+O Administrador Geral **sempre** consegue abrir qualquer campanha (Central de
+Vagas) e buscar qualquer pessoa (Buscar pessoa): é assim que você acompanha e
+ajuda cada cliente. O candidato não tem como bloquear isso — o que ele tem é a
+transparência de ver, no registro de acessos, cada vez que o suporte entrou.
 
 ### Exportar os dados
 

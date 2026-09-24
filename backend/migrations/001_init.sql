@@ -517,10 +517,6 @@ CREATE TABLE IF NOT EXISTS ia_insights (
 CREATE INDEX IF NOT EXISTS idx_ia_insights_candidato ON ia_insights (candidato_id, gerado_em DESC);
 
 -- ─── Segurança ──────────────────────────────────────────────────────────────
--- O candidato decide se o suporte (administrador da plataforma) pode abrir a
--- campanha dele. Padrão "pode", para nenhuma campanha em andamento perder o
--- suporte de repente; quem desligar fica fora do workspace e da busca global.
-ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS suporte_admin BOOLEAN NOT NULL DEFAULT true;
 -- Verificação em duas etapas (código do aplicativo autenticador). Opcional.
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS totp_segredo TEXT;
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS totp_ativo BOOLEAN NOT NULL DEFAULT false;

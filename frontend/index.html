@@ -4278,8 +4278,6 @@ const LOG_ACOES = {
   'dados.exportar':            ['📥','Exportou dados da rede'],
   'seguranca.2fa_ligado':      ['🛡️','Ligou a verificação em duas etapas'],
   'seguranca.2fa_desligado':   ['⚠️','Desligou a verificação em duas etapas'],
-  'seguranca.suporte_ligado':  ['🔓','Liberou o acesso do suporte'],
-  'seguranca.suporte_desligado':['🔒','Bloqueou o acesso do suporte'],
 };
 
 const LOG_CAMPOS = { nome:'nome', telefone:'telefone', nascimento:'nascimento', endereco:'endereço',
@@ -5956,14 +5954,8 @@ async function mcCarregarSeguranca(){
   </div>
   ${ehCand ? `
   <div class="card">
-    <div class="card-header"><div class="card-title">🔐 Acesso do suporte à sua campanha</div></div>
-    <label style="display:flex;gap:10px;align-items:flex-start;font-size:13px;color:var(--slate);cursor:pointer">
-      <input type="checkbox" style="margin-top:3px" ${s.suporteAdmin?'checked':''} onchange="mcSuporte(this.checked)">
-      <span><b>Permitir que o suporte da plataforma abra a minha campanha</b> para ajudar com cadastros e ajustes. Desligado, ninguém de fora — nem o administrador — consegue ver os dados da sua rede. Cada vez que o suporte entra, fica registrado aqui embaixo.</span>
-    </label>
-  </div>
-  <div class="card">
     <div class="card-header"><div class="card-title">📜 Registro de acessos à campanha</div><button class="btn-sm btn-outline" onclick="mcCarregarAcessos()">🔄 Atualizar</button></div>
+    <p class="ap-meta" style="margin:-10px 0 14px">Os dados da sua rede só são vistos por você, pela sua equipe e pelo suporte da plataforma, que acompanha as campanhas para ajudar no processo. Cada entrada, exportação e cada vez que o suporte abre a campanha ficam registradas aqui.</p>
     <div id="mc-acessos"><p class="ap-meta">Carregando...</p></div>
   </div>` : ''}`;
   if(ehCand) mcCarregarAcessos();
@@ -5998,13 +5990,7 @@ async function mc2faDesativar(){
   showToast('Verificação em duas etapas desligada.');
   mcCarregarSeguranca();
 }
-async function mcSuporte(permitir){
-  try {
-    await api('/conta/suporte', { method:'PUT', body: JSON.stringify({ permitir }) });
-    showToast(permitir ? 'Suporte liberado para abrir a sua campanha.' : 'Pronto: o suporte não consegue mais abrir a sua campanha.');
-    mcCarregarAcessos();
-  } catch(e){ showToast(e.message,'error'); mcCarregarSeguranca(); }
-}
+
 async function mcCarregarAcessos(){
   const el = document.getElementById('mc-acessos'); if(!el) return;
   let lista; try { lista = await api('/conta/acessos'); } catch(e){ el.innerHTML = `<p style="color:var(--red)">${escapeHtml(e.message)}</p>`; return; }

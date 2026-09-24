@@ -66,8 +66,8 @@ router.put('/login', asyncHandler(async (req, res) => {
 // ─── Segurança da conta ──────────────────────────────────────────────────────
 
 router.get('/seguranca', asyncHandler(async (req, res) => {
-  const { rows } = await pool.query('SELECT totp_ativo, suporte_admin FROM usuarios WHERE id = $1', [req.user.id]);
-  res.json({ totpAtivo: !!rows[0]?.totp_ativo, suporteAdmin: rows[0]?.suporte_admin !== false });
+  const { rows } = await pool.query('SELECT totp_ativo FROM usuarios WHERE id = $1', [req.user.id]);
+  res.json({ totpAtivo: !!rows[0]?.totp_ativo });
 }));
 
 // Ligar a verificação em duas etapas acontece em dois passos: aqui o segredo
@@ -112,20 +112,13 @@ router.post('/2fa/desativar', asyncHandler(async (req, res) => {
   res.json({ ok: true });
 }));
 
-// O candidato decide se o suporte da plataforma pode abrir a campanha dele.
-router.put('/suporte', asyncHandler(async (req, res) => {
-  if (req.user.perfil !== 'candidato') return res.status(403).json({ error: 'Só o candidato decide isso.' });
-  const permitir = req.body?.permitir === true;
-  await pool.query('UPDATE usuarios SET suporte_admin = $1 WHERE id = $2', [permitir, req.user.id]);
-  await registrar(req, { acao: permitir ? 'seguranca.suporte_ligado' : 'seguranca.suporte_desligado', alvoTipo: 'candidato', alvoId: req.user.id, alvoNome: req.user.nome });
-  res.json({ suporteAdmin: permitir });
-}));
 
 // Registro de acessos da própria campanha: quem entrou, quem exportou, quando
-// o suporte abriu. É o que dá ao candidato a prova de que os dados dele estão
-// isolados — ele vê cada acesso, inclusive o do administrador.
+// o suporte abriu. O administrador (a dona do sistema) entra em qualquer
+// campanha para ajudar; o que o candidato tem é a transparência de ver cada
+// acesso, inclusive esse.
 const ACOES_ACESSO = ['login', 'login.falha', 'workspace.abrir', 'dados.exportar', 'ia.gerar',
-  'seguranca.2fa_ligado', 'seguranca.2fa_desligado', 'seguranca.suporte_ligado', 'seguranca.suporte_desligado'];
+  'seguranca.2fa_ligado', 'seguranca.2fa_desligado'];
 router.get('/acessos', asyncHandler(async (req, res) => {
   if (req.user.perfil !== 'candidato') return res.status(403).json({ error: 'Só o candidato vê o registro da campanha.' });
   const { rows } = await pool.query(

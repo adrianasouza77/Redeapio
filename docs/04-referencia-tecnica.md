@@ -349,10 +349,13 @@ chamada) e há teto diário por campanha (`IA_LIMITE_DIA`). Sem
 - **Isolamento**: toda rota já filtra por candidato (`req.effectiveId`); as
   novas também. O que a especificação chama de RLS do Supabase não se aplica
   — o sistema é Postgres próprio, e o isolamento é feito no servidor.
-- **`usuarios.suporte_admin`** (padrão `true`): o candidato desliga em Minha
-  Conta; `resolveWorkspace` passa a recusar o `?as=` e a busca global deixa de
-  listar a rede dele. Cada abertura de workspace vira `workspace.abrir` no log
-  (no máximo uma por 30 min por admin/campanha).
+- **O admin vê tudo, sempre** — decisão da dona do sistema, que é o suporte de
+  todos os clientes. A especificação pedia que nem o admin lesse as campanhas
+  "no dia a dia"; isso chegou a ser feito (bloqueio pelo candidato) e foi
+  retirado antes de ir ao ar, porque impedia justamente o suporte. O controle
+  virou transparência: cada abertura de workspace vira `workspace.abrir` no log
+  (no máximo uma por 30 min por admin/campanha), e o candidato vê esse
+  registro em Minha Conta. **Não reintroduza um bloqueio sem falar com ela.**
 - **Verificação em duas etapas** (`utils/totp.js`, RFC 6238 escrito à mão com
   `crypto`, conferido com os vetores oficiais): opcional; ligar exige provar
   um código antes de valer, para ninguém se trancar fora.
@@ -686,7 +689,7 @@ Arquivo próprio (`routes/apuracao.js`), pelo mesmo motivo do `/mapas`.
 
 ### `/conta` — segurança `[A]`
 `GET /seguranca`, `POST /2fa/iniciar` | `/2fa/ativar` | `/2fa/desativar`,
-`PUT /suporte` (só candidato), `GET /acessos` (só candidato), `POST /evento`.
+`GET /acessos` (só candidato), `POST /evento`.
 
 ### `/admin` `[A]` — só admin
 `GET /candidatos`, `POST /candidatos`, `PUT /candidatos/:id/senha`,
