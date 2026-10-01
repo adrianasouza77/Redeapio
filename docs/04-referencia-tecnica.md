@@ -708,6 +708,7 @@ Todos sob `/api`. `[A]` = exige sessão.
 | POST | `/` | liderança, apoiador |
 | PUT | `/:id` | quem passa em `podeGerenciar` |
 | PUT | `/:id/senha` | idem (alvo precisa ter login) |
+| POST | `/:id/acesso` | idem — cria o login **com o mesmo id da ficha** (nível 2 ou 3 sem login); recusa se a pessoa já tiver login em outra ficha (mesmo telefone/título) |
 | DELETE | `/:id` | idem |
 
 ### `/mapas` `[A]` — candidato, admin

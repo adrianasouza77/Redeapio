@@ -206,6 +206,45 @@
     .mn-galhos{grid-template-columns:1fr;}
   }
 
+  /* CRIAR ACESSO (nível 2 dando login aos nível 3 dele). Quase todo mundo da
+     rede usa o sistema só pelo celular: no telefone a tabela vira cartões, os
+     botões ocupam a largura do dedo e a janela sobe de baixo, onde o polegar
+     alcança. */
+  .tag-acesso{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;margin-top:4px;}
+  .tag-acesso.ok{background:#e6f4ec;color:var(--green);}
+  .tag-acesso.nao{background:#fdf5e0;color:#8a6d1a;}
+  .btn-acesso{background:var(--gold);color:var(--navy);font-weight:700;}
+  .folha-fundo{position:fixed;inset:0;background:rgba(15,31,61,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;}
+  .folha{background:#fff;border-radius:16px;padding:22px;width:100%;max-width:440px;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.35);}
+  .folha-titulo{font-family:'DM Serif Display',serif;font-size:21px;color:var(--navy);margin-bottom:4px;}
+  .folha-sub{font-size:13px;color:var(--slate);line-height:1.5;margin-bottom:16px;}
+  .folha .field input{font-size:17px;padding:13px 14px;}
+  .folha-botao{display:block;width:100%;padding:15px;border:none;border-radius:10px;font-size:16px;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;margin-top:10px;text-align:center;text-decoration:none;}
+  .folha-botao.principal{background:var(--navy);color:#fff;}
+  .folha-botao.zap{background:#1f9d55;color:#fff;}
+  .folha-botao.secundario{background:#f0f2f8;color:var(--navy);font-weight:600;}
+  .folha-botao:disabled{opacity:.55;cursor:default;}
+  .credencial{background:#f6f8fc;border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;}
+  .credencial-rotulo{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--slate-light);}
+  .credencial-valor{font-family:monospace;font-size:22px;font-weight:700;color:var(--navy);letter-spacing:1px;user-select:all;word-break:break-all;margin-top:2px;}
+  @media(max-width:768px){
+    .folha-fundo{align-items:flex-end;padding:0;}
+    .folha{border-radius:18px 18px 0 0;max-width:none;padding:20px 18px calc(20px + env(safe-area-inset-bottom));}
+    table.tabela-cartao thead{display:none;}
+    table.tabela-cartao,table.tabela-cartao tbody,table.tabela-cartao tr,table.tabela-cartao td{display:block;width:100%;}
+    table.tabela-cartao tr{border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;background:#fff;}
+    table.tabela-cartao td{border:none;padding:3px 0;}
+    table.tabela-cartao td[data-rotulo]::before{content:attr(data-rotulo);display:inline-block;min-width:92px;font-size:11px;color:var(--slate-light);text-transform:uppercase;letter-spacing:.5px;}
+    table.tabela-cartao td.tc-acoes{display:flex;flex-wrap:wrap;gap:8px;padding-top:10px;white-space:normal !important;}
+    table.tabela-cartao td.tc-acoes button{flex:1 1 auto;margin:0 !important;}
+    table.tabela-cartao td.tc-acoes .btn-acesso{flex:1 1 100%;}
+    /* O estilo inline de 11px é para a tabela do computador; no dedo precisa de mais. */
+    table.tabela-cartao td.tc-acoes .btn-sm{font-size:14px !important;padding:11px 12px !important;}
+    /* Lixeira pequena e no canto: excluir quem tem login apaga a ficha e deixa
+       a equipe dela sem responsável — não pode ser o maior alvo do cartão. */
+    table.tabela-cartao td.tc-acoes .btn-del{flex:0 0 auto;padding:11px 14px;}
+  }
+
   /* LOADING */
   .loading-overlay{display:none;position:fixed;inset:0;background:rgba(15,31,61,0.7);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:16px;}
   .loading-overlay.show{display:flex;}
@@ -1456,13 +1495,14 @@ function renderDashboard(){
   <div class="card">
     <div class="card-header"><div class="card-title">Meus Apoiadores</div>${myAp.length<limite?`<button class="btn-sm btn-navy" onclick="showPage('cadastrar')">+ Cadastrar</button>`:''}</div>
     ${myAp.length===0?`<div class="empty-state"><div class="icon">👤</div><p>Você ainda não tem apoiadores.</p></div>`:`
-    <table><thead><tr><th>Nome</th><th>Região</th><th>Telefone</th><th>Ações</th></tr></thead>
+    <table class="tabela-cartao"><thead><tr><th>Nome</th><th>Região</th><th>Telefone</th><th>Ações</th></tr></thead>
     <tbody>${myAp.map(a=>`<tr>
-      <td onclick="showDetail('${a.id}')" style="cursor:pointer"><strong>${a.nome}</strong></td>
-      <td onclick="showDetail('${a.id}')" style="cursor:pointer"><span class="region-tag">${a.regiao}</span></td>
-      <td onclick="showDetail('${a.id}')" style="cursor:pointer">${a.telefone}</td>
-      <td>
-        <button class="btn-sm btn-outline" style="font-size:11px;padding:4px 8px" onclick="editarApoiador('${a.id}')">✏️</button>
+      <td onclick="showDetail('${a.id}')" style="cursor:pointer"><strong>${a.nome}</strong>${tagAcesso(a)}</td>
+      <td data-rotulo="Região" onclick="showDetail('${a.id}')" style="cursor:pointer"><span class="region-tag">${a.regiao}</span></td>
+      <td data-rotulo="Telefone" onclick="showDetail('${a.id}')" style="cursor:pointer">${a.telefone}</td>
+      <td class="tc-acoes">
+        ${botaoAcesso(a)}
+        <button class="btn-sm btn-outline" style="font-size:11px;padding:4px 8px" onclick="editarApoiador('${a.id}')">✏️ Editar</button>
         <button class="btn-del" onclick="excluirApoiador('${a.id}','${escapeAttr(a.nome)}')">🗑</button>
       </td>
     </tr>`).join('')}
@@ -1872,15 +1912,16 @@ function renderMinhaRede(){
     return `
     <div class="card">
       <div class="card-header"><div class="card-title">${rotulo} — ${PAPEIS_PLURAL[n]} (${gente.length})</div></div>
-      <table><thead><tr><th>Nome</th><th>Cadastrado por</th><th>Região</th><th>Telefone</th><th>Nascimento</th><th>Ações</th></tr></thead>
+      <table class="tabela-cartao"><thead><tr><th>Nome</th><th>Cadastrado por</th><th>Região</th><th>Telefone</th><th>Nascimento</th><th>Ações</th></tr></thead>
       <tbody>${gente.map(a => `
         <tr>
-          <td onclick="showDetail('${a.id}')" style="cursor:pointer"><strong>${a.nome}</strong></td>
-          <td>${String(a.parent_id) === myId ? '<em>você</em>' : (nomePorId.get(String(a.parent_id)) || '—')}</td>
-          <td><span class="region-tag">${a.regiao||'—'}</span></td>
-          <td>${a.telefone||'—'}</td>
-          <td>${formatDate(a.nascimento)}</td>
-          <td style="white-space:nowrap">
+          <td onclick="showDetail('${a.id}')" style="cursor:pointer"><strong>${a.nome}</strong>${tagAcesso(a)}</td>
+          <td data-rotulo="Responsável">${String(a.parent_id) === myId ? '<em>você</em>' : (nomePorId.get(String(a.parent_id)) || '—')}</td>
+          <td data-rotulo="Região"><span class="region-tag">${a.regiao||'—'}</span></td>
+          <td data-rotulo="Telefone">${a.telefone||'—'}</td>
+          <td data-rotulo="Nascimento">${formatDate(a.nascimento)}</td>
+          <td class="tc-acoes" style="white-space:nowrap">
+            ${botaoAcesso(a)}
             <button onclick="editarApoiador('${a.id}')" class="btn-sm btn-outline" style="font-size:11px;padding:4px 8px">✏️ Editar</button>
             <button onclick="excluirApoiador('${a.id}','${escapeAttr(a.nome)}')" class="btn-del" style="margin-left:4px">🗑 Excluir</button>
           </td>
@@ -4579,6 +4620,10 @@ function editarApoiador(id) {
         <p style="font-size:11px;color:var(--slate-light);margin:-4px 0 8px">Com e-mail cadastrado, a pessoa recupera a senha sozinha pelo "Esqueci minha senha".</p>
         <button type="button" class="btn-sm btn-outline" style="width:100%" onclick="redefinirSenhaRede('${id}','${escapeAttr(a.nome)}')">🔑 Redefinir senha deste apoiador</button>
         ` : ''}
+        ${(!a.tem_login && (a.nivel === 2 || a.nivel === 3)) ? `
+        <div class="config-section-title" style="margin-top:16px">🔑 Acesso ao sistema <span style="color:#8a6d1a;font-weight:600">· sem login</span></div>
+        <button type="button" class="btn-sm btn-acesso" style="width:100%" onclick="abrirCriarAcesso('${id}')">🔑 Criar login e senha para esta pessoa</button>
+        ` : ''}
         <div class="form-actions" style="display:flex;gap:10px;margin-top:16px">
           <button onclick="document.getElementById('modal-editar').remove()" style="flex:1;padding:12px;background:#f0f0f0;border:none;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif">Cancelar</button>
           <button onclick="salvarEdicao('${id}')" style="flex:1.5;padding:12px;background:#0F1F3D;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif;font-weight:600">✔ Salvar alterações</button>
@@ -4797,6 +4842,135 @@ async function redefinirSenhaRede(id,nome){
   } catch(e){
     hideLoading();
     showToast(e.message || 'Erro ao atualizar senha.', 'error');
+  }
+}
+
+// ══════════════════════════════════════════
+//  CRIAR ACESSO — login para quem já está na pirâmide
+// ══════════════════════════════════════════
+// O Coordenador cadastra os Mobilizadores pelo painel e eles ficam sem login.
+// Antes a única saída era a pessoa se cadastrar de novo pelo link, o que criava
+// uma segunda conta dela e deixava a ficha antiga (com os apoiadores) sem dono.
+// Aqui o login nasce em cima da ficha que já existe (POST /apoiadores/:id/acesso).
+
+// Etiqueta e botão por pessoa, usados nas listas de "Meu Painel" e "Minha Rede".
+// Nível 4 é a base: não recruta ninguém, então não tem login.
+function tagAcesso(a){
+  if(a.nivel < 2 || a.nivel > 3) return '';
+  return a.tem_login
+    ? `<div><span class="tag-acesso ok">✓ tem login${a.login?': '+escapeHtml(a.login):''}</span></div>`
+    : `<div><span class="tag-acesso nao">sem login</span></div>`;
+}
+function botaoAcesso(a){
+  if(a.nivel < 2 || a.nivel > 3 || String(a.id) === String(currentUser?.id)) return '';
+  return a.tem_login
+    ? `<button class="btn-sm btn-outline" style="font-size:11px;padding:4px 8px" onclick="redefinirSenhaRede('${a.id}','${escapeAttr(a.nome)}')">🔑 Nova senha</button>`
+    : `<button class="btn-sm btn-acesso" style="font-size:11px;padding:4px 8px" onclick="abrirCriarAcesso('${a.id}')">🔑 Criar acesso</button>`;
+}
+
+// "Maria de Lourdes Nunes" -> "marianunes": primeiro + último nome, que é o
+// que a pessoa costuma lembrar. Sem acento e sem espaço (mesma regra do login).
+function sugerirLogin(nome){
+  const partes = String(nome||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/[^a-z\s]/g,' ').split(/\s+/).filter(Boolean);
+  if(!partes.length) return '';
+  return (partes.length > 1 ? partes[0] + partes[partes.length-1] : partes[0]).slice(0, 24);
+}
+
+async function loginLivre(login){
+  try { return (await api(`/usuarios/verificar-login?login=${encodeURIComponent(login)}`)).disponivel; }
+  catch(e){ return null; }
+}
+
+function fecharFolhaAcesso(){
+  document.getElementById('folha-acesso')?.remove();
+}
+
+async function abrirCriarAcesso(id){
+  const a = APOIADORES.find(x => String(x.id) === String(id));
+  if(!a) return;
+  fecharFolhaAcesso();
+  document.getElementById('modal-editar')?.remove();
+  const primeiro = escapeHtml(String(a.nome||'').split(' ')[0]);
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="folha-fundo" id="folha-acesso" onclick="if(event.target===this)fecharFolhaAcesso()">
+      <div class="folha">
+        <div class="folha-titulo">🔑 Criar acesso</div>
+        <div class="folha-sub">Para <strong>${escapeHtml(a.nome)}</strong> entrar no sistema e cadastrar a própria equipe. A senha é gerada agora, e ${primeiro} cria a própria no primeiro acesso.</div>
+        <div class="field"><label>Login de ${primeiro}</label>
+          <input type="text" id="ca-login" data-login autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="ex: marianunes" oninput="mascaraLogin(this,event); verificarLoginInput('ca-login','ca-login-msg')">
+          <div id="ca-login-msg" style="font-size:12px;margin-top:6px;color:var(--slate-light)">Sem espaço, acento ou maiúscula. Pode mudar se quiser.</div>
+        </div>
+        <button class="folha-botao principal" id="ca-criar" onclick="confirmarCriarAcesso('${a.id}')">Criar acesso</button>
+        <button class="folha-botao secundario" onclick="fecharFolhaAcesso()">Cancelar</button>
+      </div>
+    </div>`);
+
+  // Sugere um login que ainda esteja livre: primeiro+último nome costuma já
+  // estar tomado em rede grande, então tenta com um número no fim.
+  const base = sugerirLogin(a.nome);
+  if(!base) return;
+  let sugestao = base;
+  for(let i = 0; i < 4; i++){
+    if(await loginLivre(sugestao) !== false) break;
+    sugestao = base + (10 + Math.floor(Math.random()*90));
+  }
+  // Só preenche se a pessoa ainda não começou a digitar outro login.
+  const input = document.getElementById('ca-login');
+  if(input && !input.value){ input.value = sugestao; verificarLoginInput('ca-login','ca-login-msg'); }
+}
+
+async function confirmarCriarAcesso(id){
+  const login = (document.getElementById('ca-login')?.value || '').trim().toLowerCase();
+  if(!login){ showToast('Escolha um login.', 'error'); return; }
+  const botao = document.getElementById('ca-criar');
+  if(botao){ botao.disabled = true; botao.textContent = 'Criando...'; }
+  let data;
+  try {
+    data = await api(`/apoiadores/${id}/acesso${wsQuery()}`, { method:'POST', body: JSON.stringify({ login }) });
+  } catch(e){
+    if(botao){ botao.disabled = false; botao.textContent = 'Criar acesso'; }
+    showToast(e.message || 'Não foi possível criar o acesso.', 'error');
+    return;
+  }
+  // A etiqueta "sem login" da lista vira "tem login" sem recarregar a rede.
+  const a = APOIADORES.find(x => String(x.id) === String(id));
+  if(a){ a.tem_login = true; a.login = data.login; }
+  showPage(paginaAtual);
+  mostrarAcessoCriado(data);
+}
+
+function mostrarAcessoCriado(data){
+  const folha = document.querySelector('#folha-acesso .folha');
+  if(!folha) return;
+  const primeiro = String(data.nome||'').split(' ')[0];
+  const texto = `Olá, ${primeiro}! Seu acesso à RedeApoio:\n\n`
+    + `Endereço: ${location.origin}\nLogin: ${data.login}\nSenha: ${data.senha}\n\n`
+    + `No primeiro acesso o sistema vai pedir para você criar a sua própria senha.`;
+  // wa.me precisa do número com DDI e só dígitos. Telefone curto demais
+  // (ficha sem telefone, '—') não vira botão: abriria conversa com número errado.
+  let dig = String(data.telefone||'').replace(/\D/g,'');
+  if(dig.length === 10 || dig.length === 11) dig = '55' + dig;
+  const temZap = dig.length >= 12;
+  window._textoAcesso = texto;
+  folha.innerHTML = `
+    <div class="folha-titulo">✅ Acesso criado</div>
+    <div class="folha-sub">Passe estes dados para <strong>${escapeHtml(data.nome)}</strong>. A senha não aparece de novo depois que você fechar esta janela.</div>
+    <div class="credencial"><div class="credencial-rotulo">Login</div><div class="credencial-valor">${escapeHtml(data.login)}</div></div>
+    <div class="credencial"><div class="credencial-rotulo">Senha</div><div class="credencial-valor">${escapeHtml(data.senha)}</div></div>
+    ${temZap ? `<a class="folha-botao zap" href="https://wa.me/${dig}?text=${encodeURIComponent(texto)}" target="_blank" rel="noopener">📲 Enviar pelo WhatsApp</a>` : ''}
+    <button class="folha-botao ${temZap ? 'secundario' : 'principal'}" onclick="copiarTextoAcesso(this)">📋 Copiar login e senha</button>
+    <button class="folha-botao secundario" onclick="fecharFolhaAcesso()">Fechar</button>`;
+}
+
+async function copiarTextoAcesso(btn){
+  try {
+    await navigator.clipboard.writeText(window._textoAcesso || '');
+    const original = btn.textContent;
+    btn.textContent = '✅ Copiado!';
+    setTimeout(() => { btn.textContent = original; }, 1500);
+  } catch(e){
+    showToast('Não foi possível copiar. Anote o login e a senha que estão na tela.', 'error');
   }
 }
 

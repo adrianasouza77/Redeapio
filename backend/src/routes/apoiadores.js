@@ -5,7 +5,7 @@ const resolveWorkspace = require('../middleware/workspace');
 const { limitesDoCandidato } = require('../utils/limites');
 const { nivelUsuario } = require('../utils/nivelUsuario');
 const { buscarDuplicidade, resolverCandidatoId } = require('../utils/duplicidade');
-const { hash, gerarSenhaTemporaria } = require('../utils/password');
+const { hash, gerarSenhaTemporaria, gerarSenhaFacil } = require('../utils/password');
 const asyncHandler = require('../utils/asyncHandler');
 const { registrar, diferencas } = require('../utils/auditoria');
 const { prepararNichos, gravarNichos, prepararMeta, anexarNichos } = require('../utils/nichos');
@@ -991,6 +991,92 @@ router.put('/:id/senha', asyncHandler(async (req, res) => {
   // A senha em si nunca entra no log — só o fato de ter sido redefinida, por quem.
   await registrar(req, { acao: 'usuario.senha', alvoTipo: 'usuario', alvoId: id, alvoNome: rows[0].nome, detalhes: { login: rows[0].login } });
   res.json({ senha: novaSenha, login: rows[0].login, nome: rows[0].nome });
+}));
+
+// Criar login para quem já está na pirâmide sem acesso. Caso típico: o
+// Coordenador (nível 2) cadastra os Mobilizadores (nível 3) pelo painel — o
+// POST / cria só a ficha — e depois eles precisam entrar para montar a
+// própria rede. Até aqui a única saída era a pessoa se cadastrar de novo pelo
+// link, o que criava uma SEGUNDA pessoa: login novo com id novo, ficha nova,
+// e a ficha antiga (com os apoiadores dela) ficava sem dono. Foi assim que
+// surgiram as contas em dobro encontradas em 01/10/2026.
+//
+// Por isso o login nasce com o MESMO id da ficha (apoiadores.id ==
+// usuarios.id): a pessoa entra e já vê quem está pendurado nela, e o link
+// pessoal dela cadastra no nível certo (lido desta mesma ficha).
+router.post('/:id/acesso', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  if (id === req.user.id) return res.status(400).json({ error: 'Você já tem acesso.' });
+  if (!(await podeGerenciar(req, id))) {
+    return res.status(403).json({ error: 'Essa pessoa não está na sua rede.' });
+  }
+  const { rows: fRows } = await pool.query('SELECT * FROM apoiadores WHERE id = $1', [id]);
+  const ficha = fRows[0];
+  if (!ficha) return res.status(404).json({ error: 'Cadastro não encontrado.' });
+  // Nível 1 é liderança e nasce pelo candidato (tela Usuários). Nível 4 é a
+  // base da pirâmide: não recruta ninguém, então não tem login (mesma regra do
+  // cadastro por link, criaLogin só até o nível 3).
+  if (![2, 3].includes(ficha.nivel)) {
+    return res.status(400).json({ error: 'Só Coordenador (nível 2) e Mobilizador (nível 3) recebem login por aqui.' });
+  }
+
+  const { rows: jaTem } = await pool.query('SELECT login FROM usuarios WHERE id = $1', [id]);
+  if (jaTem[0]) {
+    return res.status(409).json({ error: `${ficha.nome} já tem login (${jaTem[0].login}). Se esqueceu a senha, use "Nova senha".` });
+  }
+
+  const ehCandidato = req.effectivePerfil === 'candidato' || req.user.perfil === 'admin';
+  const candidatoId = ehCandidato ? req.effectiveId : resolverCandidatoId(req.user);
+
+  // A mesma pessoa já com login em OUTRA ficha: criar mais um seria a terceira
+  // conta dela. Compara só os dígitos, porque o mesmo telefone aparece com e
+  // sem máscara; valor curto é descartado (a ficha de quem foi criado pela tela
+  // Usuários nasce com telefone '—').
+  const telDig = String(ficha.telefone || '').replace(/\D/g, '');
+  const titDig = String(ficha.titulo || '').replace(/\D/g, '');
+  if (telDig.length >= 8 || titDig.length >= 8) {
+    const { rows: outra } = await pool.query(
+      `SELECT login, nome FROM usuarios
+       WHERE criado_por = $1 AND ativo = true AND id <> $2
+         AND ((length($3) >= 8 AND regexp_replace(coalesce(telefone, ''), '\D', '', 'g') = $3)
+           OR (length($4) >= 8 AND regexp_replace(coalesce(titulo, ''), '\D', '', 'g') = $4))
+       LIMIT 1`,
+      [candidatoId, id, telDig, titDig]
+    );
+    if (outra[0]) {
+      return res.status(409).json({ error: `Essa pessoa já tem o login "${outra[0].login}" em outro cadastro (${outra[0].nome}). Peça para ela entrar com ele, ou avise a coordenação para juntar os dois cadastros.` });
+    }
+  }
+
+  const login = String(req.body?.login || '').trim().toLowerCase();
+  if (!login) return res.status(400).json({ error: 'Escolha um login para essa pessoa.' });
+  if (!/^[a-z0-9._-]+$/.test(login)) {
+    return res.status(400).json({ error: 'Login só pode ter letras minúsculas, números, ponto, hífen ou underline — sem espaços.' });
+  }
+  if (login.length < 3) return res.status(400).json({ error: 'Login muito curto — use pelo menos 3 letras.' });
+
+  // Senha temporária: o sistema obriga a trocar no primeiro acesso, e o termo
+  // LGPD é aceito pela própria pessoa ao entrar (termo_versao_aceita fica vazio).
+  const senha = gerarSenhaFacil();
+  try {
+    await pool.query(
+      `INSERT INTO usuarios (id, nome, login, senha_hash, perfil, criado_por, telefone, regiao, endereco, cidade, estado, titulo, zona, secao, senha_temporaria)
+       VALUES ($1,$2,$3,$4,'apoiador',$5,$6,$7,$8,$9,$10,$11,$12,$13,true)`,
+      [id, ficha.nome, login, await hash(senha), candidatoId, ficha.telefone, ficha.regiao, ficha.endereco, ficha.cidade, ficha.estado, ficha.titulo, ficha.zona, ficha.secao]
+    );
+  } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: 'Esse login já está em uso. Escolha outro.' });
+    throw err;
+  }
+  // A senha em si nunca entra no log — só quem criou o acesso, para quem e quando.
+  await registrar(req, {
+    acao: 'usuario.criar',
+    alvoTipo: 'usuario',
+    alvoId: id,
+    alvoNome: ficha.nome,
+    detalhes: { perfil: 'apoiador', login, nivel: ficha.nivel, origem: 'acesso criado pelo painel' },
+  });
+  res.status(201).json({ login, senha, nome: ficha.nome, telefone: ficha.telefone });
 }));
 
 router.delete('/:id', asyncHandler(async (req, res) => {

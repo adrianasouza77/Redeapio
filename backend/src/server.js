@@ -39,6 +39,10 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(cookieParser());
 app.use(express.json());
 
+// Dado da rede nunca pode vir de cópia guardada no aparelho: muda a cada
+// cadastro, e quem reorganiza a pirâmide precisa ver o resultado na hora.
+app.use('/api', (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
+
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 app.use('/api/auth', require('./routes/auth'));
@@ -55,10 +59,15 @@ app.use('/api/historico', require('./routes/historico'));
 app.use('/api/ia', require('./routes/ia'));
 
 const frontendDir = process.env.FRONTEND_DIR || path.join(__dirname, '..', '..', 'frontend');
-app.use(express.static(frontendDir));
+// Sem cabeçalho de cache, o navegador do celular inventava a própria validade
+// (uma fração da idade do arquivo) e seguia abrindo o index.html antigo por
+// dias depois do deploy — em 01/10/2026 havia gente usando a tela de antes de
+// 08/09 ("Meus Indicados"). "no-cache" não impede guardar: obriga a perguntar
+// ao servidor a cada abertura, que responde 304 pelo ETag quando nada mudou.
+app.use(express.static(frontendDir, { setHeaders: (res) => res.set('Cache-Control', 'no-cache') }));
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api/')) return next();
-  res.sendFile(path.join(frontendDir, 'index.html'));
+  res.sendFile(path.join(frontendDir, 'index.html'), { headers: { 'Cache-Control': 'no-cache' } });
 });
 
 app.use((err, req, res, next) => {
