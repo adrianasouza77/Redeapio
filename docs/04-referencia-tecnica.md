@@ -357,6 +357,34 @@ chamada) e há teto diário por campanha (`IA_LIMITE_DIA`). Sem
 Segue o princípio [a IA nunca age sozinha](#ia-aprovacao-humana): só produz
 alertas para leitura.
 
+### `ia_ajuda_uso` — assistente de ajuda
+
+`services/ajuda.js` + `services/ajuda-base.md`. Botão "❓ Ajuda" para
+**qualquer perfil com login**: chat que tira dúvida de **uso** do sistema.
+Escopo fechado por exigência da dona (02/10/2026): só fala do RedeApoio, não
+consulta dado de ninguém, não gera código nem texto de campanha.
+
+- A IA **não recebe ferramenta nem dado da rede** — só o guia
+  `ajuda-base.md` e o perfil de quem pergunta (ex.: "Coordenador"). É isso
+  que garante que ela não vaza dado: não há de onde tirar, mesmo que alguém
+  convença o modelo a tentar.
+- O prompt (no próprio `ajuda.js`) recusa qualquer assunto fora do sistema
+  com uma frase fixa; resposta com bloco de código é trocada por essa frase
+  no servidor.
+- **A pergunta e a resposta não são guardadas.** `ia_ajuda_uso` tem só
+  quem, quando e tokens, para o teto diário por pessoa
+  (`IA_AJUDA_LIMITE_DIA`). A conversa vive na memória da página e some ao
+  sair.
+- Modelo `IA_MODELO_AJUDA` (padrão `claude-opus-5-5`), esforço `low`,
+  guia em cache de prompt, com `fallbacks: "default"` (se o filtro de
+  segurança do modelo recusar por engano, a API tenta outro modelo).
+- Dentro da [regra 7](#ia-aprovacao-humana): a resposta é texto lido só por
+  quem perguntou; nada é enviado, publicado ou alterado.
+
+**`ajuda-base.md` precisa acompanhar o `index.html`:** é tudo o que a IA
+sabe. Tela, botão ou mensagem de erro que mudar e não for atualizada lá vira
+resposta errada da ajuda.
+
 ### <a id="ia-aprovacao-humana"></a>Princípio obrigatório: a IA nunca age sozinha
 
 Regra de arquitetura definida pela dona do sistema (set/2026), com base na
@@ -378,7 +406,9 @@ nem para envio agendado.
 
 **Situação hoje:** o Copiloto (`services/ia.js`) já está dentro da regra — ele
 só gera alertas para leitura. Nenhuma rota dele envia, publica ou altera a
-rede; a única escrita é guardar a própria leitura em `ia_insights`.
+rede; a única escrita é guardar a própria leitura em `ia_insights`. O
+assistente de ajuda (`services/ajuda.js`) também: só devolve texto para quem
+perguntou, sem ferramenta e sem acesso à rede.
 
 **Padrão para qualquer módulo novo com IA** (a começar pela comunicação em
 massa):
@@ -741,7 +771,10 @@ Arquivo próprio (`routes/apuracao.js`), pelo mesmo motivo do `/mapas`.
 `GET /municipio/:codigo`, `PUT /config`.
 
 ### `/ia` `[A]` — candidato, admin
-`GET /` (situação e última leitura), `POST /gerar`.
+`GET /` (situação e última leitura), `POST /gerar`. Exceção: `GET /ajuda`
+(situação e uso do dia) e `POST /ajuda` (`{ mensagens: [{role, content}] }`)
+valem para **qualquer perfil logado** — ficam antes do `router.use` que
+restringe o resto do arquivo.
 
 ### `/conta` — segurança `[A]`
 `GET /seguranca`, `POST /2fa/iniciar` | `/2fa/ativar` | `/2fa/desativar`,
@@ -971,6 +1004,8 @@ resolve isso com `docker service update --force`.
 | `ANTHROPIC_API_KEY` | não | liga o copiloto de IA; sem ela o resto funciona |
 | `IA_MODELO` | não | padrão `claude-sonnet-5` |
 | `IA_LIMITE_DIA` | não | leituras de IA por campanha por dia, padrão 30 |
+| `IA_MODELO_AJUDA` | não | modelo do assistente de ajuda, padrão `claude-opus-5-5` |
+| `IA_AJUDA_LIMITE_DIA` | não | perguntas à ajuda por pessoa por dia, padrão 40 |
 
 > Variáveis discretas do Postgres em vez de uma `DATABASE_URL` montada: senhas
 > fortes contendo `/ @ : #` quebrariam o parser de URL de conexão.

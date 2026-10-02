@@ -537,6 +537,19 @@ CREATE TABLE IF NOT EXISTS ia_insights (
 );
 CREATE INDEX IF NOT EXISTS idx_ia_insights_candidato ON ia_insights (candidato_id, gerado_em DESC);
 
+-- Assistente de ajuda: só a contagem de uso, para o limite diário por pessoa.
+-- A pergunta e a resposta não são guardadas (podem conter dado pessoal colado
+-- sem querer, e não servem para nada da campanha).
+CREATE TABLE IF NOT EXISTS ia_ajuda_uso (
+  id              BIGSERIAL PRIMARY KEY,
+  usuario_id      UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  criado_em       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  modelo          TEXT,
+  tokens_entrada  INT,
+  tokens_saida    INT
+);
+CREATE INDEX IF NOT EXISTS idx_ia_ajuda_uso_usuario ON ia_ajuda_uso (usuario_id, criado_em DESC);
+
 -- ─── Segurança ──────────────────────────────────────────────────────────────
 -- Verificação em duas etapas (código do aplicativo autenticador). Opcional.
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS totp_segredo TEXT;
