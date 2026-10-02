@@ -68,6 +68,15 @@ CREATE INDEX IF NOT EXISTS idx_usuarios_email ON usuarios (lower(email));
 -- que os apoiadores dela salvam parent_id = id do USUÁRIO — então a pirâmide
 -- nunca conseguia achar os apoiadores de ninguém ("0 apoiadores" pra todo
 -- mundo). Alinha o id da linha-espelho com o id do usuário correspondente.
+--
+-- Só quando a ficha candidata é ÚNICA. Em 02/10/2026 o app não subiu
+-- ("duplicate key ... apoiadores_pkey" em todo boot, Bad Gateway): depois das
+-- exclusões de fichas de 27 e 30/09, a equipe recadastrou gente pela tela e
+-- uma pessoa com login ficou com duas fichas de mesmo nome. O UPDATE tentava
+-- dar o id do usuário às DUAS — o NOT EXISTS abaixo não impede, porque olha a
+-- tabela de antes do UPDATE, não linha a linha. Com duas ou mais, não dá para
+-- saber qual é a verdadeira: fica como está e o candidato resolve em
+-- "Buscar duplicados".
 UPDATE apoiadores a
 SET id = u.id
 FROM usuarios u
@@ -76,7 +85,11 @@ WHERE u.perfil IN ('lideranca','apoiador')
   AND lower(a.nome) = lower(u.nome)
   AND a.nivel = CASE WHEN u.perfil = 'lideranca' THEN 1 ELSE 2 END
   AND a.id <> u.id
-  AND NOT EXISTS (SELECT 1 FROM apoiadores a2 WHERE a2.id = u.id);
+  AND NOT EXISTS (SELECT 1 FROM apoiadores a2 WHERE a2.id = u.id)
+  AND (SELECT count(*) FROM apoiadores a3
+       WHERE a3.cadastrado_por = u.criado_por
+         AND lower(a3.nome) = lower(u.nome)
+         AND a3.nivel = a.nivel) = 1;
 
 -- Conserta lacuna de dados já existente no Supabase de origem: algumas
 -- lideranças foram criadas fora do fluxo normal do app (ex: direto pelo
