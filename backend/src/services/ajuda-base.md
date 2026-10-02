@@ -147,7 +147,8 @@ Em "📊 Limites da Pirâmide", ajuste os limites de Líderes, Coordenadores, Mo
 
 ## 5. Líder (nível 1), Coordenador (nível 2) e Mobilizador (nível 3)
 
-Menu: Meu Painel, Minha Rede, Cadastrar Apoiador, Gerar link de cadastro, Minha Conta.
+Menu do Líder: Meu Painel, Minha Rede, Cadastrar Apoiador, Rede de Apoio, Gerar link de cadastro, Minha Conta.
+Menu do Coordenador e do Mobilizador: Meu Painel, Minha Rede, Cadastrar Apoiador, Gerar link de cadastro, Minha Conta.
 Líder cadastra Coordenadores; Coordenador cadastra Mobilizadores; Mobilizador cadastra Apoiadores Orgânicos.
 
 ### Meu Painel
@@ -155,6 +156,9 @@ Líder cadastra Coordenadores; Coordenador cadastra Mobilizadores; Mobilizador c
 
 ### Minha Rede
 Toda a rede abaixo de você por nível, com a coluna "Cadastrado por". Coordenadores e Mobilizadores aparecem com "✓ tem login" ou "sem login". Cada pessoa tem "🔑 Criar acesso" ou "🔑 Nova senha", "✏️ Editar" e "🗑 Excluir".
+
+### Rede de Apoio (só o Líder)
+A pirâmide da sua rede, igual à do candidato, começando nos seus Coordenadores. Clique num Coordenador para ver só os Mobilizadores dele, e num Mobilizador para ver os Apoiadores Orgânicos dele; "✕ Limpar filtro" volta. O botão "i" no cartão abre a ficha, e cada cartão mostra quantos apoiadores a pessoa tem. Também dá para ver a rede "🎯 Ver por nicho" ou "📍 Ver por território". No celular, fica no "Menu".
 
 ### Cadastrar Apoiador
 Preencha e clique em "✔ Salvar Cadastro". Obrigatórios: Nome, Telefone, Data de Nascimento, Bairro/Região e Cidade; Meta de votos se a pessoa for Coordenador ou Mobilizador; Nichos se a campanha tiver nichos. O topo mostra "Vaga X de N".
