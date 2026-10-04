@@ -9,7 +9,12 @@
 //      lista municípios → zonas → seções do estado (e quais são agregadas)
 //   2. .../dados/<uf>/<mun>/<zona>/<secao>/p000<pleito>-<uf>-m<mun>-z<zona>-s<secao>-aux.json
 //      diz se o BU já chegou e em qual pasta (hash) ele está
-//   3. .../<hash>/<arquivo>-imgbu.dat — o BU em texto, igual ao impresso na urna
+//   3. .../<hash>/<arquivo>-bu.dat — o BU em ASN.1 (binário), lido por buBinario()
+//      .../<hash>/<arquivo>-imgbu.dat — o mesmo BU em texto, só como reserva
+//
+// Na noite de 04/10/2026 o TSE publicava só o bu.dat: o imgbu.dat dava 404 em
+// 100% das seções já recebidas (50 de 50 na amostra de MS), e a apuração
+// inteira ficava "aguardando" enquanto o site oficial já tinha 15% das urnas.
 
 const BASE = 'https://resultados.tse.jus.br/oficial';
 
@@ -22,10 +27,14 @@ function pad4(v) {
 
 const pad = (n, t) => String(n).padStart(t, '0');
 
-async function baixar(url, { texto = false } = {}) {
-  const resp = await fetch(url, { signal: AbortSignal.timeout(20000) });
+async function baixar(url, { texto = false, binario = false, semCache = false } = {}) {
+  // A CDN do TSE guarda até ~50 s, inclusive o 404 de um arquivo que ainda
+  // não existia. O app oficial fura com ?nocache=<agora>; fazemos igual no
+  // que muda durante a apuração (o aux.json de cada seção).
+  const resp = await fetch(semCache ? `${url}?nocache=${Date.now()}` : url, { signal: AbortSignal.timeout(20000) });
   if (resp.status === 404 || resp.status === 403) return null; // ainda não publicado
   if (!resp.ok) throw new Error(`TSE respondeu ${resp.status} em ${url}`);
+  if (binario) return Buffer.from(await resp.arrayBuffer());
   if (!texto) return resp.json();
   // O BU vem em Latin-1 (o "ã" de "Município" quebra se lido como UTF-8).
   return new TextDecoder('latin1').decode(await resp.arrayBuffer());
@@ -47,7 +56,10 @@ async function listarPleitos() {
   const j = await comCache('ele-c', 1, () => baixar(`${BASE}/comum/config/ele-c.json`));
   if (!j) return [];
   return (j.pl || []).map((p) => ({
-    ciclo: j.c,
+    // O ciclo vem em cada pleito ("c": "ele2026"): o ele-c.json de 2026 mistura
+    // pleitos de 2024 e 2026 e não tem mais "c" no topo. Lendo do topo, toda
+    // opção da lista saía "undefined" e a configuração era recusada.
+    ciclo: p.c || j.c,
     pleito: p.cd,
     data: p.dt,
     // tp 7 = consulta popular (plebiscito municipal), que não tem candidato.
@@ -117,19 +129,111 @@ function totaisDoBU(texto) {
   return { aptos: m ? Number(m[1]) : null };
 }
 
+// ─── BU binário (bu.dat) ─────────────────────────────────────────────────────
+// ASN.1 em BER, especificação pública do TSE (bu.asn1). Não precisa de
+// biblioteca: o leitor abaixo só separa tag/tamanho/conteúdo, e buBinario()
+// procura as estruturas pelo formato, sem depender da posição exata de cada
+// campo. Conferido no BU real da seção 0012/zona 0053 de Campo Grande
+// (04/10/2026): em todo cargo a soma dos votos bate com o comparecimento.
+//
+// Estruturas usadas (o resto do BU é ignorado):
+//   ResultadoVotacaoPorEleicao ::= SEQ { idEleicao INT, qtdEleitoresAptos INT, ..., resultadosVotacao SEQ }
+//   TotalVotosCargo   ::= SEQ { [1] codigoCargo, ordemImpressao INT, votosVotaveis SEQ OF TotalVotosVotavel }
+//   TotalVotosVotavel ::= SEQ { [1] tipoVoto, [2] quantidadeVotos, [3] identificacaoVotavel SEQ { partido, codigo }, assinatura }
+function berLer(buf, ini = 0, fim = buf.length) {
+  const nos = [];
+  let p = ini;
+  while (p < fim) {
+    const tag = buf[p++];
+    let len = buf[p++];
+    if (len & 0x80) {
+      const n = len & 0x7f;
+      len = 0;
+      for (let i = 0; i < n; i++) len = len * 256 + buf[p++];
+    }
+    if (p + len > fim) throw new Error('BU binário truncado');
+    const no = { tag, ini: p, fim: p + len };
+    if (tag & 0x20) no.filhos = berLer(buf, p, p + len); // construído: tem filhos
+    nos.push(no);
+    p += len;
+  }
+  return nos;
+}
+const berInt = (buf, no) => { let v = 0; for (let i = no.ini; i < no.fim; i++) v = v * 256 + buf[i]; return v; };
+
+// Código do cargo no BU = código do TSE (enum CargoConstitucional).
+const CODIGO_CARGO = {
+  PRESIDENTE: 1, GOVERNADOR: 3, SENADOR: 5, 'DEPUTADO FEDERAL': 6, 'DEPUTADO ESTADUAL': 7,
+  'DEPUTADO DISTRITAL': 8, PREFEITO: 11, VEREADOR: 13,
+};
+
+// Mesmo contrato de votosNoBU: null se o cargo não está no boletim.
+function buBinario(buf, cargo, numero) {
+  const codCargo = CODIGO_CARGO[String(cargo).trim().toUpperCase()];
+  // O arquivo é um envelope (EntidadeEnvelopeGenerico) com o BU dentro de um
+  // OCTET STRING; o BU em si é decodificado em seguida.
+  const env = berLer(buf)[0];
+  const conteudo = (env?.filhos || []).find((n) => n.tag === 0x04);
+  if (!conteudo) throw new Error('BU binário sem conteúdo');
+  const raiz = berLer(buf, conteudo.ini, conteudo.fim)[0];
+
+  let votos = null; let aptos = null;
+  const andar = (no) => {
+    const k = no.filhos;
+    if (!k) return;
+    // ResultadoVotacaoPorEleicao: idEleicao, aptos, ... e um SEQ que contém
+    // ResultadoVotacao (que começa por ENUM tipoCargo).
+    if (aptos === null && k.length >= 3 && k[0].tag === 0x02 && k[1].tag === 0x02
+        && k.some((c) => c.tag === 0x30 && (c.filhos || []).some((d) => d.tag === 0x30 && d.filhos?.[0]?.tag === 0x0a))) {
+      aptos = berInt(buf, k[1]);
+    }
+    // TotalVotosCargo
+    if (k.length >= 3 && k[0].tag === 0x81 && k[1].tag === 0x02 && k[2].tag === 0x30 && berInt(buf, k[0]) === codCargo) {
+      votos = votos || 0;
+      for (const v of k[2].filhos || []) {
+        const campo = (t) => (v.filhos || []).find((x) => x.tag === t);
+        const tipo = campo(0x81); const qtd = campo(0x82); const id = campo(0xa3);
+        // tipoVoto 1 = nominal. Legenda (4) usa o número do partido e não é
+        // voto do candidato; branco/nulo não têm identificação.
+        if (!tipo || berInt(buf, tipo) !== 1 || !qtd || !id || !id.filhos?.[1]) continue;
+        if (String(berInt(buf, id.filhos[1])) === numero) votos += berInt(buf, qtd);
+      }
+      return;
+    }
+    k.forEach(andar);
+  };
+  andar(raiz);
+  return votos === null ? null : { votos, aptos };
+}
+
 // Busca o BU de uma seção. null = ainda não divulgado; senão { votos, aptos }.
 async function buscarSecao({ ciclo, pleito, uf, municipio, zona, secao, cargo, numero }) {
   const p6 = pad(pleito, 6);
   const pasta = `${BASE}/${ciclo}/arquivo-urna/${pleito}/dados/${uf}/${municipio}/${zona}/${secao}`;
-  const aux = await baixar(`${pasta}/p${p6}-${uf}-m${municipio}-z${zona}-s${secao}-aux.json`);
+  const aux = await baixar(`${pasta}/p${p6}-${uf}-m${municipio}-z${zona}-s${secao}-aux.json`, { semCache: true });
   if (!aux || !Array.isArray(aux.hashes) || !aux.hashes.length) return null;
   // Uma urna pode ter mais de um envio (reenvio, urna de contingência). Vale o
   // que o TSE totalizou; sem ele, o mais recente que não tenha sido excluído.
   const validos = aux.hashes.filter((h) => !/exclu|anulad|cancel/i.test(h.st || ''));
   const h = validos.find((x) => /totalizad/i.test(x.st || '')) || validos[validos.length - 1];
-  const arq = h && (h.arq || []).find((a) => a.tp === 'imgbu');
-  if (!arq) return null;
-  const texto = await baixar(`${pasta}/${h.hash}/${arq.nm}`, { texto: true });
+  if (!h) return null;
+  const arquivo = (tp) => (h.arq || []).find((a) => a.tp === tp);
+
+  // Primeiro o bu.dat, que o TSE publica assim que recebe a urna.
+  const bin = arquivo('bu');
+  if (bin) {
+    const buf = await baixar(`${pasta}/${h.hash}/${bin.nm}`, { binario: true });
+    if (buf) {
+      const r = buBinario(buf, cargo, numero);
+      if (r === null) {
+        throw new Error(`O cargo "${cargo}" não aparece no boletim de urna. Confira o cargo na configuração.`);
+      }
+      return r;
+    }
+  }
+
+  const arq = arquivo('imgbu');
+  if (!arq) return null;  const texto = await baixar(`${pasta}/${h.hash}/${arq.nm}`, { texto: true });
   if (!texto) return null;
   const votos = votosNoBU(texto, cargo, numero);
   if (votos === null) {
@@ -196,4 +300,4 @@ async function municipiosEleicao(ciclo, eleicao, uf) {
     .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 }
 
-module.exports = { pad4, listarPleitos, configSecoes, buscarSecao, votosNoBU, resultadoMunicipio, municipiosEleicao };
+module.exports = { pad4, listarPleitos, configSecoes, buscarSecao, votosNoBU, buBinario, resultadoMunicipio, municipiosEleicao };
