@@ -763,6 +763,8 @@
         <button class="nav-item" onclick="showPage('mapa')" data-short="Mapa"><span>🗺️</span> Mapa da Rede</button>
         <button class="nav-item" onclick="showPage('mapa-mental')" data-short="Mental"><span>🧠</span> Mapa Mental</button>
 
+        <button class="nav-item" onclick="showPage('candidato')" data-short="Candidato"><span>🎯</span> Candidato</button>
+        <button class="nav-item" onclick="showPage('entrega')" data-short="Entrega"><span>✅</span> Prometido × Entregue</button>
         <button class="nav-item" onclick="showPage('apuracao')" data-short="Apuração"><span>🗳️</span> Apuração ao Vivo</button>
         <button class="nav-item" onclick="showPage('votos')" data-short="Votos"><span>📍</span> Votos por Seção</button>
         <button class="nav-item" onclick="showPage('historico')" data-short="Histórico"><span>📊</span> Desempenho Histórico</button>
@@ -776,6 +778,7 @@
         <button class="nav-item" onclick="showPage('minha-rede')" data-short="Rede"><span>🌐</span> Minha Rede</button>
         <button class="nav-item" onclick="showPage('cadastrar')" data-short="Cadastrar"><span>➕</span> Cadastrar Apoiador</button>
         <button class="nav-item" onclick="showPage('rede')"><span>🏛️</span> Rede de Apoio</button>
+        <button class="nav-item" onclick="showPage('entrega')"><span>✅</span> Prometido × Entregue</button>
         <button class="nav-item" onclick="gerarLinkAutoCadastro()" style="background:linear-gradient(135deg,#276749,#1a4a32);color:#fff;border-radius:8px;margin-top:4px"><span>🔗</span> Gerar link de cadastro</button>
         <button class="nav-item" onclick="showPage('minha-conta')"><span>👤</span> Minha Conta</button>
       </div>
@@ -785,6 +788,7 @@
         <button class="nav-item" onclick="showPage('minha-rede')" data-short="Rede"><span>🌐</span> Minha Rede</button>
         <button class="nav-item" onclick="showPage('cadastrar')" data-short="Cadastrar"><span>➕</span> Cadastrar Apoiador</button>
         <button class="nav-item" id="nav-apoiador-rede" onclick="showPage('rede')" style="display:none"><span>🏛️</span> Rede de Apoio</button>
+        <button class="nav-item" id="nav-apoiador-entrega" onclick="showPage('entrega')" style="display:none"><span>✅</span> Prometido × Entregue</button>
         <button class="nav-item" onclick="gerarLinkAutoCadastro()" style="background:linear-gradient(135deg,#276749,#1a4a32);color:#fff;border-radius:8px;margin-top:4px"><span>🔗</span> Gerar link de cadastro</button>
         <button class="nav-item" onclick="showPage('minha-conta')"><span>👤</span> Minha Conta</button>
       </div>
@@ -1275,6 +1279,8 @@ async function entrarNaApp(user){
   // Coordenador: o Mobilizador tem só uma camada abaixo, e a "Minha Rede" dele
   // já mostra isso inteiro.
   document.getElementById('nav-apoiador-rede').style.display=(currentRole==='apoiador' && meuNivel()===2)?'flex':'none';
+  // Relatório Prometido × Entregue: Líder e Coordenador, não Mobilizador (briefing).
+  document.getElementById('nav-apoiador-entrega').style.display=(currentRole==='apoiador' && meuNivel()===2)?'flex':'none';
   document.getElementById('nav-admin').style.display=currentRole==='admin'?'block':'none';
   document.getElementById('nav-admin-extra').style.display=currentRole==='admin'?'block':'none';
   montarBottomNav();
@@ -1506,9 +1512,9 @@ function atualizarBottomNav(){
 // sistema não mostrar uma tela em branco quando alguém digita um endereço de
 // outro perfil na barra do navegador.
 const PAGINAS_POR_PAPEL = {
-  candidato: ['dashboard','rede','apoiadores','exportar','grafico','mapa','mapa-mental','nichos','apuracao','votos','historico','usuarios','configuracoes','minha-conta'],
-  lideranca: ['dashboard','minha-rede','cadastrar','rede','minha-conta'],
-  apoiador:  ['dashboard','minha-rede','cadastrar','rede','minha-conta'],
+  candidato: ['dashboard','rede','apoiadores','exportar','grafico','mapa','mapa-mental','nichos','candidato','entrega','apuracao','votos','historico','usuarios','configuracoes','minha-conta'],
+  lideranca: ['dashboard','minha-rede','cadastrar','rede','entrega','minha-conta'],
+  apoiador:  ['dashboard','minha-rede','cadastrar','rede','entrega','minha-conta'],
   admin:     ['vagas','minha-conta'],
 };
 // Busca global e log de auditoria acompanham o admin em qualquer situação,
@@ -1569,6 +1575,8 @@ function showPage(page) {
     case 'mapa-mental':   c.innerHTML=renderMapaMental(); setTimeout(()=>{ mmLigarGestos(); mmIniciar(); },50); break;
     case 'apuracao':      c.innerHTML=renderApuracao(); setTimeout(apIniciar,50); break;
     case 'votos':         c.innerHTML=renderVotos(); setTimeout(vsIniciar,50); break;
+    case 'candidato':     c.innerHTML=renderCandidato(); setTimeout(cdIniciar,50); break;
+    case 'entrega':       c.innerHTML=renderEntrega(); setTimeout(enIniciar,50); break;
     case 'nichos':        c.innerHTML=renderNichos(); break;
     case 'historico':     c.innerHTML=renderHistorico(); setTimeout(hiIniciar,50); break;
     case 'minha-rede':    c.innerHTML=renderMinhaRede(); break;
@@ -6265,6 +6273,451 @@ function apHtmlMetas(d){
   </div>`;
 }
 function apAbrirResp(id){ AP.abertoResp = AP.abertoResp === id ? null : id; apPainel(); }
+
+// ══════════════════════════════════════════
+//  CANDIDATO — dados do TSE e importação dos votos
+// ══════════════════════════════════════════
+// Briefing "Votos por seção" v2, itens 1 e 4: o candidato é cadastrado UMA vez
+// com o que identifica a votação dele no TSE (ano, turno, cargo, número,
+// partido, UF, abrangência e município). É digitando o NOME que se escolhe o
+// candidato na lista oficial — número, partido e nome de urna vêm dela. Depois,
+// um botão importa os votos por seção, só dos municípios do candidato.
+const CD = { eleicoes:null, dados:undefined, form:null, municipios:[], candidatos:null, buscaCand:'', buscaMun:'', imp:null, timer:null };
+const CD_CARGOS = [[13,'Vereador'],[11,'Prefeito'],[7,'Deputado Estadual'],[6,'Deputado Federal'],[5,'Senador'],[3,'Governador']];
+const CD_DIGITOS = {13:[5],7:[5],6:[4],11:[2,3],3:[2,3],5:[2,3]};
+const CD_MUNICIPAL = [11,13];
+
+function renderCandidato(){
+  return `
+  <div class="page-header"><h1>Candidato</h1><p>Os dados que identificam a votação do candidato no TSE — preenchidos uma vez, usados na importação, na apuração e no relatório Prometido × Entregue</p></div>
+  <div id="cd-corpo"><div class="card"><p class="ap-meta">Carregando...</p></div></div>`;
+}
+
+async function cdIniciar(){
+  clearInterval(CD.timer);
+  CD.timer = setInterval(cdTique, 5000);
+  const [r, el, imp] = await Promise.all([
+    api('/candidato'+wsQuery()).catch(e=>({ erro:e.message })),
+    CD.eleicoes ? Promise.resolve({ eleicoes: CD.eleicoes }) : api('/candidato/eleicoes'+wsQuery()).catch(()=>({ eleicoes:[] })),
+    api('/candidato/importacao'+wsQuery()).catch(()=>null),
+  ]);
+  CD.eleicoes = el.eleicoes || [];
+  CD.dados = r.dados || null; CD.rede = r.rede || null; CD.imp = imp;
+  const d = CD.dados;
+  CD.form = d ? { ano:d.ano, turno:d.turno, cargo:d.cargo, uf:d.uf, abrangencia:d.abrangencia, municipios:d.municipios.map(m=>({...m})),
+      numero:d.numero, partido:d.partido, nome_urna:d.nome_urna||'', faixa_verde:d.faixa_verde, faixa_amarela:d.faixa_amarela }
+    : { ano:(CD.eleicoes[0]||{}).ano || new Date().getFullYear(), turno:1, cargo:13, uf:(String((contarPor(APOIADORES.filter(a=>a.estado), a=>String(a.estado).trim().toLowerCase())[0]||[])[0]||'ms')),
+      abrangencia:'municipio', municipios:[], numero:'', partido:'', nome_urna:'', faixa_verde:80, faixa_amarela:50 };
+  CD.municipios = []; CD.candidatos = null;
+  cdDesenhar();
+  await cdCarregarListas();
+}
+
+// Eleição (códigos do TSE) para o ano/turno/cargo do formulário.
+function cdEleicao(){
+  const f = CD.form;
+  const p = (CD.eleicoes||[]).find(e=>e.ano===Number(f.ano) && e.turno===Number(f.turno) && e.cargos.some(c=>c.cod===Number(f.cargo)));
+  if(!p) return null;
+  const c = p.cargos.find(c=>c.cod===Number(f.cargo));
+  return { ciclo:p.ciclo, pleito:p.pleito, eleicao:c.eleicao };
+}
+
+async function cdCarregarListas(){
+  const e = cdEleicao(); const f = CD.form;
+  CD.municipios = []; CD.candidatos = null;
+  if(e){
+    try { CD.municipios = await api(`/candidato/municipios?ciclo=${e.ciclo}&eleicao=${e.eleicao}&uf=${f.uf}`+wsQuery('&')); } catch(err){ CD.municipios = []; }
+  }
+  cdDesenhar();
+  await cdCarregarCandidatos();
+}
+
+async function cdCarregarCandidatos(){
+  const e = cdEleicao(); const f = CD.form;
+  CD.candidatos = null;
+  if(!e){ cdDesenharCandidatos(); return; }
+  const municipal = CD_MUNICIPAL.includes(Number(f.cargo));
+  if(municipal && !f.municipios[0]){ CD.candidatos = []; cdDesenharCandidatos(); return; }
+  try {
+    const r = await api(`/candidato/candidatos?ciclo=${e.ciclo}&eleicao=${e.eleicao}&uf=${f.uf}&cargo=${f.cargo}${municipal?`&municipio=${f.municipios[0].codigo}`:''}`+wsQuery('&'));
+    CD.candidatos = r.candidatos || [];
+  } catch(err){ CD.candidatos = []; }
+  cdDesenharCandidatos();
+}
+
+function cdLerCampos(){
+  const v = (id)=>document.getElementById(id)?.value;
+  const f = CD.form;
+  ['numero','partido','nome_urna','faixa_verde','faixa_amarela'].forEach(k=>{ const x = v('cd-'+k); if(x!==undefined) f[k] = x; });
+}
+
+function cdDesenhar(){
+  const el = document.getElementById('cd-corpo'); if(!el || paginaAtual!=='candidato') return;
+  const f = CD.form; const d = CD.dados;
+  const anos = [...new Set([...(CD.eleicoes||[]).map(e=>e.ano), Number(f.ano)].filter(Boolean))].sort((a,b)=>b-a);
+  const turnos = [...new Set((CD.eleicoes||[]).filter(e=>e.ano===Number(f.ano)).map(e=>e.turno))];
+  if(!turnos.includes(1)) turnos.unshift(1);
+  const municipal = CD_MUNICIPAL.includes(Number(f.cargo));
+  const e = cdEleicao();
+  const pctSecao = APOIADORES.length ? Math.round(APOIADORES.filter(a=>String(a.zona||'').trim() && String(a.secao||'').trim()).length / APOIADORES.length * 100) : null;
+  el.innerHTML = `
+  ${d ? `<div class="card" style="border-left:4px solid var(--gold)">
+    <div style="font-size:15px"><b>${escapeHtml(d.nome_urna || d.nome_candidato)}</b> · ${escapeHtml(d.cargo_nome)} · nº <b>${escapeHtml(d.numero)}</b> · ${escapeHtml(d.partido)} · ${d.uf.toUpperCase()} · ${d.ano} (${d.turno}º turno)</div>
+    <div class="ap-meta" style="margin-top:4px">${d.abrangencia==='estado' ? 'Estado todo' : d.municipios.map(m=>vsTitulo(m.nome)+' <span style="opacity:.7">(TSE '+m.codigo+')</span>').join(', ')}${d.ciclo ? '' : ' · <span style="color:var(--red)">eleição ainda não publicada pelo TSE</span>'}</div>
+  </div>` : `<div class="ap-aviso">Preencha os dados do candidato. O número sozinho não identifica ninguém — ele se repete entre cargos, anos e municípios.</div>`}
+  ${CD.rede && CD.rede.coordenador_geral ? `<p class="ap-meta" style="margin:-6px 0 14px">Rede <b>${escapeHtml(CD.rede.nome)}</b> · Coordenador Geral: ${escapeHtml(CD.rede.coordenador_geral)}</p>` : ''}
+  <div class="card">
+    <div class="card-header"><div class="card-title">🗳️ Dados do candidato no TSE</div></div>
+    <div class="form-grid">
+      <div class="field"><label>Ano da eleição *</label><select class="ap-select" style="width:100%" onchange="cdMudou('ano',this.value)">${anos.map(a=>`<option value="${a}" ${a===Number(f.ano)?'selected':''}>${a}</option>`).join('')}</select></div>
+      <div class="field"><label>Turno *</label><select class="ap-select" style="width:100%" onchange="cdMudou('turno',this.value)">${turnos.map(t=>`<option value="${t}" ${t===Number(f.turno)?'selected':''}>${t}º turno</option>`).join('')}</select></div>
+      <div class="field"><label>Cargo *</label><select class="ap-select" style="width:100%" onchange="cdMudou('cargo',this.value)">${CD_CARGOS.map(([c,n])=>`<option value="${c}" ${c===Number(f.cargo)?'selected':''}>${n}</option>`).join('')}</select></div>
+      <div class="field"><label>UF *</label><select class="ap-select" style="width:100%" onchange="cdMudou('uf',this.value)">${AP_UFS.map(u=>`<option value="${u.toLowerCase()}" ${u.toLowerCase()===f.uf?'selected':''}>${u}</option>`).join('')}</select></div>
+      <div class="field full"><label>Abrangência *</label>
+        ${municipal ? `<div class="ap-meta" style="padding:8px 0">Município único — automático para ${Number(f.cargo)===13?'vereador':'prefeito'}.</div>`
+          : `<div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" class="vs-chip ${f.abrangencia==='municipios'?'on':''}" onclick="cdMudou('abrangencia','municipios')">Municípios-alvo</button>
+            <button type="button" class="vs-chip ${f.abrangencia!=='municipios'?'on':''}" onclick="cdMudou('abrangencia','estado')">Estado todo</button></div>`}
+      </div>
+      ${municipal ? `<div class="field full"><label>Município *</label>
+        <select class="ap-select" style="width:100%" onchange="cdEscolherMunicipio(this.value)">
+          <option value="">${CD.municipios.length?'Escolha o município...':(e?'Carregando municípios do TSE...':'O TSE ainda não publicou esta eleição')}</option>
+          ${CD.municipios.map(m=>`<option value="${m.codigo}" ${f.municipios[0]&&f.municipios[0].codigo===m.codigo?'selected':''}>${escapeHtml(vsTitulo(m.nome))}</option>`).join('')}
+        </select><div class="ap-meta" style="margin-top:4px">Gravado com o código do TSE${f.municipios[0]?` (${f.municipios[0].codigo})`:''} — que é diferente do código do IBGE.</div></div>`
+      : f.abrangencia==='municipios' ? `<div class="field full"><label>Municípios-alvo * <span class="ap-meta">(${f.municipios.length} marcado${f.municipios.length===1?'':'s'})</span></label>
+        <input type="search" class="vs-busca" id="cd-busca-mun" placeholder="Filtrar municípios..." oninput="CD.buscaMun=this.value;cdListarMunicipios()" autocomplete="off">
+        <div class="vs-lista" id="cd-lista-mun" style="max-height:240px"></div></div>` : ''}
+      <div class="field full"><label>Candidato — digite o nome</label><div id="cd-cand-area"></div></div>
+      <div class="field"><label>Número do candidato *</label><input type="text" id="cd-numero" inputmode="numeric" maxlength="5" value="${escapeAttr(f.numero||'')}" placeholder="${(CD_DIGITOS[f.cargo]||[]).join(' ou ')} dígitos">
+        <div class="ap-meta" style="margin-top:4px">${CD_CARGOS.find(c=>c[0]===Number(f.cargo))[1]}: ${(CD_DIGITOS[f.cargo]||[]).join(' ou ')} dígitos</div></div>
+      <div class="field"><label>Partido (sigla) *</label><input type="text" id="cd-partido" maxlength="20" value="${escapeAttr(f.partido||'')}" placeholder="Ex.: PL"></div>
+      <div class="field"><label>Nome de urna</label><input type="text" id="cd-nome_urna" maxlength="80" value="${escapeAttr(f.nome_urna||'')}" placeholder="Só para exibição"></div>
+      <div class="field"><label>Sinal verde a partir de (%)</label><input type="number" id="cd-faixa_verde" min="1" max="1000" value="${escapeAttr(f.faixa_verde)}"></div>
+      <div class="field"><label>Sinal amarelo a partir de (%)</label><input type="number" id="cd-faixa_amarela" min="0" max="1000" value="${escapeAttr(f.faixa_amarela)}">
+        <div class="ap-meta" style="margin-top:4px">Abaixo disso, vermelho. Padrão: verde ≥ 80%, amarelo 50–79%.</div></div>
+    </div>
+    <button class="btn-primary" style="margin-top:8px" onclick="cdSalvar()">💾 Salvar dados do candidato</button>
+  </div>
+  <div class="card" id="cd-importacao"></div>
+  <div class="card">
+    <div class="card-header"><div class="card-title">📋 Rede com seção preenchida</div></div>
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <div class="stat-value" style="color:${pctSecao>=80?'var(--green)':pctSecao>=50?'#8a6a10':'var(--red)'}">${pctSecao==null?'—':pctSecao+'%'}</div>
+      <div class="ap-meta" style="flex:1;min-width:220px;line-height:1.6">das ${APOIADORES.length} pessoas da rede têm zona e seção preenchidas. O relatório Prometido × Entregue só é confiável quando essa taxa é alta — sem seção não há como cruzar o apoio com o voto. <a href="#/apoiadores" onclick="showPage('apoiadores');return false">Completar cadastros</a></div>
+    </div>
+  </div>`;
+  if(f.abrangencia==='municipios' && !municipal) cdListarMunicipios();
+  cdDesenharCandidatos();
+  cdDesenharImportacao();
+}
+
+function cdMudou(campo, v){
+  cdLerCampos();
+  const f = CD.form;
+  if(campo==='ano' || campo==='turno' || campo==='cargo') f[campo] = Number(v); else f[campo] = v;
+  if(campo==='cargo'){ f.numero=''; f.partido=''; f.nome_urna=''; f.abrangencia = CD_MUNICIPAL.includes(f.cargo) ? 'municipio' : 'estado'; f.municipios = []; }
+  if(campo==='uf' || campo==='ano' || campo==='turno'){ f.municipios = []; f.numero=''; }
+  if(campo==='abrangencia' && v==='estado') f.municipios = [];
+  cdDesenhar();
+  if(campo!=='abrangencia') cdCarregarListas();
+}
+function cdEscolherMunicipio(cod){
+  cdLerCampos();
+  const m = CD.municipios.find(x=>x.codigo===cod);
+  CD.form.municipios = m ? [{ codigo:m.codigo, nome:m.nome }] : [];
+  CD.form.numero = '';
+  cdDesenhar(); cdCarregarCandidatos();
+}
+function cdListarMunicipios(){
+  const el = document.getElementById('cd-lista-mun'); if(!el) return;
+  const q = apSemAcento(CD.buscaMun);
+  const marcados = new Set(CD.form.municipios.map(m=>m.codigo));
+  const lista = CD.municipios.filter(m=>!q || apSemAcento(m.nome).includes(q));
+  el.innerHTML = lista.map(m=>`<label class="vs-cand" style="cursor:pointer"><input type="checkbox" ${marcados.has(m.codigo)?'checked':''} onchange="cdMarcarMunicipio('${m.codigo}',this.checked)"> <span>${escapeHtml(vsTitulo(m.nome))}</span><span class="ap-meta" style="margin-left:auto">TSE ${m.codigo}</span></label>`).join('')
+    || `<div class="ap-meta" style="padding:12px">${CD.municipios.length?'Nenhum município com esse nome.':'O TSE ainda não publicou a lista de municípios desta eleição.'}</div>`;
+}
+function cdMarcarMunicipio(cod, on){
+  const f = CD.form;
+  f.municipios = f.municipios.filter(m=>m.codigo!==cod);
+  if(on){ const m = CD.municipios.find(x=>x.codigo===cod); if(m) f.municipios.push({ codigo:m.codigo, nome:m.nome }); }
+  const lbl = document.querySelector('#cd-corpo .field.full label .ap-meta');
+  if(lbl) lbl.textContent = `(${f.municipios.length} marcado${f.municipios.length===1?'':'s'})`;
+}
+
+function cdDesenharCandidatos(){
+  const el = document.getElementById('cd-cand-area'); if(!el) return;
+  const f = CD.form;
+  if(!cdEleicao()){ el.innerHTML = `<p class="ap-meta">O TSE ainda não publicou a eleição de ${f.ano} para este cargo — preencha número e partido à mão.</p>`; return; }
+  if(CD_MUNICIPAL.includes(Number(f.cargo)) && !f.municipios[0]){ el.innerHTML = `<p class="ap-meta">Escolha o município: o mesmo número existe em cidades diferentes.</p>`; return; }
+  if(CD.candidatos===null){ el.innerHTML = `<p class="ap-meta">Carregando a lista oficial...</p>`; return; }
+  if(!CD.candidatos.length){ el.innerHTML = `<p class="ap-meta">Lista de candidatos ainda não publicada — preencha número e partido à mão.</p>`; return; }
+  el.innerHTML = `<input type="search" class="vs-busca" id="cd-busca-cand" placeholder="Nome, número ou partido (${vsNum(CD.candidatos.length)} candidatos)" autocomplete="off" oninput="CD.buscaCand=this.value;cdListarCand()">
+    <div class="vs-lista" id="cd-cand-lista" style="max-height:260px"></div>`;
+  cdListarCand();
+}
+function cdListarCand(){
+  const el = document.getElementById('cd-cand-lista'); if(!el) return;
+  const q = apSemAcento(CD.buscaCand);
+  const lista = CD.candidatos.filter(c=>!q || apSemAcento(`${c.nome} ${c.nomeCompleto||''} ${c.numero} ${c.partido||''}`).includes(q)).slice(0,60);
+  el.innerHTML = lista.map(c=>`<div class="vs-cand ${c.numero===CD.form.numero?'on':''}" onclick="cdEscolherCand('${escapeAttr(c.numero)}')">
+      <img class="vs-mini" src="${escapeHtml(c.foto||'')}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+      <div class="vs-cand-nome"><b>${escapeHtml(c.nome)}</b><span>${escapeHtml(c.partido||'')} · nº ${escapeHtml(c.numero)}${c.situacao?' · '+escapeHtml(c.situacao):''}</span></div></div>`).join('')
+    || `<div class="ap-meta" style="padding:12px">Ninguém com esse nome.</div>`;
+}
+function cdEscolherCand(numero){
+  cdLerCampos();
+  const c = CD.candidatos.find(x=>x.numero===numero); if(!c) return;
+  Object.assign(CD.form, { numero:c.numero, partido:c.partido||'', nome_urna:c.nome||'' });
+  cdDesenhar();
+}
+
+async function cdSalvar(){
+  cdLerCampos();
+  const f = CD.form;
+  const numero = String(f.numero||'').replace(/\D/g,'');
+  const dig = CD_DIGITOS[f.cargo] || [];
+  if(!dig.includes(numero.length)){ showToast(`O número de ${CD_CARGOS.find(c=>c[0]===Number(f.cargo))[1]} tem ${dig.join(' ou ')} dígitos.`,'error'); return; }
+  showLoading('Salvando...');
+  try {
+    const r = await api('/candidato'+wsQuery(), { method:'PUT', body: JSON.stringify({ ...f, numero, as: workspaceAdmin?.id }) });
+    hideLoading();
+    showToast(r.tsePublicado ? 'Dados do candidato salvos.' : 'Salvo. O TSE ainda não publicou esta eleição — a importação fica disponível quando publicar.', 'success');
+    CD.eleicoes = null; VS.cfgApuracao = undefined; AP.dados = null;
+    cdIniciar();
+  } catch(e){ hideLoading(); showToast(e.message,'error'); }
+}
+
+// ── Importação ──────────────────────────────────────────────────────────────
+function cdDesenharImportacao(){
+  const el = document.getElementById('cd-importacao'); if(!el) return;
+  const s = CD.imp || {}; const a = s.atual; const p = s.progresso;
+  const quando = (t)=> t ? new Date(t).toLocaleString('pt-BR') : '—';
+  let estado = '';
+  if(a && a.status==='coletando'){
+    const pct = p && p.total ? Math.round(p.coletadas/p.total*100) : 0;
+    estado = `<div class="ap-aviso" style="background:#eef2fa;border-color:#a9bde3;color:var(--navy)">⏳ Buscando os boletins de urna no TSE... ${p?`${vsNum(p.coletadas)} de ${vsNum(p.total)} urnas`:''}
+      <div class="ap-trilho" style="margin-top:8px"><div class="ap-enche" style="width:${pct}%"></div></div></div>`;
+  } else if(a && a.status==='concluida'){
+    estado = `<div class="ap-aviso" style="background:#e6f4ec;border-color:var(--green);color:var(--green)">✅ <b>${vsNum(a.total_votos)} votos em ${vsNum(a.secoes)} seç${a.secoes===1?'ão':'ões'} de ${vsNum(a.municipios)} município${a.municipios===1?'':'s'}</b> · importado em ${quando(a.concluido_em)}${a.usuario_nome?` por ${escapeHtml(a.usuario_nome)}`:''}</div>
+      ${a.confere===true ? `<p class="ap-meta">✓ O total importado bate com o resultado oficial do TSE (${vsNum(a.total_oficial)} votos).</p>`
+        : a.confere===false ? `<div class="ap-aviso ap-aviso-erro">⚠️ Atenção: o total importado (${vsNum(a.total_votos)}) não bate com o oficial do TSE (${vsNum(a.total_oficial)}). Importe de novo daqui a pouco — o TSE pode ainda estar publicando boletins.</div>`
+        : `<p class="ap-meta">Total oficial do candidato no estado: ${vsNum(a.total_oficial)} votos. A importação trouxe só os municípios da campanha, então não dá para comparar com o total do estado.</p>`}`;
+  } else if(a && a.status==='indisponivel'){
+    estado = `<div class="ap-aviso">⏳ <b>Dados do TSE ainda não disponíveis.</b> Tente de novo mais tarde (o TSE publica os boletins de urna na noite da eleição e nos dias seguintes).</div>`;
+  } else if(a && a.status==='erro'){
+    estado = `<div class="ap-aviso ap-aviso-erro">❌ ${escapeHtml(a.erro||'Falhou.')}</div>`;
+  }
+  el.innerHTML = `
+    <div class="card-header"><div class="card-title">📥 Importar votos do TSE</div>
+      <button class="btn-sm btn-navy" onclick="cdImportar()" ${!CD.dados || (a && a.status==='coletando') ? 'disabled' : ''}>${a && a.status==='concluida' ? '🔄 Importar de novo' : '📥 Importar votos do TSE'}</button></div>
+    <p class="ap-meta" style="margin:-8px 0 12px;line-height:1.6">Um clique: o sistema busca no TSE os votos do candidato em cada zona e seção — só ${CD.dados && CD.dados.abrangencia==='estado' ? 'dos municípios onde a rede tem gente votando' : 'do(s) município(s) da campanha'}, nunca o estado inteiro —, com brancos, nulos e comparecimento de cada seção. Importar de novo atualiza sem duplicar.</p>
+    ${!CD.dados ? '<p class="ap-meta">Salve os dados do candidato primeiro.</p>' : estado}
+    ${(s.historico||[]).length ? `<details style="margin-top:10px"><summary class="ap-meta" style="cursor:pointer">Histórico de importações (${s.historico.length})</summary>
+      <div class="table-wrap" style="overflow-x:auto;margin-top:8px"><table class="fe-tabela"><thead><tr><th>Quando</th><th>Quem</th><th>Situação</th><th>Votos</th><th>Seções</th><th>Origem</th></tr></thead>
+      <tbody>${s.historico.map(h=>`<tr><td>${quando(h.iniciado_em)}</td><td>${escapeHtml(h.usuario_nome||'—')}</td>
+        <td>${({concluida:'concluída',coletando:'buscando',indisponivel:'TSE não publicou',erro:'erro'})[h.status]||h.status}${h.confere===false?' ⚠️':''}</td>
+        <td>${h.total_votos==null?'—':vsNum(h.total_votos)}</td><td>${h.secoes==null?'—':vsNum(h.secoes)}</td><td class="ap-meta">${escapeHtml(h.arquivo||'')}</td></tr>`).join('')}</tbody></table></div></details>` : ''}`;
+}
+async function cdImportar(){
+  try {
+    const r = await api('/candidato/importar'+wsQuery(), { method:'POST', body: JSON.stringify({ as: workspaceAdmin?.id }) });
+    CD.imp = r;
+    if(r.status==='indisponivel') showToast('Dados do TSE ainda não disponíveis. Tente mais tarde.','info');
+    else if(r.status==='erro') showToast(r.erro,'error');
+    else showToast('Importação iniciada. Pode continuar usando o sistema.','success');
+  } catch(e){ showToast(e.message,'error'); }
+  cdDesenharImportacao();
+}
+async function cdTique(){
+  if(paginaAtual!=='candidato'){ clearInterval(CD.timer); return; }
+  if(CD.imp && CD.imp.atual && CD.imp.atual.status==='coletando'){
+    try { CD.imp = await api('/candidato/importacao'+wsQuery()); } catch(e){}
+    cdDesenharImportacao();
+  }
+}
+
+// ══════════════════════════════════════════
+//  PROMETIDO × ENTREGUE (relatório)
+// ══════════════════════════════════════════
+// Briefing "Votos por seção" v2, item 5. Para cada Líder, Coordenador e
+// Mobilizador: as seções onde vota a rede dele (ele + todos abaixo) × os votos
+// do candidato nessas seções. Mais a visão por zona e por seção com brancos e
+// nulos, ordenada pela maior taxa. O voto é secreto: a tela mostra o aviso
+// obrigatório e nunca fala em "voto de fulano".
+const EN = { dados:null, filtros:{}, aba:'liderancas', aberto:null, limite:150, carregando:false };
+const EN_SINAL = { verde:['ap-st-verde','entregou'], amarelo:['ap-st-amarelo','ficou perto'], vermelho:['ap-st-vermelho','abaixo'], cinza:['ap-st-cinza','sem seção'] };
+
+function renderEntrega(){
+  return `
+  <div class="page-header"><h1>Prometido × Entregue</h1><p>Quem entregou e quem não entregou, seção por seção</p></div>
+  <div class="vs-aviso-legal" style="margin:0 0 16px"><b>Indica a entrega da área de influência, não o voto individual.</b> O voto é secreto e o TSE divulga o total de cada seção, não de cada pessoa. Quando uma seção é compartilhada por mais de uma liderança, os votos aparecem para todas, sinalizados, sem dividir.</div>
+  <div id="en-corpo"><div class="card"><p class="ap-meta">Carregando...</p></div></div>`;
+}
+
+function enQuery(){
+  const p = new URLSearchParams();
+  Object.entries(EN.filtros).forEach(([k,v])=>{ if(v) p.set(k,v); });
+  const q = p.toString();
+  return (q ? '?'+q : '') + wsQuery(q ? '&' : '?');
+}
+async function enCarregar(){
+  EN.carregando = true; enDesenhar();
+  try { EN.dados = await api('/entrega'+enQuery()); }
+  catch(e){ EN.dados = { erro: e.message }; }
+  EN.carregando = false;
+  // Campanha estadual/federal: o município é obrigatório (briefing) — entra o primeiro.
+  const d = EN.dados;
+  if(d && d.dados && d.dados.abrangencia!=='municipio' && !EN.filtros.municipio && d.filtrosDisponiveis && d.filtrosDisponiveis.municipios.length > 1){
+    EN.filtros.municipio = d.filtrosDisponiveis.municipios[0].codigo;
+    return enCarregar();
+  }
+  enDesenhar();
+}
+function enIniciar(){ EN.aberto = null; enCarregar(); }
+function enFiltrar(campo, v){
+  EN.filtros[campo] = v || '';
+  if(campo==='municipio'){ EN.filtros.zona=''; EN.filtros.bairro=''; }
+  if(campo==='zona') EN.filtros.bairro='';
+  if(campo==='candidato'){ EN.filtros = { candidato:v }; }
+  EN.aberto = null; EN.limite = 150;
+  enCarregar();
+}
+function enAba(a){ EN.aba = a; EN.aberto = null; EN.limite = 150; enDesenhar(); }
+function enAbrir(k){ EN.aberto = EN.aberto===k ? null : k; enDesenhar(); }
+function enPct(v){ return v==null ? '—' : v.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%'; }
+function enSinal(s, entrega){ const [cls,txt] = EN_SINAL[s] || EN_SINAL.cinza; return `<span class="ap-st ${cls}">${entrega!=null && s!=='cinza' ? enPct(entrega)+' · ' : ''}${txt}</span>`; }
+
+function enDesenhar(){
+  const el = document.getElementById('en-corpo'); if(!el || paginaAtual!=='entrega') return;
+  const d = EN.dados;
+  if(!d){ el.innerHTML = `<div class="card"><p class="ap-meta">Carregando...</p></div>`; return; }
+  if(d.erro){ el.innerHTML = `<div class="ap-aviso ap-aviso-erro">${escapeHtml(d.erro)}</div>`; return; }
+  if(d.semDados){ el.innerHTML = `<div class="card"><p>Os dados do candidato ainda não foram cadastrados.</p>${papelEfetivo()==='candidato'?`<button class="btn-sm btn-navy" onclick="showPage('candidato')">Cadastrar dados do candidato</button>`:''}</div>`; return; }
+  if(d.indisponivel){ el.innerHTML = `<div class="ap-aviso">Dados do TSE ainda não disponíveis para esta eleição.</div>`; return; }
+  if(!d.urnasCarregadas){ el.innerHTML = `<div class="card"><p>Os votos ainda não foram importados.</p>${papelEfetivo()==='candidato'?`<button class="btn-sm btn-navy" onclick="showPage('candidato')">📥 Ir para Importar votos do TSE</button>`:'<p class="ap-meta">O candidato precisa importar os votos do TSE.</p>'}</div>`; return; }
+  const f = d.filtrosDisponiveis; const F = EN.filtros; const t = d.totais;
+  const pctRede = d.rede.total ? Math.round(d.rede.comSecao/d.rede.total*100) : null;
+  const sel = (campo, rotulo, opcoes, obrigatorio) => `<div class="field" style="margin:0"><label>${rotulo}</label>
+    <select class="ap-select" style="width:100%;min-width:0" onchange="enFiltrar('${campo}',this.value)">
+      ${obrigatorio?'':`<option value="">Todos</option>`}${opcoes.map(([v,n])=>`<option value="${escapeAttr(v)}" ${String(F[campo]||'')===String(v)?'selected':''}>${escapeHtml(n)}</option>`).join('')}</select></div>`;
+  const estadual = d.dados.abrangencia !== 'municipio';
+  el.innerHTML = `
+  ${d.candidatos && d.candidatos.length > 1 ? `<div class="card" style="padding:14px 18px"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="ap-meta">Candidato:</span>
+    ${d.candidatos.map(c=>`<button class="vs-chip ${c.id===d.candidato.id?'on':''}" onclick="enFiltrar('candidato','${c.id}')">${escapeHtml(c.nome)}</button>`).join('')}</div></div>` : ''}
+  <p class="ap-meta" style="margin:-4px 0 14px">${escapeHtml(d.dados.nome)} · ${escapeHtml(d.dados.cargo)} · nº ${escapeHtml(d.dados.numero)} · ${escapeHtml(d.dados.partido)} · ${d.dados.ano}${d.restrito?' · <b>mostrando só a sua rede</b>':''}</p>
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-label">Votos nas seções</div><div class="stat-value">${vsNum(t.votos)}</div><div class="stat-sub">${vsNum(t.secoes)} seç${t.secoes===1?'ão':'ões'} nesta visão${d.totalOficial!=null && !F.municipio && !F.zona && !F.bairro && !d.restrito?` · oficial ${vsNum(d.totalOficial)}`:''}</div></div>
+    <div class="stat-card"><div class="stat-label">Rede com seção</div><div class="stat-value" style="color:${pctRede>=80?'var(--green)':pctRede>=50?'#8a6a10':'var(--red)'}">${pctRede==null?'—':pctRede+'%'}</div><div class="stat-sub">${vsNum(d.rede.comSecao)} de ${vsNum(d.rede.total)} pessoas — o relatório só é confiável com esta taxa alta</div></div>
+    <div class="stat-card"><div class="stat-label">Brancos + nulos</div><div class="stat-value">${enPct(t.pctBrancosNulos)}</div><div class="stat-sub">${vsNum(t.brancos)} brancos · ${vsNum(t.nulos)} nulos · comparecimento ${vsNum(t.comparecimento)}</div></div>
+    <div class="stat-card"><div class="stat-label">Sinal</div><div class="stat-value" style="font-size:18px">${['verde','amarelo','vermelho'].map(s=>`<span class="ap-st ${EN_SINAL[s][0]}">${d.liderancas.filter(l=>l.sinal===s).length}</span>`).join(' ')}</div><div class="stat-sub">verde ≥ ${d.dados.faixaVerde}% · amarelo ${d.dados.faixaAmarela}–${d.dados.faixaVerde-1}% · vermelho &lt; ${d.dados.faixaAmarela}%</div></div>
+  </div>
+  <div class="card" style="padding:14px 18px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end">
+      ${f.municipios.length > 1 || estadual ? sel('municipio', estadual?'Município *':'Município', f.municipios.map(m=>[m.codigo, vsTitulo(m.nome)]), estadual) : ''}
+      ${sel('zona','Zona', f.zonas.map(z=>[z, 'Zona '+apZona(z)]))}
+      ${sel('bairro','Bairro', f.bairros.map(b=>[b, b]))}
+      ${sel('nivel','Nível', [[1,'Líderes'],[2,'Coordenadores'],[3,'Mobilizadores']])}
+      ${f.nichos.length ? sel('nicho','Nicho', f.nichos.map(n=>[n.id, n.nome])) : ''}
+      ${f.liderancas.length > 1 ? sel('lideranca','Liderança', f.liderancas.map(l=>[l.id, l.nome])) : ''}
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+    ${[['liderancas','👥 Por liderança'],['zonas','🗺️ Por zona'],['secoes','🗳️ Por seção']].map(([k,n])=>`<button class="btn-sm ${EN.aba===k?'btn-navy':'btn-outline'}" onclick="enAba('${k}')">${n}</button>`).join('')}
+    <span style="flex:1"></span>
+    <button class="btn-sm btn-outline" onclick="enExportar('csv')">📄 CSV</button>
+    <button class="btn-sm btn-outline" onclick="enExportar('pdf')">📕 PDF</button>
+  </div>
+  ${EN.carregando ? '<p class="ap-meta">Atualizando...</p>' : ''}
+  <div class="card">${EN.aba==='liderancas' ? enHtmlLiderancas(d) : EN.aba==='zonas' ? enHtmlZonas(d) : enHtmlSecoes(d.secoes, true)}</div>`;
+}
+
+function enHtmlSecoesDe(d, chaves, compartilhadas){
+  const set = new Set(chaves); const comp = new Set(compartilhadas||[]);
+  const lista = d.secoes.filter(s=>set.has(s.chave)).sort((a,b)=>b.votos-a.votos);
+  return `<table class="fe-tabela" style="width:100%"><thead><tr><th>Zona</th><th>Seção</th><th>Local</th><th>Votos</th><th>% da seção</th><th>Brancos</th><th>Nulos</th><th>Lideranças ali</th></tr></thead>
+    <tbody>${lista.map(s=>`<tr><td>${apZona(s.zona)}</td><td><b>${s.secao}</b>${comp.has(s.chave)?' <span class="badge badge-gold" title="Mais de uma liderança atua nesta seção">compartilhada</span>':''}</td>
+      <td class="ap-meta">${escapeHtml(s.local||'—')}${s.bairro && s.bairro!=='Bairro não informado'?' · '+escapeHtml(s.bairro):''}</td>
+      <td><b>${vsNum(s.votos)}</b></td><td>${enPct(s.pctSecao)}</td><td>${vsNum(s.brancos)}</td><td>${vsNum(s.nulos)}</td>
+      <td class="fe-nomes">${(s.liderancas||[]).map(escapeHtml).join(', ')}</td></tr>`).join('') || '<tr><td colspan="8" class="ap-meta">Nenhuma seção.</td></tr>'}</tbody></table>`;
+}
+
+function enHtmlLiderancas(d){
+  const ls = d.liderancas;
+  if(!ls.length) return `<p class="ap-meta">Nenhum Líder, Coordenador ou Mobilizador${Object.values(EN.filtros).some(Boolean)?' com esses filtros':''}.</p>`;
+  return `<p class="ap-meta" style="margin-bottom:10px">Clique numa linha para abrir as seções dela. Meta em cinza = não declarada (vale o tamanho da rede).</p>
+  <div class="table-wrap" style="overflow-x:auto"><table>
+    <thead><tr><th>Nome</th><th>Rede cadastrada</th><th>Meta</th><th>Seções cobertas</th><th>Votos nas seções</th><th>% de entrega</th><th>% da seção</th><th>Brancos</th><th>Nulos</th><th>% br.+nulos</th><th>Compart.</th></tr></thead>
+    <tbody>${ls.map(l=>`<tr class="ap-linha-zona" onclick="enAbrir('${l.id}')">
+      <td><b>${escapeHtml(l.nome)}</b> ${nivelBadge(l.nivel)}${l.vinculo?' <span class="badge" title="Cadastrada em outro candidato da rede">vínculo</span>':''}<div class="ap-meta">${l.zona?'zona '+apZona(l.zona)+(l.secao?' · seção '+l.secao:''):'sem zona'}${l.superior?' · de '+escapeHtml(l.superior):''}</div></td>
+      <td>${vsNum(l.redeCadastrada)} <span class="ap-meta">(${vsNum(l.comSecao)} c/ seção)</span></td>
+      <td ${l.metaDeclarada?'':'style="color:var(--slate-light)"'}>${vsNum(l.meta)}</td>
+      <td>${vsNum(l.secoesCobertas)}</td><td><b>${vsNum(l.votos)}</b></td>
+      <td>${enSinal(l.sinal, l.entrega)}</td><td>${enPct(l.pctSecao)}</td>
+      <td>${vsNum(l.brancos)}</td><td>${vsNum(l.nulos)}</td><td>${enPct(l.pctBrancosNulos)}</td>
+      <td>${l.compartilhadas ? `<span class="badge badge-gold">${l.compartilhadas}</span>` : '—'}</td></tr>
+      ${EN.aberto===l.id ? `<tr><td colspan="11" style="background:#f6f8fc">${enHtmlSecoesDe(d, l.secoes, l.secoesCompartilhadas)}</td></tr>` : ''}`).join('')}</tbody>
+  </table></div>`;
+}
+
+function enHtmlZonas(d){
+  return `<p class="ap-meta" style="margin-bottom:10px">Ordenado pela maior taxa de brancos + nulos — onde há eleitor desmobilizado ou com dificuldade na urna. Clique numa zona para abrir as seções.</p>
+  <div class="table-wrap" style="overflow-x:auto"><table>
+    <thead><tr><th>Zona</th><th>Seções</th><th>Aptos</th><th>Comparecimento</th><th>Votos do candidato</th><th>% da seção</th><th>Brancos</th><th>Nulos</th><th>% br.+nulos</th></tr></thead>
+    <tbody>${d.zonas.map(z=>{ const k=z.municipio+'|'+z.zona; return `<tr class="ap-linha-zona" onclick="enAbrir('${k}')">
+      <td><b>${apZona(z.zona)}</b><div class="ap-meta">${escapeHtml(vsTitulo(z.municipioNome))}</div></td><td>${vsNum(z.secoes)}</td><td>${vsNum(z.aptos)}</td><td>${vsNum(z.comparecimento)}</td>
+      <td><b>${vsNum(z.votos)}</b></td><td>${enPct(z.pctSecao)}</td><td>${vsNum(z.brancos)}</td><td>${vsNum(z.nulos)}</td><td><b>${enPct(z.pctBrancosNulos)}</b></td></tr>
+      ${EN.aberto===k ? `<tr><td colspan="9" style="background:#f6f8fc">${enHtmlSecoes(d.secoes.filter(s=>s.municipio===z.municipio && s.zona===z.zona), false)}</td></tr>` : ''}`; }).join('')}</tbody>
+  </table></div>`;
+}
+
+function enHtmlSecoes(secoes, paginar){
+  const lista = paginar ? secoes.slice(0, EN.limite) : secoes;
+  return `${paginar?'<p class="ap-meta" style="margin-bottom:10px">Ordenado pela maior taxa de brancos + nulos.</p>':''}
+  <div class="table-wrap" style="overflow-x:auto"><table class="fe-tabela" style="width:100%">
+    <thead><tr><th>Zona</th><th>Seção</th><th>Local</th><th>Aptos</th><th>Comparec.</th><th>Votos</th><th>Brancos</th><th>Nulos</th><th>% br.+nulos</th><th>Lideranças</th></tr></thead>
+    <tbody>${lista.map(s=>`<tr><td>${apZona(s.zona)}</td><td><b>${s.secao}</b>${s.compartilhada?' <span class="badge badge-gold">compartilhada</span>':''}</td>
+      <td class="ap-meta">${escapeHtml(s.local||'—')}${s.bairro && s.bairro!=='Bairro não informado'?' · '+escapeHtml(s.bairro):''}</td>
+      <td>${vsNum(s.aptos)}</td><td>${vsNum(s.comparecimento)}</td><td><b>${vsNum(s.votos)}</b></td><td>${vsNum(s.brancos)}</td><td>${vsNum(s.nulos)}</td>
+      <td><b>${enPct(s.pctBrancosNulos)}</b></td><td class="fe-nomes">${(s.liderancas||[]).map(escapeHtml).join(', ')}</td></tr>`).join('')}</tbody>
+  </table></div>
+  ${paginar && secoes.length > lista.length ? `<button class="btn-sm btn-outline" style="margin-top:10px" onclick="EN.limite+=300;enDesenhar()">Mostrar mais (${vsNum(secoes.length-lista.length)})</button>` : ''}`;
+}
+
+function enExportar(formato){
+  const d = EN.dados; if(!d || !d.liderancas) return;
+  const nome = 'prometido-x-entregue-' + EN.aba;
+  let colunas, linhas, titulo;
+  if(EN.aba==='liderancas'){
+    titulo = 'Prometido × Entregue — por liderança';
+    colunas = ['Nome','Papel','Zona','Seção','Rede cadastrada','Meta','Seções cobertas','Votos nas seções','% de entrega','% da seção','Brancos','Nulos','% brancos+nulos','Seções compartilhadas','Sinal'];
+    linhas = d.liderancas.map(l=>[l.nome, PAPEIS[l.nivel], l.zona||'', l.secao||'', l.redeCadastrada, l.meta, l.secoesCobertas, l.votos, l.entrega??'', l.pctSecao??'', l.brancos, l.nulos, l.pctBrancosNulos??'', l.compartilhadas, l.sinal]);
+  } else {
+    const zonas = EN.aba==='zonas';
+    titulo = zonas ? 'Brancos e nulos — por zona' : 'Brancos e nulos — por seção';
+    colunas = zonas ? ['Município','Zona','Seções','Aptos','Comparecimento','Votos do candidato','% da seção','Brancos','Nulos','% brancos+nulos']
+      : ['Município','Zona','Seção','Local','Bairro','Aptos','Comparecimento','Votos do candidato','% da seção','Brancos','Nulos','% brancos+nulos','Lideranças'];
+    linhas = zonas ? d.zonas.map(z=>[z.municipioNome, z.zona, z.secoes, z.aptos, z.comparecimento, z.votos, z.pctSecao??'', z.brancos, z.nulos, z.pctBrancosNulos??''])
+      : d.secoes.map(s=>[s.municipioNome, s.zona, s.secao, s.local||'', s.bairro||'', s.aptos, s.comparecimento, s.votos, s.pctSecao??'', s.brancos, s.nulos, s.pctBrancosNulos??'', (s.liderancas||[]).join('; ')]);
+  }
+  if(formato==='csv'){
+    const celula=(v)=>`"${String(v==null?'':v).replace(/"/g,'""')}"`;
+    baixarArquivo('﻿'+[colunas,...linhas].map(r=>r.map(celula).join(';')).join('\r\n'), nome+'.csv', 'text/csv;charset=utf-8');
+    showToast('CSV exportado.','success'); return;
+  }
+  // PDF: as colunas principais (o PDF tem largura de página).
+  const principais = EN.aba==='liderancas' ? [0,1,4,5,6,7,8,11,14] : EN.aba==='zonas' ? [0,1,2,4,5,7,8,9] : [1,2,3,6,7,9,10,11];
+  const bytes = criarPDF({
+    titulo: `${titulo} — ${d.dados.nome}`,
+    subtitulo: `${d.dados.cargo} nº ${d.dados.numero} · ${d.dados.ano} · gerado em ${_carimbo()}`,
+    rodape: 'RedeApoio · Indica a entrega da área de influência, não o voto individual · uso restrito à campanha (LGPD)',
+    blocos: [
+      { tipo:'kpis', itens:[{rotulo:'Votos nas seções',valor:vsNum(d.totais.votos)},{rotulo:'Seções',valor:vsNum(d.totais.secoes)},{rotulo:'Brancos + nulos',valor:enPct(d.totais.pctBrancosNulos)},{rotulo:'Rede com seção',valor:d.rede.total?Math.round(d.rede.comSecao/d.rede.total*100)+'%':'—'}] },
+      { tipo:'tabela', colunas: principais.map(i=>({ titulo: colunas[i], largura: i===0 && EN.aba==='liderancas' ? 4 : 1.6 })), linhas: linhas.map(r=>principais.map(i=>r[i]==null?'':String(r[i]))) },
+    ],
+  });
+  baixarArquivo(bytes, nome+'.pdf', 'application/pdf');
+  showToast('PDF gerado.','success');
+}
 
 // ══════════════════════════════════════════
 //  VOTOS POR SEÇÃO

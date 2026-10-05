@@ -792,3 +792,4 @@ CREATE INDEX IF NOT EXISTS idx_apoiador_candidatos_cand ON apoiador_candidatos (
 -- baixa só as urnas desses municípios — os do candidato, ou, na campanha de
 -- estado todo, os municípios onde a rede tem gente votando.
 ALTER TABLE tse_coletas ADD COLUMN IF NOT EXISTS municipios TEXT[];
+ALTER TABLE importacoes_tse ADD COLUMN IF NOT EXISTS municipios_escopo TEXT[];

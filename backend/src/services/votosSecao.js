@@ -82,21 +82,32 @@ async function statusColeta(ciclo, pleito, uf) {
     return { status: 'nunca', total: u ? u.urnas.size : null, coletadas: 0 };
   }
   return {
-    status: c.status, total: c.total, coletadas: c.coletadas, semBu: c.sem_bu, erro: c.erro,
+    status: c.status, total: c.total, coletadas: c.coletadas, semBu: c.sem_bu, erro: c.erro, municipios: c.municipios,
     iniciadoEm: c.iniciado_em, atualizadoEm: c.atualizado_em, concluidoEm: c.concluido_em,
   };
 }
 
-async function iniciarColeta({ ciclo, pleito, uf, usuarioId, refazer = false }) {
+// municipios: lista de códigos TSE para baixar só eles (importação do
+// candidato); sem lista, o estado inteiro. Se outra importação do mesmo
+// estado ainda está em andamento com outros municípios, os dois se somam;
+// fora isso vale o pedido de agora — nunca vira "estado inteiro" sem alguém
+// ter pedido o estado inteiro.
+async function iniciarColeta({ ciclo, pleito, uf, usuarioId, refazer = false, municipios = null }) {
   const u = await urnasDoEstado(ciclo, pleito, uf);
   if (!u) throw new Error('O TSE ainda não publicou a lista de seções desta eleição para este estado.');
+  const { rows: atual } = await pool.query('SELECT municipios, status FROM tse_coletas WHERE ciclo = $1 AND pleito = $2 AND uf = $3', [ciclo, pleito, uf]);
+  let escopo = municipios && municipios.length ? [...new Set(municipios)].sort() : null;
+  if (escopo && atual[0] && atual[0].status === 'coletando' && atual[0].municipios) {
+    escopo = [...new Set([...atual[0].municipios, ...escopo])].sort();
+  }
+  const total = escopo ? [...u.urnas.values()].filter((x) => escopo.includes(x.municipio)).length : u.urnas.size;
   await pool.query(
-    `INSERT INTO tse_coletas (ciclo, pleito, uf, status, total, iniciado_por, refazer_desde)
-     VALUES ($1,$2,$3,'coletando',$4,$5, CASE WHEN $6 THEN now() END)
+    `INSERT INTO tse_coletas (ciclo, pleito, uf, status, total, iniciado_por, refazer_desde, municipios)
+     VALUES ($1,$2,$3,'coletando',$4,$5, CASE WHEN $6 THEN now() END, $7)
      ON CONFLICT (ciclo, pleito, uf) DO UPDATE SET status = 'coletando', total = EXCLUDED.total, erro = NULL,
        iniciado_por = EXCLUDED.iniciado_por, iniciado_em = now(), atualizado_em = now(), concluido_em = NULL,
-       refazer_desde = CASE WHEN $6 THEN now() ELSE tse_coletas.refazer_desde END`,
-    [ciclo, pleito, uf, u.urnas.size, usuarioId || null, !!refazer]
+       refazer_desde = CASE WHEN $6 THEN now() ELSE tse_coletas.refazer_desde END, municipios = EXCLUDED.municipios`,
+    [ciclo, pleito, uf, total, usuarioId || null, !!refazer, escopo]
   );
   semBu.delete(`${ciclo}|${pleito}|${uf}`);
   acordar();
@@ -114,12 +125,17 @@ async function umaVolta(col) {
 
   const u = await urnasDoEstado(col.ciclo, col.pleito, col.uf);
   if (!u) throw new Error('Lista de seções do TSE indisponível.');
+  // Carga só de alguns municípios: as outras urnas do estado nem entram.
+  if (col.municipios) {
+    const so = new Set(col.municipios);
+    u.urnas = new Map([...u.urnas].filter(([, x]) => so.has(x.municipio)));
+  }
   const { rows } = await pool.query(
     `SELECT zona, secao FROM tse_urnas WHERE ciclo = $1 AND pleito = $2 AND uf = $3
        AND coletado_em >= COALESCE($4::timestamptz, '-infinity')`,
     [col.ciclo, col.pleito, col.uf, col.refazer_desde]
   );
-  const prontas = new Set(rows.map((r) => `${r.zona}|${r.secao}`));
+  const prontas = new Set(rows.map((r) => `${r.zona}|${r.secao}`).filter((k) => u.urnas.has(k)));
   if (!semBu.has(chave)) semBu.set(chave, new Map());
   const tentadas = semBu.get(chave);
   const agora = Date.now();
@@ -465,4 +481,4 @@ async function malhaEstado(uf) {
   return valor;
 }
 
-module.exports = { statusColeta, iniciarColeta, acordar, resultadoCandidato, lideresPorMunicipio, malhaEstado, COD_IBGE_UF };
+module.exports = { statusColeta, iniciarColeta, acordar, resultadoCandidato, lideresPorMunicipio, malhaEstado, COD_IBGE_UF, garantirLocais, urnasDoEstado, anoDoCiclo };
