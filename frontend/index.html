@@ -5715,7 +5715,11 @@ async function apIniciar(){
   // redesenha no meio do formulário nem da colagem — apagaria o que a pessoa digitou.
   AP.timer = setInterval(()=>{
     if(paginaAtual!=='apuracao'){ clearInterval(AP.timer); return; }
-    if(!AP.editando && !AP.colando && !AP.buscando) apCarregar();
+    // Nem enquanto a pessoa escolhe outro candidato no topo: o redesenho
+    // fecharia a lista no meio da escolha.
+    // (A escolha pela metade fica em AP.topo e sobrevive ao redesenho.)
+    const escolhendo = document.activeElement?.closest?.('#ap-cand-topo');
+    if(!AP.editando && !AP.colando && !AP.buscando && !escolhendo) apCarregar();
   }, AP_RELER_MS);
   AP.editando = false; AP.colando = false;
   await apCarregar();
@@ -5778,7 +5782,8 @@ function apPainel(){
   c.innerHTML = `
   ${d.erro ? `<div class="ap-aviso ap-aviso-erro">${escapeHtml(d.erro)}</div>` : ''}
   ${cfg.ultimoErro ? `<div class="ap-aviso ap-aviso-erro">Última busca no TSE falhou: ${escapeHtml(cfg.ultimoErro)}</div>` : ''}
-  <div class="ap-barra-topo">
+  <div class="ap-barra-topo" id="ap-cand-topo"><span class="ap-meta">Carregando candidatos...</span></div>
+  <div class="ap-barra-topo" style="border-top:none;padding-top:0">
     <label class="ap-rotulo" for="ap-zona">Zona eleitoral</label>
     <select id="ap-zona" class="ap-select" onchange="apFiltrar(this.value)">
       <option value="">Todas as zonas</option>
@@ -5839,6 +5844,7 @@ function apPainel(){
     </table></div>
   </div>
   <p class="ap-meta" style="line-height:1.6">A cobertura compara os votos do candidato divulgados no boletim de urna de cada seção com o número de apoiadores cadastrados pela rede naquela seção — não identifica o voto individual de nenhum eleitor, que permanece secreto por lei. Passar de 100% é normal: o candidato também recebe votos de quem não está na rede.</p>`;
+  apCandTopo();
 }
 
 function apFiltrar(zona){ AP.zona = zona || ''; apPainel(); }
@@ -5888,7 +5894,7 @@ async function apFormConfig(){
     c.innerHTML = `<div class="card"><p class="ap-meta">Consultando as eleições publicadas pelo TSE...</p></div>`;
     try {
       const r = await api('/apuracao/pleitos'+wsQuery());
-      AP.pleitos = r.pleitos || []; AP.cargos = r.cargos || [];
+      AP.pleitos = apOrdenarPleitos(r.pleitos || []); AP.cargos = r.cargos || [];
       if(r.erro) showToast(r.erro, 'error');
     } catch(e){ AP.pleitos = []; showToast(e.message, 'error'); }
     if(!AP.editando || paginaAtual!=='apuracao') return;
@@ -5904,27 +5910,27 @@ async function apFormConfig(){
     <div class="form-grid">
       <div class="field full"><label>Eleição</label>
         <select id="ap-f-pleito" onchange="apTrocouPleito()">
-          ${AP.pleitos.map(p=>`<option value="${p.ciclo}|${p.pleito}" ${`${p.ciclo}|${p.pleito}`===atual?'selected':''}>${escapeHtml(p.data)} — ${escapeHtml(p.eleicoes.map(e=>e.nome).join(' / '))}</option>`).join('')}
+          ${AP.pleitos.map(p=>`<option value="${p.ciclo}|${p.pleito}" ${`${p.ciclo}|${p.pleito}`===atual?'selected':''}>${escapeHtml(vsRotuloPleito(p))}</option>`).join('')}
           <option value="outra" ${(atual && !conhecido) || !AP.pleitos.length ?'selected':''}>Outra — informar o código do TSE</option>
         </select>
       </div>
       <div class="field" id="ap-f-outra-1" style="display:none"><label>Ciclo (ex.: ele2026)</label><input id="ap-f-ciclo" value="${escapeHtml(cfg.ciclo||'ele2026')}" autocomplete="off"></div>
       <div class="field" id="ap-f-outra-2" style="display:none"><label>Código do turno no TSE</label><input id="ap-f-codigo" value="${escapeHtml(cfg.pleito||'')}" inputmode="numeric" autocomplete="off"></div>
       <div class="field"><label>Estado</label>
-        <select id="ap-f-uf" onchange="apCarregarMunicipios()">
+        <select id="ap-f-uf" onchange="apCarregarMunicipios().then(apCandForm)">
           <option value="">Escolha...</option>
           ${AP_UFS.map(u=>`<option value="${u.toLowerCase()}" ${u===ufSug?'selected':''}>${u}</option>`).join('')}
         </select>
       </div>
       <div class="field"><label>Município</label>
-        <select id="ap-f-mun"><option value="">— Estado inteiro (governador, senador, deputado)</option></select>
+        <select id="ap-f-mun" onchange="apCandForm()"><option value="">— Estado inteiro (governador, senador, deputado)</option></select>
       </div>
       <div class="field"><label>Cargo</label>
-        <select id="ap-f-cargo">
-          ${cargos.map(k=>`<option value="${k}" ${k===cfg.cargo?'selected':''}>${k.charAt(0)+k.slice(1).toLowerCase()}</option>`).join('')}
+        <select id="ap-f-cargo" onchange="apCandForm()">
+          ${cargos.map(k=>`<option value="${k}" ${k===(cfg.cargo||'DEPUTADO ESTADUAL')?'selected':''}>${k.charAt(0)+k.slice(1).toLowerCase()}</option>`).join('')}
         </select>
       </div>
-      <div class="field"><label>Número do candidato na urna</label><input id="ap-f-numero" value="${escapeHtml(cfg.numero||'')}" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="ex.: 45123"></div>
+      <div class="field" id="ap-f-num-campo"><label>Candidato</label><input id="ap-f-numero" value="${escapeHtml(cfg.numero||'')}" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="Carregando candidatos..."></div>
       <div class="field full"><label style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:13px;cursor:pointer">
         <input type="checkbox" id="ap-f-ativo" style="width:auto" ${cfg.ativo===false?'':'checked'}> Buscar os boletins de urna automaticamente (a cada minuto)</label></div>
     </div>
@@ -5947,7 +5953,122 @@ function apTrocouPleito(){
   const outra = document.getElementById('ap-f-pleito').value==='outra';
   document.getElementById('ap-f-outra-1').style.display = outra ? '' : 'none';
   document.getElementById('ap-f-outra-2').style.display = outra ? '' : 'none';
-  apCarregarMunicipios();
+  apCarregarMunicipios().then(apCandForm);
+}
+
+// ── Escolher o candidato pelo nome ─────────────────────────────────────────
+// Ninguém sabe de cabeça o número do candidato (nem do próprio, às vezes do
+// aliado): a lista oficial do TSE vem com nome, número e partido, e escolher
+// nela evita o "44122 ou 41422?" que fazia a apuração inteira dar zero.
+// A lista vem de /votos/candidatos (mesma da tela Votos por Seção).
+
+// Mais recente primeiro: a lista do TSE vem na ordem dele (2024 antes de
+// 2026), e o padrão tem de ser sempre a última eleição.
+// Só eleições ordinárias de 2026 em diante: as suplementares (dezenas por
+// ano, uma cidade cada) e as de 2024 só poluíam a lista — pedido da dona do
+// sistema em 05/10/2026.
+function apOrdenarPleitos(lista){
+  const n = (d)=>Number(String(d||'').split('/').reverse().join(''))||0;
+  return pleitosValidos(lista).sort((a,b)=>n(b.data)-n(a.data));
+}
+function pleitosValidos(lista){
+  return (lista||[]).filter(p=>Number(String(p.ciclo).replace(/\D/g,''))>=2026 && p.eleicoes.some(e=>/ordin/i.test(e.nome)));
+}
+const AP_CAND_CACHE = new Map();
+async function apListaCandidatos(ciclo, pleito, uf, cargoNome, municipio){
+  const cod = VS_CARGO_POR_NOME[cargoNome];
+  if(!cod || !uf || !ciclo || !pleito) return null;
+  if(VS_MUNICIPAL.includes(cod) && !municipio) return null;
+  if(!VS.pleitos){
+    try { VS.pleitos = pleitosValidos((await api('/votos/eleicoes'+wsQuery())).pleitos); } catch(e){ VS.pleitos = []; }
+  }
+  const p = VS.pleitos.find(x=>x.ciclo===ciclo && String(x.pleito)===String(pleito));
+  const el = p && p.eleicoes.find(e=>e.cargos.some(c=>c.cod===cod));
+  if(!el) return null;
+  const q = `?ciclo=${ciclo}&eleicao=${el.codigo}&uf=${uf}&cargo=${cod}${VS_MUNICIPAL.includes(cod)?`&municipio=${municipio}`:''}`;
+  if(!AP_CAND_CACHE.has(q)){
+    try {
+      const r = await api('/votos/candidatos'+q+wsQuery('&'));
+      // Em ordem alfabética: aqui a pessoa procura pelo nome, não pelo ranking.
+      AP_CAND_CACHE.set(q, (r.candidatos||[]).slice().sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')));
+    } catch(e){ return null; }
+  }
+  return AP_CAND_CACHE.get(q);
+}
+function apOpcoesCandidatos(lista, numero){
+  return `<option value="">Escolha o candidato...</option>` + lista.map(c=>
+    `<option value="${escapeHtml(c.numero)}" ${c.numero===numero?'selected':''}>${escapeHtml(c.nome)} — ${escapeHtml(c.numero)}${c.partido?` (${escapeHtml(c.partido)})`:''}${c.eleito?' ✓ eleito':''}</option>`).join('');
+}
+
+// Formulário de configuração: o campo de número vira a lista de nomes.
+// Sem lista (TSE fora do ar, eleição "outra"), volta a ser número digitado.
+async function apCandForm(){
+  const campo = document.getElementById('ap-f-num-campo'); if(!campo) return;
+  const { ciclo, pleito } = apPleitoEscolhido();
+  const uf = document.getElementById('ap-f-uf').value;
+  const mun = document.getElementById('ap-f-mun').value;
+  const cargo = document.getElementById('ap-f-cargo').value;
+  const atual = document.getElementById('ap-f-numero')?.value || ((AP.dados && AP.dados.config) || {}).numero || '';
+  const lista = await apListaCandidatos(ciclo, pleito, uf, cargo, mun);
+  if(!document.getElementById('ap-f-num-campo')) return;
+  if(lista && lista.length){
+    campo.innerHTML = `<label>Candidato</label><select id="ap-f-numero">${apOpcoesCandidatos(lista, atual)}</select>`;
+  } else {
+    const dica = VS_MUNICIPAL.includes(VS_CARGO_POR_NOME[cargo]) && !mun ? 'escolha o município acima' : 'ex.: 45123';
+    campo.innerHTML = `<label>Número do candidato na urna</label><input id="ap-f-numero" value="${escapeHtml(atual)}" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="${dica}">`;
+  }
+}
+
+// Barra no topo da apuração: trocar o candidato acompanhado sem abrir a
+// configuração. Eleição e cargo só mudam de verdade quando um candidato é
+// escolhido (até lá, AP.topo guarda a escolha pela metade).
+async function apCandTopo(){
+  const el = document.getElementById('ap-cand-topo'); if(!el) return;
+  const cfg = (AP.dados && AP.dados.config) || {};
+  if(!AP.pleitos){
+    try { const r = await api('/apuracao/pleitos'+wsQuery()); AP.pleitos = apOrdenarPleitos(r.pleitos||[]); AP.cargos = r.cargos || []; }
+    catch(e){ AP.pleitos = []; }
+  }
+  const t = AP.topo || { ciclo:cfg.ciclo, pleito:String(cfg.pleito), cargo:cfg.cargo };
+  const lista = await apListaCandidatos(t.ciclo, t.pleito, cfg.uf, t.cargo, cfg.municipio);
+  if(!document.getElementById('ap-cand-topo')) return;
+  const cargos = AP.cargos.length ? AP.cargos : [cfg.cargo];
+  const mesmo = t.ciclo===cfg.ciclo && String(t.pleito)===String(cfg.pleito) && t.cargo===cfg.cargo;
+  el.innerHTML = `
+    <label class="ap-rotulo">Eleição</label>
+    <select class="ap-select" onchange="apTopoMudou('pleito', this.value)">
+      ${AP.pleitos.map(p=>`<option value="${p.ciclo}|${p.pleito}" ${p.ciclo===t.ciclo&&String(p.pleito)===String(t.pleito)?'selected':''}>${escapeHtml(vsRotuloPleito(p))}</option>`).join('')}
+    </select>
+    <label class="ap-rotulo">Cargo</label>
+    <select class="ap-select" style="min-width:150px" onchange="apTopoMudou('cargo', this.value)">
+      ${cargos.map(k=>`<option value="${k}" ${k===t.cargo?'selected':''}>${k.charAt(0)+k.slice(1).toLowerCase()}</option>`).join('')}
+    </select>
+    <label class="ap-rotulo">Candidato</label>
+    ${lista && lista.length
+      ? `<select class="ap-select" style="flex:1;min-width:240px" onchange="apTopoEscolher(this.value)">${apOpcoesCandidatos(lista, mesmo ? cfg.numero : '')}</select>`
+      : `<span class="ap-meta">${VS_MUNICIPAL.includes(VS_CARGO_POR_NOME[t.cargo]) && !cfg.municipio ? 'Para vereador e prefeito, escolha o município em ⚙️ Configuração.' : 'O TSE ainda não publicou a lista deste cargo.'}</span>`}`;
+}
+function apTopoMudou(campo, v){
+  const cfg = (AP.dados && AP.dados.config) || {};
+  AP.topo = AP.topo || { ciclo:cfg.ciclo, pleito:String(cfg.pleito), cargo:cfg.cargo };
+  if(campo==='pleito'){ const [c,p] = v.split('|'); AP.topo.ciclo = c; AP.topo.pleito = p; }
+  else AP.topo.cargo = v;
+  apCandTopo();
+}
+async function apTopoEscolher(numero){
+  if(!numero) return;
+  const cfg = (AP.dados && AP.dados.config) || {};
+  const t = AP.topo || { ciclo:cfg.ciclo, pleito:String(cfg.pleito), cargo:cfg.cargo };
+  // Município: mantém o da configuração (é ele que limita a apuração à cidade).
+  const corpo = { ciclo:t.ciclo, pleito:t.pleito, uf:cfg.uf, municipio:cfg.municipio || null, cargo:t.cargo, numero, ativo: cfg.ativo !== false };
+  showLoading('Trocando o candidato...');
+  try {
+    AP.dados = await api('/apuracao/config'+wsQuery(), { method:'PUT', body: JSON.stringify(corpo) });
+    AP.topo = null;
+    hideLoading();
+    apDesenhar();
+    if(corpo.ativo) apBuscarAgora();
+  } catch(e){ hideLoading(); showToast(e.message, 'error'); }
 }
 
 async function apCarregarMunicipios(){
@@ -6100,7 +6221,7 @@ async function vsIniciar(){
   if(!VS.pleitos){
     try {
       const r = await api('/votos/eleicoes'+wsQuery());
-      VS.pleitos = r.pleitos || [];
+      VS.pleitos = pleitosValidos(r.pleitos);
       if(r.erro) showToast(r.erro, 'error');
     } catch(e){ VS.pleitos = []; showToast(e.message, 'error'); }
   }
