@@ -151,6 +151,14 @@
   /* REDE: visões */
   .rede-visoes{display:flex;gap:8px;flex-wrap:wrap;margin:-10px 0 18px;}
   .pn-meta{font-size:11px;color:var(--green);font-weight:600;margin-top:3px;}
+  .pn-zs{font-size:11px;color:var(--slate);margin-top:3px;}
+  .pn-entrega{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin-top:6px;padding:6px 8px;border-radius:8px;background:#f6f8fc;border:1px solid var(--border);font-size:11px;color:var(--slate);cursor:pointer;}
+  .pn-entrega:hover{border-color:var(--gold);}
+  .pn-entrega .ap-st{font-size:10.5px;padding:2px 8px;}
+  .fe-resumo{background:#f6f8fc;border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.6;margin-bottom:12px;}
+  .fe-tabela td,.fe-tabela th{font-size:12px;padding:8px 10px;}
+  .fe-nomes{font-size:11px;color:var(--slate-light);}
+  .fe-aviso{font-size:11px;color:var(--slate-light);margin-top:10px;line-height:1.5;}
   .rg-topo{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
   .rg-titulo{font-weight:700;color:var(--navy);font-size:16px;display:flex;align-items:center;gap:8px;}
   .rg-bola{width:12px;height:12px;border-radius:50%;display:inline-block;}
@@ -1550,7 +1558,9 @@ function showPage(page) {
   const c = document.getElementById('main-content');
   switch(page){
     case 'dashboard':     c.innerHTML=renderDashboard(); break;
-    case 'rede':          c.innerHTML=renderRede(); break;
+    case 'rede':          c.innerHTML=renderRede();
+                          // Desenha na hora e redesenha quando chegam os votos de cada pessoa.
+                          carregarEntregaAoVivo().then(()=>{ if(paginaAtual==='rede') c.innerHTML=renderRede(); }); break;
     case 'apoiadores':    c.innerHTML=renderApoiadores(); break;
     case 'exportar':      c.innerHTML=renderExportar(); break;
     case 'grafico':       c.innerHTML=renderGrafico();
@@ -1710,7 +1720,77 @@ function seletorVisaoRede(){
 function extraNo(a){
   const meta = a.nivel <= 3 && a.meta_votos != null ? `<div class="pn-meta">🎯 meta ${a.meta_votos.toLocaleString('pt-BR')}</div>` : '';
   const chips = NICHOS.length ? chipsNichos(a) : '';
-  return (chips ? `<div class="nicho-linha">${chips}</div>` : '') + meta;
+  return (chips ? `<div class="nicho-linha">${chips}</div>` : '') + meta + entregaNo(a);
+}
+
+// ── Prometido × entregue no cartão da pirâmide ──────────────────────────────
+// Pedido da dona do sistema (05/10/2026): "no mesmo lugar onde aparece o nome
+// da pessoa, com a equipe, apareça a zona, a seção, quantos cadastros, quanto
+// teve de resultado e o que bateu" — sem precisar ler seção por seção e
+// voltar na pessoa. Os votos são os da Apuração ao Vivo (só as seções das
+// zonas da rede). Clicar no quadrinho abre a ficha seção por seção, com os
+// nomes de quem vota em cada uma.
+let ENTREGA_AV = null;
+async function carregarEntregaAoVivo(){
+  try {
+    const r = await api('/entrega/ao-vivo'+wsQuery());
+    ENTREGA_AV = { ativo: !!r.ativo, porId: new Map((r.pessoas||[]).map(p=>[String(p.id), p])), faixas: r.faixas || { verde:80, amarela:50 }, aviso: r.aviso || '' };
+  } catch(e){ ENTREGA_AV = { ativo:false, porId:new Map(), faixas:{ verde:80, amarela:50 } }; }
+}
+// Sem meta declarada vale o tamanho da equipe (regra do briefing "Votos por seção").
+function metaEfetiva(e){ return e.meta != null ? e.meta : e.equipe; }
+function statusEntrega(e){
+  if(!e.urnasTotal) return { cls:'ap-st-cinza', txt:'sem seção na equipe', pct:null };
+  if(!e.urnasApuradas) return { cls:'ap-st-cinza', txt:'aguardando urnas', pct:null };
+  const meta = metaEfetiva(e);
+  if(!meta) return { cls:'ap-st-cinza', txt:'sem meta', pct:null };
+  const pct = Math.round(e.votos/meta*100);
+  const f = (ENTREGA_AV && ENTREGA_AV.faixas) || { verde:80, amarela:50 };
+  if(pct >= f.verde) return { cls:'ap-st-verde', txt:'entregou', pct };
+  if(pct >= f.amarela) return { cls:'ap-st-amarelo', txt:'ficou perto', pct };
+  return { cls:'ap-st-vermelho', txt:'muito abaixo', pct };
+}
+function entregaNo(a){
+  const zs = a.zona ? `<div class="pn-zs">📍 Zona ${escapeHtml(apZona(a.zona))}${a.secao ? ' · Seção ' + escapeHtml(a.secao) : ' · <span style="color:var(--red)">sem seção</span>'}</div>` : '';
+  const e = a.nivel <= 3 && ENTREGA_AV && ENTREGA_AV.porId.get(String(a.id));
+  if(!e) return zs;
+  const st = statusEntrega(e);
+  return zs + `<div class="pn-entrega" onclick="event.stopPropagation();abrirFichaEntrega('${a.id}')" title="Ver seção por seção">
+    <span>👥 <b>${apNum(e.equipe)}</b> cadastros</span>
+    <span>🗳️ <b>${e.urnasApuradas ? apNum(e.votos) : '—'}</b> votos em ${e.urnasTotal} seç${e.urnasTotal===1?'ão':'ões'}</span>
+    <span class="ap-st ${st.cls}">${st.pct==null ? st.txt : st.pct+'% da meta'}</span></div>`;
+}
+function fichaEntregaHtml(e){
+  const st = statusEntrega(e);
+  const propria = e.secao ? (e.secoesDetalhe||[]).find(s=>s.secao===e.secao && s.zona===e.zona) : null;
+  const det = [...(e.secoesDetalhe||[])].sort((x,y)=> y.cadastrados - x.cadastrados || (y.votos||0) - (x.votos||0));
+  const semVoto = det.filter(s=>s.apurada && !s.votos).length;
+  return `
+    <div class="fe-resumo">
+      <b>${escapeHtml(e.nome)}</b> — ${nivelBadge(e.nivel)} ${e.zona ? `· zona <b>${apZona(e.zona)}</b>` : ''}${e.secao ? ` · seção <b>${escapeHtml(e.secao)}</b>` : ''}<br>
+      ${e.meta != null ? `Prometeu <b>${apNum(e.meta)}</b> votos.` : `Não declarou meta — usando o tamanho da equipe (<b>${apNum(e.equipe)}</b>) como meta.`}
+      A equipe tem <b>${apNum(e.equipe)}</b> pessoa${e.equipe===1?'':'s'} cadastrada${e.equipe===1?'':'s'} abaixo dele(a), votando em <b>${e.urnasTotal}</b> seç${e.urnasTotal===1?'ão':'ões'}.
+      ${e.urnasApuradas ? `Nessas seções o candidato teve <b>${apNum(e.votos)}</b> votos${e.urnasApuradas<e.urnasTotal?` (${e.urnasApuradas} de ${e.urnasTotal} seções apuradas)`:''} — <span class="ap-st ${st.cls}">${st.pct==null?st.txt:st.pct+'% da meta · '+st.txt}</span>` : 'As seções da equipe ainda não foram apuradas.'}
+      ${propria && propria.apurada ? `<br>Na seção dele(a) (${escapeHtml(propria.secao)}): <b>${apNum(propria.votos)}</b> voto${propria.votos===1?'':'s'} para <b>${propria.cadastrados}</b> cadastrado${propria.cadastrados===1?'':'s'}.` : ''}
+      ${semVoto ? `<br>⚠️ <b>${semVoto}</b> seç${semVoto===1?'ão':'ões'} da equipe com zero voto.` : ''}
+    </div>
+    ${det.length ? `<div class="table-wrap" style="overflow-x:auto"><table class="fe-tabela">
+      <thead><tr><th>Zona</th><th>Seção</th><th>Cadastrados ali</th><th>Votos</th><th>Votos ÷ cadastros</th></tr></thead>
+      <tbody>${det.map(s=>`<tr>
+        <td>${apZona(s.zona)}</td><td><b>${escapeHtml(s.secao)}</b></td>
+        <td><b>${s.cadastrados}</b><div class="fe-nomes">${(s.pessoas||[]).map(escapeHtml).join(', ')}</div></td>
+        <td>${s.apurada ? `<b>${apNum(s.votos)}</b>` : '<span class="ap-meta">aguardando</span>'}</td>
+        <td>${s.apurada && s.cadastrados ? Math.round(s.votos/s.cadastrados*100)+'%' : '—'}</td></tr>`).join('')}</tbody>
+    </table></div>` : '<p class="ap-meta">Ninguém da equipe tem seção eleitoral informada — sem seção não dá para cruzar com o voto.</p>'}
+    <p class="fe-aviso">${escapeHtml((ENTREGA_AV && ENTREGA_AV.aviso) || 'Indica a entrega da área de influência, não o voto individual.')} O TSE divulga o total de cada urna: a seção mostra quantos votos o candidato teve ali, nunca em quem uma pessoa votou.</p>`;
+}
+async function abrirFichaEntrega(id){
+  if(!ENTREGA_AV) await carregarEntregaAoVivo();
+  const e = ENTREGA_AV.porId.get(String(id));
+  if(!e){ showToast(ENTREGA_AV.ativo ? 'Essa pessoa não tem meta (só Líder, Coordenador e Mobilizador).' : 'Configure a Apuração ao Vivo para ver a entrega de cada pessoa.', 'info'); return; }
+  document.getElementById('modal-detail-title').textContent = 'Prometido × entregue — ' + e.nome;
+  document.getElementById('modal-detail-body').innerHTML = fichaEntregaHtml(e);
+  document.getElementById('modal-detail').classList.add('open');
 }
 
 const REDE_MAX_POR_GRUPO = 60;
@@ -5174,6 +5254,7 @@ function showDetail(id){
     <div class="detail-row"><span class="detail-key">Zona Eleitoral</span><span class="detail-val ${canSee?'':'sensitive'}" onclick="this.classList.toggle('revealed')">${a.zona||'—'}</span></div>
     <div class="detail-row"><span class="detail-key">Seção Eleitoral</span><span class="detail-val ${canSee?'':'sensitive'}" onclick="this.classList.toggle('revealed')">${a.secao||'—'}</span></div>
     ${!canSee?'<p style="font-size:11px;color:var(--slate-light);margin-top:12px;text-align:center">🔒 Clique para revelar</p>':''}
+    ${a.nivel<=3?`<button class="btn-sm btn-navy" style="width:100%;margin-top:14px" onclick="abrirFichaEntrega('${a.id}')">📊 Prometido × entregue, seção por seção</button>`:''}
     ${currentRole==='admin'?`<button class="btn-sm btn-outline" style="width:100%;margin-top:14px" onclick="closeModal('modal-detail');abrirLogPessoa('${a.id}','${escapeAttr(a.nome)}')">📜 Ver o histórico deste cadastro</button>`:''}`;
   document.getElementById('modal-detail').classList.add('open');
 }
@@ -5828,14 +5909,14 @@ function apPainel(){
   <div class="card">
     <div class="card-header"><div class="card-title">Por seção</div></div>
     <div class="table-wrap" style="overflow-x:auto"><table class="ap-tabela">
-      <thead><tr><th>Zona</th><th>Seção</th><th style="min-width:180px">Cobertura da rede</th><th>Cadastrados</th><th>Votos apurados</th><th>Status</th></tr></thead>
+      <thead><tr><th>Zona</th><th>Seção</th><th style="min-width:180px">Cobertura da rede</th><th>Cadastrados (quem são)</th><th>Votos apurados</th><th>Status</th></tr></thead>
       <tbody>${secoes.map(s=>{
         const pct = s.status==='apurado' ? apPct(s.votos, s.cadastrados) : null;
         return `<tr>
           <td><b>${apZona(s.zona)}</b></td>
           <td>${s.secao}${s.agregadas.length?`<div class="ap-meta">agrega ${s.agregadas.join(', ')}</div>`:''}</td>
           <td><div class="ap-cob"><div class="ap-trilho"><div class="ap-enche" style="width:${pct==null?0:Math.min(pct,100)}%"></div></div><span class="ap-cob-num">${pct==null?'—':pct+'%'}</span></div></td>
-          <td>${apNum(s.cadastrados)}</td>
+          <td><b>${apNum(s.cadastrados)}</b>${(s.pessoas||[]).length?`<div class="fe-nomes">${s.pessoas.map(p=>escapeHtml(p.nome)+(p.nivel<=3?` <i>(${PAPEIS[p.nivel]||''})</i>`:'')).join(', ')}</div>`:''}</td>
           <td>${s.status==='apurado' ? apNum(s.votos) : '—'}</td>
           <td>${s.status==='apurado'
               ? `<span class="badge badge-green">Apurado</span>${s.fonte==='manual'?' <span class="ap-meta" title="Resultado colado à mão">manual</span>':''}`
@@ -6131,6 +6212,7 @@ function apHtmlMetas(d){
   const m = d.metas;
   if(!m) return '';
   const porZona = m.porZona.filter(z=>!AP.zona || z.zona===AP.zona);
+  const porSecao = (m.porSecao||[]).filter(s=>!AP.zona || s.zona===AP.zona);
   const pr = m.porResponsavel.filter(r=>!AP.zona || r.zona===AP.zona);
   if(!pr.length) return '';
   const comMeta = pr.filter(r=>r.meta!=null);
@@ -6148,17 +6230,41 @@ function apHtmlMetas(d){
         <td><b>${apZona(z.zona)}</b></td><td>${apNum(z.meta)} <span class="ap-meta">(${z.pessoasComMeta} pessoa${z.pessoasComMeta>1?'s':''})</span></td>
         <td>${z.secoesApuradas?apNum(z.votosZona):'—'}${z.secoesApuradas && z.secoesApuradas<z.secoesTotal?' <span class="ap-meta">(parcial)</span>':''}</td><td>${pill(st)}</td></tr>`; }).join('')}</tbody>
     </table></div>` : ''}
+    ${porSecao.length ? `<div class="card-title" style="font-size:14px;margin-bottom:8px">Por seção</div>
+    <p class="ap-meta" style="margin:-4px 0 10px">Soma das metas de quem vota em cada seção × votos do candidato naquela urna.</p>
+    <div class="table-wrap" style="overflow-x:auto;margin-bottom:18px"><table>
+      <thead><tr><th>Zona</th><th>Seção</th><th>Quem prometeu (vota ali)</th><th>Meta somada</th><th>Cadastrados ali</th><th>Votos na seção</th><th>Situação</th></tr></thead>
+      <tbody>${porSecao.map(s=>{ const st=apStatusMeta(s.votos||0, s.meta, s.apurada?1:0); return `<tr>
+        <td>${apZona(s.zona)}</td><td><b>${escapeHtml(s.secao)}</b></td>
+        <td class="ap-meta">${s.pessoas.map(escapeHtml).join(', ')}${s.pessoasComMeta>s.pessoas.length?` e mais ${s.pessoasComMeta-s.pessoas.length}`:''}</td>
+        <td>${apNum(s.meta)}</td><td>${apNum(s.cadastrados)}</td>
+        <td>${s.apurada?`<b>${apNum(s.votos)}</b>`:'—'}</td><td>${pill(st)}</td></tr>`; }).join('')}</tbody>
+    </table></div>` : ''}
     <div class="card-title" style="font-size:14px;margin-bottom:8px">Ranking por responsável</div>
+    <p class="ap-meta" style="margin:-4px 0 10px">Clique no nome para ver, seção por seção, quantos da equipe votam ali e quantos votos vieram.</p>
     <div class="table-wrap" style="overflow-x:auto"><table>
-      <thead><tr><th>#</th><th>Nome</th><th>Papel</th><th>Zona</th><th>Meta</th><th>Votos nas urnas da equipe</th><th>Situação</th></tr></thead>
-      <tbody>${ranking.map((r,i)=>`<tr>
-        <td>${r.st.pct==null?'—':i+1}</td><td><b>${escapeHtml(r.nome)}</b>${r.equipe?`<div class="ap-meta">equipe de ${r.equipe}</div>`:''}</td>
-        <td>${nivelBadge(r.nivel)}</td><td>${r.zona?apZona(r.zona):'—'}</td><td>${apNum(r.meta)}</td>
+      <thead><tr><th>#</th><th>Nome</th><th>Papel</th><th>Zona / seção</th><th>Meta</th><th>Votos nas urnas da equipe</th><th>Situação</th></tr></thead>
+      <tbody>${ranking.map((r,i)=>{
+        const propria = r.secao ? (r.secoesDetalhe||[]).find(s=>s.secao===r.secao && s.zona===r.zona) : null;
+        const aberto = AP.abertoResp === r.id;
+        return `<tr class="ap-linha-zona" onclick="apAbrirResp('${r.id}')" title="Ver seção por seção">
+        <td>${r.st.pct==null?'—':i+1}</td><td><b>${escapeHtml(r.nome)}</b> <span class="ap-meta">${aberto?'▲':'▼'}</span>${r.equipe?`<div class="ap-meta">equipe de ${r.equipe}</div>`:''}</td>
+        <td>${nivelBadge(r.nivel)}</td>
+        <td>${r.zona?apZona(r.zona):'—'}${r.secao?` / <b>${escapeHtml(r.secao)}</b>`:''}${propria&&propria.apurada?`<div class="ap-meta">${apNum(propria.votos)} voto${propria.votos===1?'':'s'} na seção dele(a)</div>`:''}</td>
+        <td>${apNum(r.meta)}</td>
         <td>${r.urnasTotal ? `${apNum(r.votos)} <span class="ap-meta">(${r.urnasApuradas} de ${r.urnasTotal} urnas)</span>` : '<span class="ap-meta">ninguém da equipe com seção</span>'}</td>
-        <td>${pill(r.st)}</td></tr>`).join('') || `<tr><td colspan="7" class="ap-meta">Ninguém declarou meta ainda. A meta é preenchida no cadastro ou na edição de cada Líder, Coordenador e Mobilizador.</td></tr>`}</tbody>
+        <td>${pill(r.st)}</td></tr>
+        ${aberto ? `<tr><td colspan="7" style="background:#f6f8fc"><table class="fe-tabela" style="width:100%">
+          <thead><tr><th>Zona</th><th>Seção</th><th>Da equipe, votam ali</th><th>Votos</th></tr></thead>
+          <tbody>${[...(r.secoesDetalhe||[])].sort((x,y)=>y.cadastrados-x.cadastrados||(y.votos||0)-(x.votos||0)).map(s=>`<tr>
+            <td>${apZona(s.zona)}</td><td><b>${escapeHtml(s.secao)}</b></td>
+            <td><b>${s.cadastrados}</b><div class="fe-nomes">${(s.pessoas||[]).map(escapeHtml).join(', ')}</div></td>
+            <td>${s.apurada?`<b>${apNum(s.votos)}</b>`:'<span class="ap-meta">aguardando</span>'}</td></tr>`).join('') || '<tr><td colspan="4" class="ap-meta">Ninguém da equipe com seção informada.</td></tr>'}</tbody>
+        </table></td></tr>` : ''}`; }).join('') || `<tr><td colspan="7" class="ap-meta">Ninguém declarou meta ainda. A meta é preenchida no cadastro ou na edição de cada Líder, Coordenador e Mobilizador.</td></tr>`}</tbody>
     </table></div>
   </div>`;
 }
+function apAbrirResp(id){ AP.abertoResp = AP.abertoResp === id ? null : id; apPainel(); }
 
 // ══════════════════════════════════════════
 //  VOTOS POR SEÇÃO

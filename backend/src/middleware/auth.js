@@ -18,7 +18,12 @@ function authRequired(req, res, next) {
 
 function requireRole(...perfis) {
   return (req, res, next) => {
-    if (!perfis.includes(req.user.perfil)) {
+    // O Coordenador Geral dentro de um candidato da rede dele (resolveWorkspace
+    // já conferiu) passa onde o candidato passa. Nada mais muda de perfil aqui:
+    // o admin continua sendo admin, e rota só de admin segue só de admin.
+    const perfil = req.user.perfil === 'coordenador_geral' && req.effectivePerfil === 'candidato'
+      ? 'candidato' : req.user.perfil;
+    if (!perfis.includes(perfil)) {
       return res.status(403).json({ error: 'Você não tem permissão para esta ação.' });
     }
     next();

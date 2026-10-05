@@ -648,3 +648,147 @@ CREATE TABLE IF NOT EXISTS tse_locais_carga (
   importado_em  TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (ano, uf)
 );
+
+-- ─── Briefing "Votos por seção" v2 (05/10/2026) ─────────────────────────────
+-- Etapa 1: o candidato é cadastrado UMA vez com o que identifica a votação
+-- dele no TSE. O número sozinho não basta: repete entre cargos, anos e
+-- municípios — a chave é ano + turno + cargo + UF + município + número.
+-- cargo é o código do TSE (13 vereador, 11 prefeito, 7 dep. estadual,
+-- 6 dep. federal, 5 senador, 3 governador). ciclo/pleito/eleicao são os
+-- códigos do portal de resultados do TSE resolvidos na hora de salvar — é com
+-- eles que a importação acha os boletins, sem ninguém digitar código.
+-- faixa_verde/faixa_amarela: o sinal do relatório (briefing: verde ≥ 80%,
+-- amarelo 50–79%, "faixas configuráveis por cliente").
+CREATE TABLE IF NOT EXISTS candidato_dados (
+  candidato_id   UUID PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
+  ano            INT  NOT NULL CHECK (ano BETWEEN 2000 AND 2100),
+  turno          INT  NOT NULL DEFAULT 1 CHECK (turno IN (1, 2)),
+  cargo          INT  NOT NULL,
+  numero         TEXT NOT NULL,
+  partido        TEXT NOT NULL,
+  uf             TEXT NOT NULL,
+  abrangencia    TEXT NOT NULL CHECK (abrangencia IN ('municipio', 'municipios', 'estado')),
+  nome_urna      TEXT,
+  ciclo          TEXT,
+  pleito         TEXT,
+  eleicao        TEXT,
+  faixa_verde    INT  NOT NULL DEFAULT 80 CHECK (faixa_verde BETWEEN 1 AND 1000),
+  faixa_amarela  INT  NOT NULL DEFAULT 50 CHECK (faixa_amarela BETWEEN 0 AND 1000),
+  atualizado_em  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Municípios da campanha, sempre pelo código do TSE (não o do IBGE: são
+-- números diferentes). Um só para vereador/prefeito; vários nas campanhas
+-- estaduais/federais com "municípios-alvo"; nenhum quando é o estado todo.
+CREATE TABLE IF NOT EXISTS candidato_municipios (
+  candidato_id       UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  cod_municipio_tse  TEXT NOT NULL,
+  nome               TEXT NOT NULL,
+  PRIMARY KEY (candidato_id, cod_municipio_tse)
+);
+
+-- Etapa 2: onde a pessoa VOTA (pode ser outra cidade da que ela mora) e,
+-- opcional, a escola. Zona e seção já existiam. O título de eleitor deixa de
+-- ser pedido (briefing: "zona e seção bastam e reduzem o risco LGPD"); a
+-- coluna antiga fica, sem DROP — ver o bloco do título mais abaixo.
+ALTER TABLE apoiadores ADD COLUMN IF NOT EXISTS municipio_votacao TEXT;
+ALTER TABLE apoiadores ADD COLUMN IF NOT EXISTS municipio_votacao_nome TEXT;
+ALTER TABLE apoiadores ADD COLUMN IF NOT EXISTS local_votacao TEXT;
+ALTER TABLE apoiadores ADD COLUMN IF NOT EXISTS local_votacao_nome TEXT;
+
+-- Etapa 3: histórico e auditoria de cada "Importar votos do TSE" (quem,
+-- quando, de onde, resultado). Os votos em si não são copiados por candidato:
+-- moram em tse_urnas, uma linha por urna com todos os candidatos, então
+-- reimportar nunca duplica (é o mesmo upsert por urna) e um estado inteiro
+-- não vira milhões de linhas.
+CREATE TABLE IF NOT EXISTS importacoes_tse (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  candidato_id   UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  usuario_id     UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+  usuario_nome   TEXT,
+  arquivo        TEXT,
+  ciclo          TEXT NOT NULL,
+  pleito         TEXT NOT NULL,
+  uf             TEXT NOT NULL,
+  cargo          INT  NOT NULL,
+  numero         TEXT NOT NULL,
+  status         TEXT NOT NULL DEFAULT 'coletando',
+  linhas         INT,
+  secoes         INT,
+  municipios     INT,
+  total_votos    INT,
+  total_oficial  INT,
+  confere        BOOLEAN,
+  erro           TEXT,
+  iniciado_em    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  concluido_em   TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_importacoes_tse_cand ON importacoes_tse (candidato_id, iniciado_em DESC);
+
+-- Seção 7: rede com vários candidatos sob um Coordenador Geral.
+-- O perfil novo entra na lista do CHECK. Só troca a restrição quando ela
+-- ainda não conhece o perfil — depois da primeira vez, não faz nada.
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conrelid = 'usuarios'::regclass AND conname = 'usuarios_perfil_check'
+       AND pg_get_constraintdef(oid) LIKE '%coordenador_geral%'
+  ) THEN
+    ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_perfil_check;
+    ALTER TABLE usuarios ADD CONSTRAINT usuarios_perfil_check
+      CHECK (perfil IN ('admin', 'candidato', 'lideranca', 'apoiador', 'coordenador_geral'));
+  END IF;
+END $$;
+
+-- O cliente contratante passa a ser a rede. coordenador_geral_id NULL = rede
+-- de um candidato só (todo cliente que já existia vira isso, sem mudar nada
+-- do que ele enxerga).
+CREATE TABLE IF NOT EXISTS redes (
+  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nome                  TEXT NOT NULL,
+  coordenador_geral_id  UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- rede_id vale para o candidato (e para o coordenador geral, que é dono dela).
+-- rede_ver_outros: o candidato só enxerga os outros candidatos da rede se o
+-- Coordenador Geral liberar (briefing: "salvo liberação do Coordenador Geral").
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS rede_id UUID REFERENCES redes(id) ON DELETE SET NULL;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS rede_ver_outros BOOLEAN NOT NULL DEFAULT false;
+
+-- Migração: cada candidato que ainda não tem rede ganha uma só dele. A
+-- condição rede_id IS NULL deixa de valer depois de aplicada.
+DO $$
+DECLARE c RECORD; r UUID;
+BEGIN
+  FOR c IN SELECT id, nome FROM usuarios WHERE perfil = 'candidato' AND rede_id IS NULL LOOP
+    INSERT INTO redes (nome) VALUES ('Rede de ' || c.nome) RETURNING id INTO r;
+    UPDATE usuarios SET rede_id = r WHERE id = c.id;
+  END LOOP;
+END $$;
+
+-- A mesma pessoa apoiando mais de um candidato da rede, sem duplicar o
+-- cadastro. A ficha (apoiadores) continua na pirâmide do candidato onde ela
+-- foi cadastrada primeiro — é ela que guarda nome, telefone, zona e seção,
+-- que valem para todos. Esta tabela guarda só os OUTROS vínculos: o papel
+-- (nível), o superior e a meta naquele outro candidato. Uma pessoa pode ser
+-- Líder de um e Mobilizador de outro. superior_id sem chave estrangeira pelo
+-- mesmo motivo de apoiadores.parent_id (pode estar em usuarios ou apoiadores).
+CREATE TABLE IF NOT EXISTS apoiador_candidatos (
+  apoiador_id   UUID NOT NULL REFERENCES apoiadores(id) ON DELETE CASCADE,
+  candidato_id  UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  nivel         INT  NOT NULL CHECK (nivel BETWEEN 1 AND 4),
+  superior_id   UUID,
+  meta_votos    INT CHECK (meta_votos IS NULL OR meta_votos BETWEEN 0 AND 10000000),
+  ativo         BOOLEAN NOT NULL DEFAULT true,
+  criado_por    UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (apoiador_id, candidato_id)
+);
+CREATE INDEX IF NOT EXISTS idx_apoiador_candidatos_cand ON apoiador_candidatos (candidato_id) WHERE ativo;
+
+-- Importação só do que o candidato precisa (pedido da dona do sistema em
+-- 05/10/2026: "não quero que fique baixando tudo"). municipios NULL = estado
+-- inteiro (botão "Carregar o estado" de Votos por Seção); com lista, a carga
+-- baixa só as urnas desses municípios — os do candidato, ou, na campanha de
+-- estado todo, os municípios onde a rede tem gente votando.
+ALTER TABLE tse_coletas ADD COLUMN IF NOT EXISTS municipios TEXT[];

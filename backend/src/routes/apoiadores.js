@@ -17,17 +17,39 @@ router.use(authRequired, resolveWorkspace);
 // criada em cascata a partir de um candidato, e traz todos os apoiadores ligados a
 // qualquer um desses usuários. Tipagem UUID nativa do Postgres elimina de vez o bug
 // de comparação UUID vs string que existia no filtro .or() do Supabase.
+//
+// Rede com vários candidatos (briefing "Votos por seção", seção 7): a mesma
+// pessoa pode apoiar outro candidato da rede sem duplicar o cadastro. Quem tem
+// vínculo com ESTE candidato (apoiador_candidatos) entra na lista com o papel,
+// o superior e a meta que tem aqui — jsonb_populate_record devolve a ficha com
+// só esses campos trocados, na mesma ordem de colunas, e o resto do sistema
+// (pirâmide, listas, relatórios, permissão) enxerga a pessoa no lugar certo sem
+// saber que é um vínculo. Quem tem vínculo aqui sai da primeira parte para não
+// aparecer duas vezes (é o caso de quem foi cadastrado neste candidato debaixo
+// de uma pessoa vinculada: a ficha fica sem parent_id e o lugar dela vem do
+// vínculo, para não vazar para a pirâmide do outro candidato).
 const SQL_ARVORE_CANDIDATO = `
   WITH RECURSIVE arvore AS (
     SELECT id FROM usuarios WHERE id = $1
     UNION ALL
     SELECT u.id FROM usuarios u JOIN arvore a ON u.criado_por = a.id
+  ), vinculos AS (
+    SELECT * FROM apoiador_candidatos WHERE candidato_id = $1 AND ativo
   )
-  SELECT ap.*, (u.id IS NOT NULL) AS tem_login, u.login, u.email FROM apoiadores ap
-  LEFT JOIN usuarios u ON u.id = ap.id
-  WHERE ap.cadastrado_por IN (SELECT id FROM arvore)
-     OR ap.parent_id IN (SELECT id FROM arvore)
-  ORDER BY ap.created_at
+  SELECT * FROM (
+    SELECT ap.*, (u.id IS NOT NULL) AS tem_login, u.login, u.email, false AS vinculo FROM apoiadores ap
+    LEFT JOIN usuarios u ON u.id = ap.id
+    WHERE (ap.cadastrado_por IN (SELECT id FROM arvore) OR ap.parent_id IN (SELECT id FROM arvore))
+      AND ap.id NOT IN (SELECT apoiador_id FROM vinculos)
+    UNION ALL
+    SELECT (jsonb_populate_record(ap, jsonb_build_object(
+             'nivel', v.nivel, 'parent_id', v.superior_id, 'meta_votos', v.meta_votos,
+             'cadastrado_por', $1::uuid))).*,
+           (u.id IS NOT NULL), u.login, u.email, true
+      FROM vinculos v JOIN apoiadores ap ON ap.id = v.apoiador_id
+      LEFT JOIN usuarios u ON u.id = ap.id
+  ) t
+  ORDER BY created_at
 `;
 
 // Para lideranca/apoiador, SQL_ARVORE_CANDIDATO só pega os apoiadores DIRETOS

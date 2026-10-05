@@ -55,6 +55,7 @@ app.use('/api/config', require('./routes/config'));
 app.use('/api/mapas', require('./routes/mapas'));
 app.use('/api/apuracao', require('./routes/apuracao'));
 app.use('/api/votos', require('./routes/votos'));
+app.use('/api/entrega', require('./routes/entrega'));
 app.use('/api/nichos', require('./routes/nichos'));
 app.use('/api/historico', require('./routes/historico'));
 app.use('/api/ia', require('./routes/ia'));

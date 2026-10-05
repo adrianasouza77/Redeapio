@@ -35,6 +35,22 @@ async function resolveWorkspace(req, res, next) {
     return next();
   }
 
+  // Coordenador Geral (briefing "Votos por seção", seção 7): entra em qualquer
+  // candidato DA REDE DELE com o mesmo ?as= do admin, e ali atua como o
+  // candidato — é o "seletor de candidato no topo de todas as telas". Fora da
+  // rede dele, 404 igual a um id inventado.
+  if (req.user.perfil === 'coordenador_geral' && asId) {
+    const { rows } = await pool.query(
+      `SELECT u.id, u.nome FROM usuarios u JOIN redes r ON r.id = u.rede_id
+        WHERE u.id = $1 AND u.perfil = 'candidato' AND r.coordenador_geral_id = $2`,
+      [asId, req.user.id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Candidato não encontrado na sua rede.' });
+    req.effectiveId = asId;
+    req.effectivePerfil = 'candidato';
+    return next();
+  }
+
   req.effectiveId = req.user.id;
   req.effectivePerfil = req.user.perfil;
   next();

@@ -57,10 +57,13 @@ async function montarUniverso(cfg) {
     const principal = local ? local.principal : s;
     const chave = `${z}|${principal}`;
     if (!secoesRede.has(chave)) {
-      secoesRede.set(chave, { zona: z, secao: principal, municipio: local?.municipio || null, cadastrados: 0, agregadas: new Set() });
+      secoesRede.set(chave, { zona: z, secao: principal, municipio: local?.municipio || null, cadastrados: 0, agregadas: new Set(), pessoas: [] });
     }
     const item = secoesRede.get(chave);
     item.cadastrados++;
+    // Quem vota ali, com o papel: a lista de seções mostra os nomes, para
+    // ninguém ter de cruzar "4 cadastrados, 1 voto" com a pirâmide à mão.
+    item.pessoas.push({ nome: a.nome, nivel: a.nivel });
     onde.get(a.id).urna = chave;
     if (principal !== s) item.agregadas.add(s);
   }
@@ -121,6 +124,7 @@ async function painel(candidatoId) {
     const r = res.get(`${s.zona}|${s.secao}`);
     return {
       zona: s.zona, secao: s.secao, agregadas: [...s.agregadas].sort(), cadastrados: s.cadastrados,
+      pessoas: s.pessoas.sort((x, y) => x.nivel - y.nivel || x.nome.localeCompare(y.nome, 'pt-BR')),
       status: r ? 'apurado' : 'aguardando', votos: r ? r.votos : null, fonte: r?.fonte || null,
     };
   }).sort((a, b) => a.zona.localeCompare(b.zona) || a.secao.localeCompare(b.secao));
@@ -155,6 +159,27 @@ function calcularMetas(u, res, zonas) {
     return { zona: z.zona, meta, pessoasComMeta: pessoas, votosZona: z.votosZona, secoesApuradas: z.secoesApuradas, secoesTotal: z.secoesTotal };
   }).filter((z) => z.pessoasComMeta > 0);
 
+  // O mesmo, seção por seção (pedido da dona do sistema, 05/10/2026: "preciso
+  // que apareça também as seções e não só as zonas"): soma das metas de quem
+  // vota naquela urna × votos do candidato na urna. Quem tem zona mas não
+  // tem seção fica só na conta da zona.
+  const metaPorUrna = new Map();
+  for (const a of u.rede) {
+    if (!comMeta(a) || a.meta_votos == null) continue;
+    const k = u.onde.get(a.id)?.urna;
+    if (!k) continue;
+    if (!metaPorUrna.has(k)) metaPorUrna.set(k, { meta: 0, pessoas: [] });
+    const m = metaPorUrna.get(k);
+    m.meta += a.meta_votos; m.pessoas.push(a.nome);
+  }
+  const porSecao = [...metaPorUrna.entries()].map(([k, m]) => {
+    const [zona, secao] = k.split('|');
+    const r = res.get(k);
+    const sr = u.secoesRede.get(k);
+    return { zona, secao, meta: m.meta, pessoasComMeta: m.pessoas.length, pessoas: m.pessoas.slice(0, 8),
+      cadastrados: sr ? sr.cadastrados : 0, apurada: !!r, votos: r ? r.votos : null, aptos: r ? r.aptos : null };
+  }).sort((a, b) => a.zona.localeCompare(b.zona) || a.secao.localeCompare(b.secao));
+
   // Filhos na pirâmide: mesma regra da árvore do sistema (parent_id, ou quem
   // cadastrou quando o cadastro ficou sem responsável).
   const filhos = new Map();
@@ -164,6 +189,7 @@ function calcularMetas(u, res, zonas) {
     if (!filhos.has(pai)) filhos.set(pai, []);
     filhos.get(pai).push(a.id);
   }
+  const porNome = new Map(u.rede.map((a) => [a.id, a.nome]));
   const porResponsavel = u.rede.filter(comMeta).map((a) => {
     const vistos = new Set([a.id]);
     const pilha = [a.id];
@@ -183,9 +209,19 @@ function calcularMetas(u, res, zonas) {
       // prometida maior que o total de votantes da seção" = meta irrealista).
       aptosSecoes: apuradas === urnas.size ? aptos : null,
       secoes: [...urnas].map((k) => k.split('|')[1]).sort(),
+      // Seção de quem é a pessoa e o voto em cada urna da equipe — a tela
+      // abre isso ao clicar no nome ("entregou tanto na seção Y").
+      secao: (u.onde.get(a.id)?.urna || '').split('|')[1] || null,
+      secoesDetalhe: [...urnas].map((k) => {
+        const [zona, secao] = k.split('|');
+        const r = res.get(k);
+        const daEquipe = [...vistos].filter((id) => u.onde.get(id)?.urna === k);
+        return { zona, secao, cadastrados: daEquipe.length, pessoas: daEquipe.map((id) => porNome.get(id)).filter(Boolean),
+          apurada: !!r, votos: r ? r.votos : null };
+      }).sort((x, y) => x.zona.localeCompare(y.zona) || x.secao.localeCompare(y.secao)),
     };
   });
-  return { porZona, porResponsavel };
+  return { porZona, porSecao, porResponsavel };
 }
 
 // Uma rodada de busca no TSE para um candidato. Primeiro as seções que têm
