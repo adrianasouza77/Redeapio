@@ -170,6 +170,120 @@
   .ap-st-amarelo{background:#fdf5e0;color:#8a6a10;}
   .ap-st-vermelho{background:#fde8e8;color:var(--red);}
   .ap-st-cinza{background:#f0f2f8;color:var(--slate-light);}
+
+  /* VOTOS POR SEÇÃO */
+  .vs-seletor{display:grid;grid-template-columns:minmax(220px,2fr) minmax(110px,.8fr) minmax(200px,1.6fr);gap:14px;align-items:end;}
+  .vs-seletor .field{margin-bottom:0;}
+  .vs-cargos{display:flex;gap:6px;flex-wrap:wrap;margin-top:16px;}
+  .vs-chip{padding:9px 14px;border:1px solid var(--border);background:var(--white);border-radius:20px;font-size:13px;font-weight:600;color:var(--slate);cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;}
+  .vs-chip:hover{border-color:var(--navy);color:var(--navy);}
+  .vs-chip.on{background:var(--navy);border-color:var(--navy);color:var(--white);}
+  .vs-busca{width:100%;padding:11px 14px 11px 38px;border:1px solid var(--border);border-radius:10px;font-size:14px;font-family:'Inter',sans-serif;color:var(--navy);
+    background:var(--white) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23718096' stroke-width='2'%3E%3Ccircle cx='7' cy='7' r='5'/%3E%3Cpath d='M11 11l4 4'/%3E%3C/svg%3E") no-repeat 13px center;outline:none;}
+  .vs-busca:focus{border-color:var(--gold);}
+  .vs-lista{margin-top:12px;max-height:440px;overflow:auto;border:1px solid var(--border);border-radius:10px;}
+  .vs-cand{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid #eef0f6;cursor:pointer;transition:background .12s;}
+  .vs-cand:last-child{border-bottom:none;}
+  .vs-cand:hover{background:#f5f7fc;}
+  .vs-cand.on{background:#fdf8ea;}
+  .vs-cand-pos{width:34px;font-size:12px;font-weight:700;color:var(--slate-light);text-align:right;flex-shrink:0;}
+  .vs-mini{width:38px;height:38px;border-radius:50%;object-fit:cover;background:#e8edf7;flex-shrink:0;}
+  .vs-cand-nome{flex:1;min-width:0;}
+  .vs-cand-nome b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .vs-cand-nome span{font-size:12px;color:var(--slate-light);}
+  .vs-cand-votos{text-align:right;font-family:'Montserrat',sans-serif;font-weight:800;font-size:15px;white-space:nowrap;}
+  .vs-cand-votos small{display:block;font-family:'Inter',sans-serif;font-weight:500;font-size:11px;color:var(--slate-light);}
+
+  .vs-hero{display:grid;grid-template-columns:auto 1fr auto;gap:24px;align-items:center;background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 100%);color:var(--white);
+    border-radius:16px;padding:26px 28px;margin-bottom:20px;box-shadow:0 10px 30px rgba(15,31,61,.22);position:relative;overflow:hidden;}
+  .vs-hero::after{content:'';position:absolute;right:-60px;top:-60px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(200,168,75,.25),transparent 70%);pointer-events:none;}
+  .vs-foto{width:104px;height:104px;border-radius:50%;object-fit:cover;border:3px solid var(--gold);background:var(--navy-mid);}
+  .vs-hero-cargo{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold-light);}
+  .vs-hero-nome{font-family:'DM Serif Display',serif;font-size:32px;line-height:1.1;margin:4px 0;}
+  .vs-hero-sub{font-size:13px;opacity:.75;}
+  .vs-digitos{display:flex;gap:4px;margin-top:12px;align-items:center;flex-wrap:wrap;}
+  .vs-digitos span{display:inline-flex;align-items:center;justify-content:center;width:30px;height:38px;border-radius:5px;background:var(--white);color:var(--navy);
+    font-family:'Montserrat',sans-serif;font-weight:800;font-size:20px;box-shadow:inset 0 -3px 0 #d8dce8;}
+  .vs-selo{display:inline-block;margin-left:10px;padding:5px 11px;border-radius:14px;font-size:11px;font-weight:700;background:rgba(255,255,255,.14);}
+  .vs-selo.eleito{background:var(--gold);color:var(--navy);}
+  .vs-hero-num{text-align:right;position:relative;z-index:1;}
+  .vs-hero-num div{font-size:13px;opacity:.85;margin-top:6px;}
+  .vs-hero-num .vs-big{font-family:'Montserrat',sans-serif;font-weight:800;font-size:46px;line-height:1;color:var(--gold-light);opacity:1;margin-top:0;}
+  .vs-hero-acoes{margin-top:14px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;}
+  .vs-hero-acoes button{background:rgba(255,255,255,.12);color:var(--white);border:1px solid rgba(255,255,255,.25);}
+  .vs-hero-acoes button:hover{background:rgba(255,255,255,.22);border-color:var(--white);color:var(--white);}
+
+  .vs-progresso{height:10px;border-radius:5px;background:#ecebe2;overflow:hidden;margin:12px 0 8px;}
+  .vs-progresso div{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-light));border-radius:5px;transition:width .6s;}
+  .vs-conf{font-size:12px;margin-top:8px;opacity:.85;}
+  .stat-card .vs-kpi-txt{font-size:15px;font-weight:700;line-height:1.3;color:var(--navy);margin-top:2px;}
+
+  .vs-abas{display:flex;gap:4px;border-bottom:2px solid var(--border);margin-bottom:18px;overflow-x:auto;}
+  .vs-aba{padding:11px 16px;border:none;background:none;font-size:14px;font-weight:600;color:var(--slate-light);cursor:pointer;font-family:'Inter',sans-serif;
+    border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap;}
+  .vs-aba:hover{color:var(--navy);}
+  .vs-aba.on{color:var(--navy);border-bottom-color:var(--gold);}
+  .vs-aba .n{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:10px;background:#eef1f7;font-size:11px;color:var(--slate);}
+  .vs-filtro{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:20px;background:#fdf5e0;border:1px solid var(--gold);font-size:13px;font-weight:600;color:#6b5210;}
+  .vs-filtro button{border:none;background:none;cursor:pointer;font-size:14px;color:#6b5210;padding:0 2px;}
+  .vs-ferramentas{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px;}
+  .vs-ferramentas .vs-busca{max-width:320px;padding-top:9px;padding-bottom:9px;}
+
+  .vs-tab td,.vs-tab th{white-space:nowrap;}
+  .vs-tab td.quebra{white-space:normal;min-width:180px;}
+  .vs-tab tbody tr{cursor:pointer;}
+  .vs-tab tbody tr:hover td{background:#f8f9fd;}
+  .vs-tab th.num,.vs-tab td.num{text-align:right;}
+  .vs-barra{display:flex;align-items:center;gap:8px;min-width:150px;}
+  .vs-barra i{display:block;height:8px;border-radius:4px;background:var(--navy);min-width:2px;}
+  .vs-barra b{font-size:13px;}
+  .vs-pos{display:inline-block;min-width:30px;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:700;text-align:center;background:#eef1f7;color:var(--slate);}
+  .vs-pos.p1{background:var(--gold);color:var(--navy);}
+  .vs-rede{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;background:#e6f4ec;color:var(--green);}
+  .vs-lid{font-size:11px;color:var(--slate-light);margin-top:2px;white-space:normal;}
+  .vs-mais{display:block;margin:14px auto 0;}
+
+  /* isolation: os controles do Leaflet têm z-index 800+ e passavam por cima
+     da barra fixa do topo ao rolar a página. */
+  .vs-mapa-wrap{position:relative;isolation:isolate;}
+  .vs-mapa{height:600px;border-radius:12px;overflow:hidden;border:1px solid var(--border);background:#eef1f4;}
+  /* Fundo do mapa em cinza: as cores que importam são as dos votos. */
+  .vs-mapa .leaflet-tile-pane{filter:grayscale(1) brightness(1.06) contrast(.88);}
+  .vs-legenda{background:rgba(255,255,255,.96);padding:10px 12px;border-radius:10px;box-shadow:0 4px 18px rgba(15,31,61,.16);font:12px 'Inter',sans-serif;color:var(--navy);max-width:240px;}
+  .vs-legenda b{display:block;margin-bottom:6px;font-size:12px;}
+  .vs-rampa{display:flex;height:10px;border-radius:5px;overflow:hidden;margin:4px 0 3px;}
+  .vs-rampa span{flex:1;}
+  .vs-rampa-txt{display:flex;justify-content:space-between;font-size:10.5px;color:var(--slate-light);}
+  .vs-leg-item{display:flex;align-items:center;gap:7px;margin:3px 0;font-size:11.5px;}
+  .vs-leg-item i{width:12px;height:12px;border-radius:3px;flex-shrink:0;}
+  .vs-dica{font:12.5px 'Inter',sans-serif;line-height:1.5;}
+  .vs-dica b{font-size:13.5px;}
+  .vs-popup{font:12.5px 'Inter',sans-serif;line-height:1.55;min-width:220px;}
+  .vs-popup h4{font-size:14px;margin:0 0 2px;color:var(--navy);}
+  .vs-popup .l{display:flex;justify-content:space-between;gap:14px;border-top:1px solid #eef0f6;padding:3px 0;}
+  .vs-cidade-card{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:16px;}
+  .vs-top{list-style:none;}
+  .vs-top li{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid #eef0f6;font-size:13px;}
+  .vs-top li span{color:var(--slate-light);font-size:12px;}
+  .vs-aviso-legal{font-size:12px;color:var(--slate-light);line-height:1.6;margin-top:6px;padding:12px 14px;border-left:3px solid var(--gold);background:var(--white);border-radius:0 8px 8px 0;}
+
+  @media(max-width:900px){
+    .vs-seletor{grid-template-columns:1fr 1fr;}
+    .vs-seletor .field:first-child{grid-column:1 / -1;}
+    .vs-hero{grid-template-columns:auto 1fr;padding:20px;}
+    .vs-hero-num{grid-column:1 / -1;text-align:left;}
+    .vs-hero-acoes{justify-content:flex-start;}
+    .vs-cidade-card{grid-template-columns:1fr;}
+  }
+  @media(max-width:768px){
+    .vs-seletor{grid-template-columns:1fr;}
+    .vs-foto{width:72px;height:72px;}
+    .vs-hero-nome{font-size:24px;}
+    .vs-hero-num .vs-big{font-size:36px;}
+    .vs-mapa{height:420px;}
+    .vs-busca{font-size:16px;}
+    .vs-ferramentas .vs-busca{max-width:none;}
+  }
   /* HISTÓRICO */
   .hi-eu td{background:#fdf5e0;}
   .hi-colunas{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
@@ -642,6 +756,7 @@
         <button class="nav-item" onclick="showPage('mapa-mental')" data-short="Mental"><span>🧠</span> Mapa Mental</button>
 
         <button class="nav-item" onclick="showPage('apuracao')" data-short="Apuração"><span>🗳️</span> Apuração ao Vivo</button>
+        <button class="nav-item" onclick="showPage('votos')" data-short="Votos"><span>📍</span> Votos por Seção</button>
         <button class="nav-item" onclick="showPage('historico')" data-short="Histórico"><span>📊</span> Desempenho Histórico</button>
         <button class="nav-item" onclick="showPage('usuarios')"><span>🔑</span> Usuários</button>
         <button class="nav-item" onclick="showPage('configuracoes')"><span>⚙️</span> Configurações</button>
@@ -1383,7 +1498,7 @@ function atualizarBottomNav(){
 // sistema não mostrar uma tela em branco quando alguém digita um endereço de
 // outro perfil na barra do navegador.
 const PAGINAS_POR_PAPEL = {
-  candidato: ['dashboard','rede','apoiadores','exportar','grafico','mapa','mapa-mental','nichos','apuracao','historico','usuarios','configuracoes','minha-conta'],
+  candidato: ['dashboard','rede','apoiadores','exportar','grafico','mapa','mapa-mental','nichos','apuracao','votos','historico','usuarios','configuracoes','minha-conta'],
   lideranca: ['dashboard','minha-rede','cadastrar','rede','minha-conta'],
   apoiador:  ['dashboard','minha-rede','cadastrar','rede','minha-conta'],
   admin:     ['vagas','minha-conta'],
@@ -1443,6 +1558,7 @@ function showPage(page) {
     case 'mapa':          c.innerHTML=renderMapa(); setTimeout(carregarMapa,50); break;
     case 'mapa-mental':   c.innerHTML=renderMapaMental(); setTimeout(()=>{ mmLigarGestos(); mmIniciar(); },50); break;
     case 'apuracao':      c.innerHTML=renderApuracao(); setTimeout(apIniciar,50); break;
+    case 'votos':         c.innerHTML=renderVotos(); setTimeout(vsIniciar,50); break;
     case 'nichos':        c.innerHTML=renderNichos(); break;
     case 'historico':     c.innerHTML=renderHistorico(); setTimeout(hiIniciar,50); break;
     case 'minha-rede':    c.innerHTML=renderMinhaRede(); break;
@@ -4422,6 +4538,7 @@ const LOG_ACOES = {
   'nicho.excluir':             ['🗑','Excluiu um nicho'],
   'apuracao.configurar':       ['🗳️','Configurou a apuração ao vivo'],
   'apuracao.importar':         ['📋','Colou resultado da apuração'],
+  'votos.coletar':             ['📍','Baixou os boletins de urna de um estado (Votos por Seção)'],
   'historico.configurar':      ['📊','Configurou o desempenho histórico'],
   'ia.gerar':                  ['🤖','Pediu leitura ao copiloto de IA'],
   'workspace.abrir':           ['🗝️','Suporte abriu a campanha'],
@@ -5882,8 +5999,11 @@ async function apSalvarConfig(){
 function apStatusMeta(votos, meta, apuradas){
   if(!apuradas) return { cls:'ap-st-cinza', txt:'aguardando urnas', pct:null };
   const pct = meta ? Math.round(votos/meta*100) : (votos ? 100 : 0);
-  if(pct >= 100) return { cls:'ap-st-verde', txt:'entregou', pct };
-  if(pct >= 70)  return { cls:'ap-st-amarelo', txt:'ficou perto', pct };
+  // Faixas do briefing "Votos por seção" (05/10/2026): verde a partir de 80%,
+  // amarelo de 50% a 79%. Antes eram 100% e 70% — exigente demais para uma
+  // conta que só enxerga a urna inteira, não o voto de cada um.
+  if(pct >= 80) return { cls:'ap-st-verde', txt:'entregou', pct };
+  if(pct >= 50) return { cls:'ap-st-amarelo', txt:'ficou perto', pct };
   return { cls:'ap-st-vermelho', txt:'muito abaixo', pct };
 }
 function apHtmlMetas(d){
@@ -5900,7 +6020,7 @@ function apHtmlMetas(d){
   const pill = st => `<span class="ap-st ${st.cls}">${st.pct==null?'':st.pct+'% · '}${st.txt}</span>`;
   return `<div class="card">
     <div class="card-header"><div class="card-title">🎯 Meta prometida × resultado</div></div>
-    <p class="ap-meta" style="margin:-10px 0 14px">Meta declarada por Líderes, Coordenadores e Mobilizadores: <b>${apNum(metaTotal)}</b> votos${semMeta?` · <b>${semMeta}</b> ainda sem meta declarada`:''}. Verde entregou, amarelo ficou perto (70% ou mais), vermelho ficou muito abaixo.</p>
+    <p class="ap-meta" style="margin:-10px 0 14px">Meta declarada por Líderes, Coordenadores e Mobilizadores: <b>${apNum(metaTotal)}</b> votos${semMeta?` · <b>${semMeta}</b> ainda sem meta declarada`:''}. Verde entregou (80% ou mais), amarelo ficou perto (50% a 79%), vermelho ficou abaixo de 50%.</p>
     ${porZona.length ? `<div class="table-wrap" style="overflow-x:auto;margin-bottom:18px"><table>
       <thead><tr><th>Zona</th><th>Meta somada</th><th>Votos na zona</th><th>Situação</th></tr></thead>
       <tbody>${porZona.map(z=>{ const st=apStatusMeta(z.votosZona, z.meta, z.secoesApuradas); return `<tr>
@@ -5917,6 +6037,742 @@ function apHtmlMetas(d){
         <td>${pill(r.st)}</td></tr>`).join('') || `<tr><td colspan="7" class="ap-meta">Ninguém declarou meta ainda. A meta é preenchida no cadastro ou na edição de cada Líder, Coordenador e Mobilizador.</td></tr>`}</tbody>
     </table></div>
   </div>`;
+}
+
+// ══════════════════════════════════════════
+//  VOTOS POR SEÇÃO
+// ══════════════════════════════════════════
+// Qualquer candidato, o estado inteiro, urna por urna: Eleição › Cargo ›
+// Candidato e a tela mostra onde ele teve voto — por cidade, bairro, escola e
+// seção, no mapa e em tabela, cruzado com onde a rede tem gente cadastrada.
+// O servidor baixa o boletim de todas as urnas do estado UMA vez (botão
+// "Carregar o estado"); depois disso trocar de candidato é instantâneo.
+// O dado do TSE é o total da urna: nada aqui diz em quem alguém votou.
+const VS = {
+  pleitos:null, cfgApuracao:undefined,
+  sel:{ ciclo:'', pleito:'', uf:'', eleicao:'', cargo:null, municipio:'', numero:'' },
+  candidatos:null, candInfo:null, municipiosEleicao:[], coleta:null, dados:null,
+  listaAberta:false, buscaCand:'',
+  aba:'mapa', filtroMun:'', busca:'', ordem:'votos', soRede:null, limite:100,
+  mapaModo:'votos', lideres:null, malha:{}, secoesMun:{},
+  timer:null, ultimoResultado:0, pedido:0,
+};
+const VS_CARGO_CURTO = {1:'Presidente',3:'Governador',5:'Senador',6:'Dep. Federal',7:'Dep. Estadual',8:'Dep. Distrital',11:'Prefeito',13:'Vereador'};
+const VS_CARGO_POR_NOME = {PRESIDENTE:1,GOVERNADOR:3,SENADOR:5,'DEPUTADO FEDERAL':6,'DEPUTADO ESTADUAL':7,'DEPUTADO DISTRITAL':8,PREFEITO:11,VEREADOR:13};
+const VS_MUNICIPAL = [11,13];
+// Rampas de 7 tons: azul da marca para votos, vermelho para brancos e nulos.
+const VS_ESCALA    = ['#eef2fa','#d3ddf0','#a9bde3','#7896cf','#4a6eb5','#2a4c8f','#0f1f3d'];
+const VS_ESCALA_BN = ['#fff5f0','#fde0d2','#fbb79c','#f68a6a','#e45c43','#bd3328','#7f1d1d'];
+// Paleta do mapa do eleicoes2026 (quem venceu em cada cidade), sem os dois
+// tons de amarelo/mostarda de lá: aqui o dourado é reservado ao candidato
+// escolhido, e com eles na paleta não se distinguia quem era quem.
+const VS_CORES = ['#1f4fd8','#e4572e','#17a398','#84cc16','#8e44ad','#3d5a80','#c0392b','#2e8b57','#7c2d12','#6c757d','#d63384','#0dcaf0'];
+let _vsMapa = null;
+
+function vsNum(n){ return Number(n||0).toLocaleString('pt-BR'); }
+function vsPct(a, b, casas=1){ return b ? (a/b*100).toLocaleString('pt-BR',{minimumFractionDigits:casas,maximumFractionDigits:casas})+'%' : '—'; }
+function vsTitulo(s){ return String(s||'').toLowerCase().replace(/(^|[\s\-\/(])([a-zà-ú])/g,(m,a,b)=>a+b.toUpperCase()).replace(/\b(De|Da|Do|Das|Dos|E)\b/g,w=>w.toLowerCase()); }
+function vsQuery(extra){
+  const s = VS.sel;
+  const p = new URLSearchParams({ ciclo:s.ciclo, pleito:s.pleito, eleicao:s.eleicao, uf:s.uf });
+  if(s.cargo) p.set('cargo', s.cargo);
+  if(s.numero) p.set('numero', s.numero);
+  if(s.municipio && VS_MUNICIPAL.includes(s.cargo)) p.set('municipio', s.municipio);
+  Object.entries(extra||{}).forEach(([k,v])=>p.set(k,v));
+  return '?'+p.toString()+wsQuery('&');
+}
+function vsChaveLocal(){ return 'vs-escolha:'+(idEfetivo()||''); }
+function vsGuardar(){ try { localStorage.setItem(vsChaveLocal(), JSON.stringify(VS.sel)); } catch(e){} }
+function vsLembrado(){ try { return JSON.parse(localStorage.getItem(vsChaveLocal())||'null'); } catch(e){ return null; } }
+
+function renderVotos(){
+  return `
+  <div class="page-header ap-topo">
+    <div><h1>Votos por Seção</h1><p>Onde cada candidato teve voto — cidade, bairro, escola e urna, no estado inteiro</p></div>
+  </div>
+  <div class="card" id="vs-seletor"><p class="ap-meta">Consultando as eleições publicadas pelo TSE...</p></div>
+  <div id="vs-corpo"></div>`;
+}
+
+async function vsIniciar(){
+  clearInterval(VS.timer);
+  VS.timer = setInterval(vsTique, 4000);
+  if(!VS.pleitos){
+    try {
+      const r = await api('/votos/eleicoes'+wsQuery());
+      VS.pleitos = r.pleitos || [];
+      if(r.erro) showToast(r.erro, 'error');
+    } catch(e){ VS.pleitos = []; showToast(e.message, 'error'); }
+  }
+  if(paginaAtual!=='votos') return;
+  if(VS.cfgApuracao === undefined){
+    // A apuração ao vivo já sabe quem é o candidato da campanha: vem escolhido.
+    try { VS.cfgApuracao = (await api('/apuracao'+wsQuery())).config || null; } catch(e){ VS.cfgApuracao = null; }
+  }
+  if(!VS.sel.ciclo) vsEscolhaInicial();
+  vsDesenharSeletor();
+  await vsCarregarCandidatos();
+  await vsAtualizarColeta();
+  vsCarregarResultado();
+}
+
+function vsEscolhaInicial(){
+  const ps = VS.pleitos || [];
+  const ordinaria = (p)=>p.eleicoes.some(e=>/ordin/i.test(e.nome));
+  const lembr = vsLembrado();
+  const cfg = VS.cfgApuracao;
+  let p = null, cargo = null, numero = '', uf = '', municipio = '';
+  if(lembr && ps.some(x=>x.ciclo===lembr.ciclo && x.pleito===lembr.pleito)){
+    Object.assign(VS.sel, lembr);
+    return;
+  }
+  if(cfg){
+    p = ps.find(x=>x.ciclo===cfg.ciclo && x.pleito===String(cfg.pleito));
+    cargo = VS_CARGO_POR_NOME[cfg.cargo] || null; numero = cfg.numero || ''; uf = cfg.uf; municipio = cfg.municipio || '';
+  }
+  if(!p) p = ps.find(ordinaria) || ps[0];
+  if(!p) return;
+  if(!uf){
+    // Estado mais comum entre os cadastrados — quase sempre o da campanha.
+    uf = ((contarPor(APOIADORES.filter(a=>a.estado), a=>String(a.estado).trim().toLowerCase())[0]||[])[0]) || 'ms';
+  }
+  const cargos = vsCargosDo(p);
+  if(!cargo || !cargos.some(c=>c.cod===cargo)){
+    cargo = (cargos.find(c=>c.cod===7) || cargos.find(c=>c.cod===13) || cargos[0] || {}).cod || null;
+    numero = '';
+  }
+  const el = cargos.find(c=>c.cod===cargo);
+  Object.assign(VS.sel, { ciclo:p.ciclo, pleito:p.pleito, uf, cargo, eleicao: el ? el.eleicao : '', municipio, numero });
+}
+
+function vsPleitoAtual(){ return (VS.pleitos||[]).find(p=>p.ciclo===VS.sel.ciclo && p.pleito===VS.sel.pleito); }
+function vsCargosDo(p){
+  if(!p) return [];
+  const out = [];
+  for(const e of p.eleicoes) for(const c of e.cargos){
+    // Distrital só existe no DF; conselheiro distrital é de Fernando de Noronha.
+    if(c.cod===25) continue;
+    if(c.cod===8 && VS.sel.uf && VS.sel.uf!=='df') continue;
+    if(c.cod!==8 && VS.sel.uf==='df' && c.cod===7) continue;
+    out.push({ cod:c.cod, nome:VS_CARGO_CURTO[c.cod] || vsTitulo(c.nome), eleicao:e.codigo, municipal:VS_MUNICIPAL.includes(c.cod) });
+  }
+  return out;
+}
+function vsRotuloPleito(p){
+  const ord = p.eleicoes.find(e=>/ordin/i.test(e.nome));
+  const ano = p.ciclo.replace('ele','');
+  if(ord) return `Eleições ${ano} · ${ord.turno}º turno — ${p.data}`;
+  return `${p.eleicoes[0].nome.replace(/^Eleição Suplementar - /,'Suplementar · ')} — ${p.data}`;
+}
+
+function vsDesenharSeletor(){
+  const el = document.getElementById('vs-seletor'); if(!el) return;
+  const ps = VS.pleitos || [];
+  if(!ps.length){ el.innerHTML = `<p class="ap-meta">O TSE não respondeu agora. Tente de novo em instantes.</p>`; return; }
+  const ordin = ps.filter(p=>p.eleicoes.some(e=>/ordin/i.test(e.nome)));
+  const supl = ps.filter(p=>!ordin.includes(p));
+  const atual = `${VS.sel.ciclo}|${VS.sel.pleito}`;
+  const cargos = vsCargosDo(vsPleitoAtual());
+  const municipal = VS_MUNICIPAL.includes(VS.sel.cargo);
+  el.innerHTML = `
+    <div class="vs-seletor">
+      <div class="field"><label>Eleição</label>
+        <select class="ap-select" style="width:100%" onchange="vsTrocarPleito(this.value)">
+          ${ordin.map(p=>`<option value="${p.ciclo}|${p.pleito}" ${`${p.ciclo}|${p.pleito}`===atual?'selected':''}>${escapeHtml(vsRotuloPleito(p))}</option>`).join('')}
+          ${supl.length?`<optgroup label="Eleições suplementares">${supl.map(p=>`<option value="${p.ciclo}|${p.pleito}" ${`${p.ciclo}|${p.pleito}`===atual?'selected':''}>${escapeHtml(vsRotuloPleito(p))}</option>`).join('')}</optgroup>`:''}
+        </select>
+      </div>
+      <div class="field"><label>Estado</label>
+        <select class="ap-select" style="width:100%;min-width:0" onchange="vsTrocarUf(this.value)">
+          ${AP_UFS.map(u=>`<option value="${u.toLowerCase()}" ${u.toLowerCase()===VS.sel.uf?'selected':''}>${u}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field" ${municipal?'':'style="visibility:hidden"'}><label>Município</label>
+        <select class="ap-select" style="width:100%" id="vs-mun" onchange="vsTrocarMunicipio(this.value)">
+          <option value="">Escolha a cidade...</option>
+          ${VS.municipiosEleicao.map(m=>`<option value="${m.codigo}" ${m.codigo===VS.sel.municipio?'selected':''}>${escapeHtml(vsTitulo(m.nome))}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="vs-cargos">${cargos.map(c=>`<button class="vs-chip ${c.cod===VS.sel.cargo?'on':''}" onclick="vsTrocarCargo(${c.cod})">${escapeHtml(c.nome)}</button>`).join('')}</div>
+    <div id="vs-cand-area" style="margin-top:16px"></div>`;
+  vsDesenharCandidatos();
+}
+
+function vsTrocarPleito(v){
+  const [ciclo, pleito] = v.split('|');
+  Object.assign(VS.sel, { ciclo, pleito, numero:'' });
+  const cargos = vsCargosDo(vsPleitoAtual());
+  const c = cargos.find(x=>x.cod===VS.sel.cargo) || cargos.find(x=>x.cod===7) || cargos.find(x=>x.cod===13) || cargos[0];
+  VS.sel.cargo = c ? c.cod : null; VS.sel.eleicao = c ? c.eleicao : '';
+  vsMudouEscolha(true);
+}
+function vsTrocarUf(uf){ Object.assign(VS.sel, { uf, numero:'', municipio:'' }); VS.malha = VS.malha || {}; vsMudouEscolha(true); }
+function vsTrocarCargo(cod){
+  const c = vsCargosDo(vsPleitoAtual()).find(x=>x.cod===cod); if(!c) return;
+  Object.assign(VS.sel, { cargo:cod, eleicao:c.eleicao, numero:'' });
+  vsMudouEscolha(false);
+}
+function vsTrocarMunicipio(m){ Object.assign(VS.sel, { municipio:m, numero:'' }); vsMudouEscolha(false); }
+
+async function vsMudouEscolha(mudouEstado){
+  VS.candidatos = null; VS.dados = null; VS.lideres = null; VS.secoesMun = {}; VS.filtroMun = ''; VS.listaAberta = true; VS.buscaCand = '';
+  if(mudouEstado) VS.coleta = null;
+  vsGuardar();
+  vsDesenharSeletor();
+  vsDesenharCorpo();
+  await vsCarregarCandidatos();
+  if(mudouEstado) await vsAtualizarColeta();
+}
+
+async function vsCarregarCandidatos(){
+  const s = VS.sel;
+  if(!s.cargo || !s.eleicao) return;
+  if(VS_MUNICIPAL.includes(s.cargo)){
+    if(!VS.municipiosEleicao.length || VS.municipiosEleicao._uf !== s.uf+s.eleicao){
+      try { VS.municipiosEleicao = await api(`/votos/municipios?ciclo=${s.ciclo}&eleicao=${s.eleicao}&uf=${s.uf}`+wsQuery('&')); VS.municipiosEleicao._uf = s.uf+s.eleicao; }
+      catch(e){ VS.municipiosEleicao = []; }
+      vsDesenharSeletor();
+    }
+    if(!s.municipio){ VS.candidatos = []; vsDesenharCandidatos(); return; }
+  }
+  const pedido = ++VS.pedido;
+  try {
+    const r = await api('/votos/candidatos'+vsQuery({ numero:'' }).replace('&numero=',''));
+    if(pedido !== VS.pedido) return;
+    VS.candidatos = r.candidatos || []; VS.candInfo = r;
+  } catch(e){ VS.candidatos = []; VS.candInfo = null; showToast(e.message,'error'); }
+  // Candidato lembrado/da apuração que não existe neste cargo: some da escolha.
+  if(s.numero && !VS.candidatos.some(c=>c.numero===s.numero)) s.numero = '';
+  if(!s.numero) VS.listaAberta = true;
+  vsDesenharCandidatos();
+}
+
+function vsDesenharCandidatos(){
+  const el = document.getElementById('vs-cand-area'); if(!el) return;
+  const s = VS.sel;
+  if(VS_MUNICIPAL.includes(s.cargo) && !s.municipio){ el.innerHTML = `<p class="ap-meta">Escolha o município: prefeito e vereador têm o mesmo número em cidades diferentes.</p>`; return; }
+  if(VS.candidatos===null){ el.innerHTML = `<p class="ap-meta">Carregando candidatos...</p>`; return; }
+  if(!VS.candidatos.length){ el.innerHTML = `<p class="ap-meta">O TSE ainda não publicou o resultado deste cargo${VS_MUNICIPAL.includes(s.cargo)?' nesta cidade':''}.</p>`; return; }
+  const atual = VS.candidatos.find(c=>c.numero===s.numero);
+  if(!VS.listaAberta && atual){
+    el.innerHTML = `<div class="vs-cand on" style="border:1px solid var(--gold);border-radius:10px" onclick="vsAbrirLista()">
+      <img class="vs-mini" src="${escapeHtml(atual.foto||'')}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+      <div class="vs-cand-nome"><b>${escapeHtml(atual.nome)}</b><span>${escapeHtml(atual.partido||'')} · nº ${escapeHtml(atual.numero)}</span></div>
+      <span class="btn-sm btn-outline" style="pointer-events:none">Trocar candidato ▾</span></div>`;
+    return;
+  }
+  const info = VS.candInfo || {};
+  el.innerHTML = `
+    <input type="search" class="vs-busca" id="vs-busca-cand" placeholder="Buscar por nome, número ou partido (${vsNum(VS.candidatos.length)} candidatos)" autocomplete="off" oninput="vsFiltrarCand(this.value)">
+    <div class="ap-meta" style="margin-top:8px">${info.final?'Resultado final':'Resultado parcial'} do TSE${info.secoesTotal?` · ${vsNum(info.secoesTotalizadas)} de ${vsNum(info.secoesTotal)} seções totalizadas`:''}${info.vagas?` · ${info.vagas} vaga${info.vagas>1?'s':''}`:''}</div>
+    <div class="vs-lista" id="vs-cand-lista"></div>`;
+  vsListarCand();
+}
+// Só a lista é redesenhada a cada tecla — o campo de busca nunca é reescrito
+// (teclado de celular em modo composição perderia o que foi digitado).
+function vsFiltrarCand(v){ VS.buscaCand = v; vsListarCand(); }
+function vsListarCand(){
+  const el = document.getElementById('vs-cand-lista'); if(!el) return;
+  const q = apSemAcento(VS.buscaCand);
+  const lista = (VS.candidatos||[]).filter(c=>!q || apSemAcento(`${c.nome} ${c.nomeCompleto||''} ${c.numero} ${c.partido||''}`).includes(q));
+  const mostrar = lista.slice(0, 80);
+  el.innerHTML = mostrar.map(c=>`
+    <div class="vs-cand ${c.numero===VS.sel.numero?'on':''}" onclick="vsEscolher('${escapeAttr(c.numero)}')">
+      <div class="vs-cand-pos">${c.posicao}º</div>
+      <img class="vs-mini" src="${escapeHtml(c.foto||'')}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+      <div class="vs-cand-nome"><b>${escapeHtml(c.nome)}</b><span>${escapeHtml(c.partido||'')} · nº ${escapeHtml(c.numero)}${c.situacao?` · ${escapeHtml(c.situacao)}`:''}</span></div>
+      ${c.eleito?'<span class="badge badge-gold">Eleito</span>':''}
+      <div class="vs-cand-votos">${vsNum(c.votos)}<small>${c.pct?c.pct+'%':'votos'}</small></div>
+    </div>`).join('') + (lista.length>mostrar.length?`<div class="ap-meta" style="padding:10px 14px">+ ${vsNum(lista.length-mostrar.length)} — refine a busca</div>`:'')
+    || `<div class="ap-meta" style="padding:14px">Ninguém com esse nome, número ou partido.</div>`;
+}
+function vsAbrirLista(){ VS.listaAberta = true; vsDesenharCandidatos(); setTimeout(()=>document.getElementById('vs-busca-cand')?.focus(),30); }
+function vsEscolher(numero){
+  VS.sel.numero = numero; VS.listaAberta = false; VS.dados = null; VS.secoesMun = {};
+  vsGuardar(); vsDesenharCandidatos(); vsDesenharCorpo(); vsCarregarResultado();
+  document.getElementById('vs-corpo')?.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+// ── Carga do estado ─────────────────────────────────────────────────────────
+async function vsAtualizarColeta(){
+  const s = VS.sel; if(!s.ciclo || !s.uf) return;
+  try { VS.coleta = await api(`/votos/coleta?ciclo=${s.ciclo}&pleito=${s.pleito}&uf=${s.uf}`+wsQuery('&')); }
+  catch(e){ VS.coleta = { status:'erro', erro:e.message }; }
+  vsDesenharCorpo();
+}
+async function vsColetar(refazer){
+  const s = VS.sel;
+  try {
+    VS.coleta = await api('/votos/coleta'+wsQuery(), { method:'POST', body: JSON.stringify({ ciclo:s.ciclo, pleito:s.pleito, uf:s.uf, refazer:!!refazer }) });
+    showToast(refazer ? 'Atualizando os boletins do TSE...' : 'Baixando os boletins de urna do estado. Pode continuar usando o sistema.', 'info');
+  } catch(e){ showToast(e.message,'error'); }
+  vsDesenharCorpo();
+}
+// Relógio da tela: acompanha a barra de progresso e, durante a carga, mostra
+// o resultado parcial a cada 20 s. Morre sozinho quando a pessoa sai da tela.
+async function vsTique(){
+  if(paginaAtual!=='votos'){ clearInterval(VS.timer); return; }
+  if(VS.coleta && VS.coleta.status==='coletando'){
+    const antes = VS.coleta.status;
+    await vsAtualizarColeta();
+    const terminou = antes==='coletando' && VS.coleta.status==='concluida';
+    if(VS.sel.numero && (terminou || Date.now()-VS.ultimoResultado > 20000)) vsCarregarResultado(true);
+  }
+}
+
+async function vsCarregarResultado(silencioso){
+  const s = VS.sel;
+  if(!s.numero || !VS.coleta || !VS.coleta.coletadas){ vsDesenharCorpo(); return; }
+  const pedido = ++VS.pedido;
+  if(!silencioso && !VS.dados) vsDesenharCorpo(true);
+  try {
+    const d = await api('/votos/resultado'+vsQuery());
+    if(pedido !== VS.pedido) return;
+    VS.dados = d; VS.ultimoResultado = Date.now(); VS.secoesMun = {};
+    if(VS.soRede===null) VS.soRede = d.rede.secoes > 0;
+  } catch(e){ if(!silencioso) showToast(e.message,'error'); return; }
+  vsDesenharCorpo();
+}
+
+// ── Corpo ───────────────────────────────────────────────────────────────────
+function vsDesenharCorpo(carregando){
+  const c = document.getElementById('vs-corpo'); if(!c || paginaAtual!=='votos') return;
+  const s = VS.sel, col = VS.coleta;
+  const ufNome = (s.uf||'').toUpperCase();
+  let topo = '';
+  if(col && col.status==='nunca'){
+    const min = col.total ? Math.max(1, Math.ceil(col.total/1400)) : null;
+    topo = `<div class="card" style="border-left:4px solid var(--gold)">
+      <div class="card-title" style="margin-bottom:8px">📦 Os boletins de urna de ${ufNome} ainda não foram baixados</div>
+      <p class="ap-meta" style="line-height:1.6;margin-bottom:14px">São <b>${col.total?vsNum(col.total):'—'} urnas</b>. O sistema baixa o boletim de cada uma direto do TSE — com todos os cargos e todos os candidatos — e guarda.
+      É feito <b>uma vez só</b>${min?` (cerca de ${min} minuto${min>1?'s':''})`:''}: depois disso qualquer candidato deste estado aparece na hora, para qualquer campanha.</p>
+      <button class="btn-sm btn-navy" onclick="vsColetar(false)">⬇️ Carregar ${ufNome}</button></div>`;
+  } else if(col && col.status==='coletando'){
+    const p = col.total ? Math.round(col.coletadas/col.total*100) : 0;
+    topo = `<div class="card">
+      <div class="card-title">⏳ Baixando os boletins de urna de ${ufNome}</div>
+      <div class="vs-progresso"><div style="width:${p}%"></div></div>
+      <div class="ap-meta">${vsNum(col.coletadas)} de ${vsNum(col.total)} urnas (${p}%)${col.semBu?` · ${vsNum(col.semBu)} ainda sem boletim publicado`:''} — os números abaixo crescem sozinhos. Pode sair da tela: o download continua no servidor.</div></div>`;
+  } else if(col && col.status==='erro'){
+    topo = `<div class="ap-aviso ap-aviso-erro">A carga dos boletins parou: ${escapeHtml(col.erro||'erro desconhecido')}. <a href="#" onclick="vsColetar(false);return false">Tentar de novo</a></div>`;
+  }
+
+  if(!s.numero){
+    c.innerHTML = topo + (VS.candidatos && VS.candidatos.length ? `<div class="vs-aviso-legal">Escolha um candidato na lista acima — o da sua campanha, um aliado de dobradinha ou um adversário.</div>` : '');
+    return;
+  }
+  const d = VS.dados;
+  if(!d){
+    c.innerHTML = topo + (col && col.coletadas ? `<div class="card"><p class="ap-meta">${carregando?'Somando os votos urna por urna...':'Carregando...'}</p></div>` : vsHeroSo());
+    return;
+  }
+  c.innerHTML = topo + vsHtmlHero(d) + vsHtmlKpis(d) + `
+    <div class="card" style="padding-top:8px">
+      <div class="vs-abas">${[
+        ['mapa','🗺️ Mapa'],['cidades','🏙️ Cidades',d.municipios.filter(m=>m.votos).length],['bairros','🏘️ Bairros',d.resumo.bairrosComVoto],
+        ['locais','🏫 Locais de votação',d.resumo.locaisComVoto],['secoes','🗳️ Seções',d.resumo.comVoto],
+      ].map(([k,t,n])=>`<button class="vs-aba ${VS.aba===k?'on':''}" onclick="vsAba('${k}')">${t}${n!=null?`<span class="n">${vsNum(n)}</span>`:''}</button>`).join('')}</div>
+      <div id="vs-aba-corpo"></div>
+    </div>
+    <div class="vs-aviso-legal"><b>Indica a entrega da área de influência, não o voto individual.</b> O voto é secreto e o TSE divulga o total de cada urna — nada aqui diz em quem uma pessoa votou.
+    Quando várias lideranças votam na mesma seção, os votos aparecem para todas elas, sem divisão. Fonte: boletins de urna e cadastro de locais de votação do TSE; malha municipal do IBGE.</div>`;
+  vsDesenharAba();
+}
+
+// Antes da carga do estado: o cartão com o total oficial, que o TSE já tem.
+function vsHeroSo(){
+  const c = (VS.candidatos||[]).find(x=>x.numero===VS.sel.numero);
+  return c ? vsHtmlHero({ candidato:c, resumo:null }) : '';
+}
+
+function vsHtmlHero(d){
+  const c = d.candidato; if(!c) return '';
+  const s = VS.sel; const r = d.resumo;
+  const cargoNome = VS_CARGO_CURTO[s.cargo] || '';
+  const total = (VS.candidatos||[]).length;
+  const col = VS.coleta;
+  // Conferência pedida no briefing: a soma das urnas tem de bater com o total oficial.
+  let conf = '';
+  if(r && col && col.status==='concluida'){
+    conf = r.votos === c.votos
+      ? `<div class="vs-conf">✓ A soma das ${vsNum(r.urnasColetadas)} urnas bate com o total oficial do TSE</div>`
+      : `<div class="vs-conf">⚠️ Soma das urnas: ${vsNum(r.votos)} · total oficial do TSE: ${vsNum(c.votos)}${col.semBu?` (${vsNum(col.semBu)} urna(s) sem boletim publicado)`:''}</div>`;
+  }
+  return `<div class="vs-hero">
+    <img class="vs-foto" src="${escapeHtml(c.foto||'')}" alt="" onerror="this.style.visibility='hidden'">
+    <div style="position:relative;z-index:1;min-width:0">
+      <div class="vs-hero-cargo">${escapeHtml(cargoNome)} · ${escapeHtml((s.uf||'').toUpperCase())} · ${escapeHtml(s.ciclo.replace('ele',''))}</div>
+      <div class="vs-hero-nome">${escapeHtml(c.nome)}</div>
+      <div class="vs-hero-sub">${escapeHtml(c.nomeCompleto||'')}${c.partido?` · ${escapeHtml(c.partido)}`:''}</div>
+      <div style="display:flex;align-items:center;flex-wrap:wrap">
+        <div class="vs-digitos">${String(c.numero).split('').map(n=>`<span>${n}</span>`).join('')}</div>
+        ${c.situacao?`<em class="vs-selo ${c.eleito?'eleito':''}" style="font-style:normal;margin-top:12px">${escapeHtml(c.situacao)}</em>`:''}</div>
+    </div>
+    <div class="vs-hero-num">
+      <div class="vs-big">${vsNum(c.votos)}</div>
+      <div>votos${c.pct?` · ${escapeHtml(c.pct)}% dos válidos`:''}</div>
+      <div><b>${c.posicao}º</b> de ${vsNum(total)} candidatos</div>
+      ${conf}
+      ${col && col.status==='concluida' ? `<div class="vs-hero-acoes">
+        <button class="btn-sm" onclick="vsExportar()">📥 Exportar ${vsRotuloAba()}</button>
+        <button class="btn-sm" onclick="vsColetar(true)" title="Baixa de novo os boletins do TSE (recontagem, urna que chegou depois)">↻ Atualizar do TSE</button></div>` : ''}
+    </div>
+  </div>`;
+}
+
+function vsHtmlKpis(d){
+  const r = d.resumo, rd = d.rede;
+  const mun = d.municipios.find(m=>m.votos>0);
+  const bai = d.bairros.find(b=>b.votos>0);
+  const loc = d.locais.find(l=>l.votos>0);
+  const nomeMun = (cod)=>vsTitulo((d.municipios.find(m=>m.codigo===cod)||{}).nome||'');
+  const card = (rot, val, sub, extra='')=>`<div class="stat-card ${extra}"><div class="stat-label">${rot}</div>${val}<div class="stat-sub">${sub}</div></div>`;
+  const temRede = rd.comSecao > 0;
+  return `<div class="stats-grid">
+    ${card('Cidades com voto', `<div class="stat-value">${vsNum(r.municipiosComVoto)} <span class="ap-de">de ${vsNum(d.municipios.length)}</span></div>`, `${vsNum(r.bairrosComVoto)} bairros · ${vsNum(r.locaisComVoto)} escolas`)}
+    ${card('Seções com voto', `<div class="stat-value">${vsNum(r.comVoto)} <span class="ap-de">de ${vsNum(r.urnasColetadas)}</span></div>`, `mais votado em <b>${vsNum(r.primeiro)}</b> seção${r.primeiro===1?'':'ões'}`)}
+    ${card('Cidade mais forte', `<div class="vs-kpi-txt">${mun?escapeHtml(vsTitulo(mun.nome)):'—'}</div>`, mun?`${vsNum(mun.votos)} votos · ${vsPct(mun.votos, r.votos)} do total`:'')}
+    ${card('Bairro mais forte', `<div class="vs-kpi-txt">${bai?escapeHtml(vsTitulo(bai.bairro)):'—'}</div>`, bai?`${escapeHtml(nomeMun(bai.municipio))} · ${vsNum(bai.votos)} votos`:'')}
+    ${card('Escola mais forte', `<div class="vs-kpi-txt">${loc?escapeHtml(vsTitulo(loc.nome)):'—'}</div>`, loc?`${escapeHtml(vsTitulo(loc.bairro))} · ${vsNum(loc.votos)} votos em ${loc.urnas} urna${loc.urnas>1?'s':''}`:'')}
+    ${card('Brancos e nulos', `<div class="stat-value">${vsPct(r.bn, r.tot)}</div>`, `média das urnas deste cargo`)}
+    ${temRede
+      ? card('Rede cadastrada', `<div class="stat-value">${vsNum(rd.comSecao)}</div>`, `com seção em ${vsNum(rd.secoes)} urna${rd.secoes===1?'':'s'}${rd.semSecao?` · ${vsNum(rd.semSecao)} sem seção`:''}`)
+        + card('Votos onde a rede vota', `<div class="stat-value">${vsNum(r.votosRede)}</div>`, `${vsPct(r.votosRede, r.votos)} dos votos do candidato`, 'ap-card-cob')
+      : card('Rede cadastrada', `<div class="vs-kpi-txt">Ninguém com seção</div>`, `preencha zona e seção no cadastro para cruzar a rede com os votos`)
+        + card('Votos coletados', `<div class="stat-value">${vsNum(r.votos)}</div>`, `nas ${vsNum(r.urnasColetadas)} urnas baixadas`)}
+  </div>`;
+}
+
+function vsAba(k){ VS.aba = k; VS.limite = 100; VS.busca = ''; vsDesenharCorpo(); }
+function vsRotuloAba(){ return ({ mapa:'cidades', cidades:'cidades', bairros:'bairros', locais:'locais', secoes:'seções' })[VS.aba] || ''; }
+function vsMunNome(cod){ const m = VS.dados && VS.dados.municipios.find(x=>x.codigo===cod); return m ? vsTitulo(m.nome) : cod; }
+
+function vsFiltroHtml(){
+  if(!VS.filtroMun) return '';
+  return `<span class="vs-filtro">📍 ${escapeHtml(vsMunNome(VS.filtroMun))}<button onclick="vsFiltrarCidade('')" title="Ver o estado inteiro">✕</button></span>`;
+}
+function vsFiltrarCidade(cod, aba){
+  VS.filtroMun = cod || ''; VS.limite = 100;
+  if(aba) VS.aba = aba;
+  // Cidade onde a rede não tem ninguém: o filtro "só a rede" deixaria a lista
+  // vazia — mostra todas as seções dela.
+  const m = cod && VS.dados && VS.dados.municipios.find(x=>x.codigo===cod);
+  if(m) VS.soRede = m.rede > 0 ? VS.soRede : false;
+  else if(!cod && VS.dados) VS.soRede = VS.dados.rede.secoes > 0;
+  vsDesenharCorpo();
+  if(cod && aba==='secoes') vsGarantirSecoesMun(cod);
+}
+// Estado grande: o servidor manda só parte das seções; ao entrar numa cidade,
+// pede todas as dela.
+async function vsGarantirSecoesMun(cod){
+  if(!VS.dados || !VS.dados.secoesParciais || VS.secoesMun[cod]) return;
+  try {
+    const r = await api('/votos/resultado'+vsQuery({ secoesDoMunicipio:cod }));
+    VS.secoesMun[cod] = r.secoes;
+    if(VS.aba==='secoes') vsDesenharAba();
+  } catch(e){ showToast(e.message,'error'); }
+}
+
+function vsDesenharAba(){
+  const el = document.getElementById('vs-aba-corpo'); if(!el) return;
+  if(VS.aba==='mapa'){ vsAbaMapa(el); return; }
+  el.innerHTML = `<div class="vs-ferramentas">
+      ${vsFiltroHtml()}
+      ${VS.aba!=='cidades' ? `<select class="ap-select" onchange="vsFiltrarCidade(this.value,'${VS.aba}')"><option value="">Todas as cidades</option>${VS.dados.municipios.filter(m=>m.votos||m.rede).map(m=>`<option value="${m.codigo}" ${m.codigo===VS.filtroMun?'selected':''}>${escapeHtml(vsTitulo(m.nome))}</option>`).join('')}</select>` : ''}
+      <input type="search" class="vs-busca" placeholder="Buscar${VS.aba==='secoes'?' zona, seção, escola ou bairro':''}..." autocomplete="off" oninput="VS.busca=this.value;VS.limite=100;vsDesenharTabela()">
+      ${VS.aba==='secoes' ? `<select class="ap-select" onchange="VS.ordem=this.value;vsDesenharTabela()">
+        ${[['votos','Mais votos'],['pct','Maior % dos válidos'],['bn','Mais brancos e nulos'],['zona','Zona e seção']].map(([v,t])=>`<option value="${v}" ${VS.ordem===v?'selected':''}>${t}</option>`).join('')}</select>
+        ${VS.dados.rede.secoes ? `<label class="ap-meta" style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" ${VS.soRede?'checked':''} onchange="VS.soRede=this.checked;VS.limite=100;vsDesenharTabela()"> Só seções onde a rede vota</label>` : ''}` : ''}
+      <span style="flex:1"></span>
+      <button class="btn-sm btn-outline" onclick="vsExportar()">📥 CSV</button>
+    </div>
+    <div id="vs-tabela"></div>`;
+  vsDesenharTabela();
+}
+
+function vsBarra(v, max){ return `<div class="vs-barra"><i style="width:${max?Math.max(2,Math.round(v/max*110)):0}px"></i><b>${vsNum(v)}</b></div>`; }
+
+function vsLinhasAba(){
+  const d = VS.dados; const q = apSemAcento(VS.busca);
+  const casa = (txt)=>!q || apSemAcento(txt).includes(q);
+  const naCidade = (m)=>!VS.filtroMun || m===VS.filtroMun;
+  if(VS.aba==='cidades') return d.municipios.filter(m=>(m.votos||m.rede) && casa(m.nome));
+  if(VS.aba==='bairros') return d.bairros.filter(b=>naCidade(b.municipio) && (b.votos||b.rede) && casa(`${b.bairro} ${vsMunNome(b.municipio)}`));
+  if(VS.aba==='locais')  return d.locais.filter(l=>naCidade(l.municipio) && (l.votos||l.rede) && casa(`${l.nome} ${l.bairro} ${l.endereco||''} ${vsMunNome(l.municipio)}`));
+  // Seções
+  let base = VS.filtroMun && VS.secoesMun[VS.filtroMun] ? VS.secoesMun[VS.filtroMun] : d.secoes;
+  const nomeLocal = new Map(d.locais.map(l=>[l.id, l.nome]));
+  let linhas = base.filter(s=>naCidade(s.municipio) && (!VS.soRede || s.rede) && casa(`${apZona(s.zona)} ${s.zona} ${s.secao} ${nomeLocal.get(s.local)||''} ${s.bairro} ${vsMunNome(s.municipio)}`));
+  const ord = { votos:(a,b)=>b.votos-a.votos, pct:(a,b)=>(b.vv?b.votos/b.vv:0)-(a.vv?a.votos/a.vv:0), bn:(a,b)=>(b.tot?b.bn/b.tot:0)-(a.tot?a.bn/a.tot:0),
+    zona:(a,b)=>a.zona.localeCompare(b.zona)||a.secao.localeCompare(b.secao) }[VS.ordem] || ((a,b)=>b.votos-a.votos);
+  // "Primeiro as seções da rede, depois todas": com o filtro desligado, a rede vem no topo.
+  return linhas.sort((a,b)=> (VS.soRede||VS.ordem==='zona' ? 0 : (b.rede?1:0)-(a.rede?1:0)) || ord(a,b));
+}
+
+function vsDesenharTabela(){
+  const el = document.getElementById('vs-tabela'); if(!el || !VS.dados) return;
+  const d = VS.dados; const linhas = vsLinhasAba(); const mostrar = linhas.slice(0, VS.limite);
+  const max = Math.max(1, ...linhas.map(x=>x.votos));
+  const temRede = d.rede.comSecao > 0;
+  const nomeLocal = new Map(d.locais.map(l=>[l.id, l]));
+  let cab = '', corpo = '';
+  if(VS.aba==='cidades'){
+    cab = `<th>#</th><th>Cidade</th><th>Votos</th><th class="num">% dos válidos</th><th class="num">Seções com voto</th><th class="num">1º lugar em</th><th class="num">Brancos+nulos</th>${temRede?'<th class="num">Rede</th><th class="num">Votos onde a rede vota</th>':''}`;
+    corpo = mostrar.map((m,i)=>`<tr onclick="vsFiltrarCidade('${m.codigo}','bairros')" title="Ver os bairros de ${escapeAttr(vsTitulo(m.nome))}">
+      <td>${i+1}</td><td><b>${escapeHtml(vsTitulo(m.nome))}</b><div class="ap-meta">${vsNum(m.bairros)} bairros</div></td><td>${vsBarra(m.votos,max)}</td>
+      <td class="num">${vsPct(m.votos,m.vv)}</td><td class="num">${vsNum(m.comVoto)} de ${vsNum(m.urnas)}</td><td class="num">${m.primeiro?vsNum(m.primeiro)+' seç.':'—'}</td>
+      <td class="num">${vsPct(m.bn,m.tot)}</td>${temRede?`<td class="num">${m.rede?`<span class="vs-rede">${vsNum(m.rede)}</span>`:'—'}</td><td class="num">${m.rede?vsNum(m.votosRede):'—'}</td>`:''}</tr>`).join('');
+  } else if(VS.aba==='bairros'){
+    cab = `<th>#</th><th>Bairro</th><th>Votos</th><th class="num">% dos válidos</th><th class="num">Escolas</th><th class="num">Seções com voto</th><th class="num">Brancos+nulos</th>${temRede?'<th class="num">Rede</th>':''}`;
+    corpo = mostrar.map((b,i)=>`<tr onclick="VS.filtroMun='${b.municipio}';VS.aba='locais';VS.busca='';vsDesenharCorpo();setTimeout(()=>{const x=document.querySelector('#vs-aba-corpo .vs-busca');if(x){x.value='${escapeAttr(b.bairro)}';VS.busca=x.value;vsDesenharTabela();}},20)" title="Ver as escolas deste bairro">
+      <td>${i+1}</td><td class="quebra"><b>${escapeHtml(vsTitulo(b.bairro))}</b><div class="ap-meta">${escapeHtml(vsMunNome(b.municipio))}</div></td><td>${vsBarra(b.votos,max)}</td>
+      <td class="num">${vsPct(b.votos,b.vv)}</td><td class="num">${vsNum(b.locais)}</td><td class="num">${vsNum(b.comVoto)} de ${vsNum(b.urnas)}</td><td class="num">${vsPct(b.bn,b.tot)}</td>
+      ${temRede?`<td class="num">${b.rede?`<span class="vs-rede">${vsNum(b.rede)}</span>`:'—'}</td>`:''}</tr>`).join('');
+  } else if(VS.aba==='locais'){
+    cab = `<th>#</th><th>Local de votação</th><th>Votos</th><th class="num">% dos válidos</th><th class="num">Urnas</th><th class="num">Aptos</th><th class="num">Brancos+nulos</th>${temRede?'<th>Rede votando aqui</th>':''}`;
+    corpo = mostrar.map((l,i)=>`<tr onclick="vsVerLocal('${escapeAttr(l.id)}')" title="Ver as seções deste local">
+      <td>${i+1}</td><td class="quebra"><b>${escapeHtml(vsTitulo(l.nome))}</b><div class="ap-meta">${escapeHtml(vsTitulo(l.bairro))} · ${escapeHtml(vsMunNome(l.municipio))}</div></td>
+      <td>${vsBarra(l.votos,max)}</td><td class="num">${vsPct(l.votos,l.vv)}</td><td class="num">${l.urnas}</td><td class="num">${vsNum(l.aptos)}</td><td class="num">${vsPct(l.bn,l.tot)}</td>
+      ${temRede?`<td class="quebra">${l.rede?`<span class="vs-rede">${vsNum(l.rede)}</span>${l.liderancas.length?`<div class="vs-lid">${escapeHtml(l.liderancas.slice(0,4).join(', '))}${l.liderancas.length>4?'…':''}</div>`:''}`:'—'}</td>`:''}</tr>`).join('');
+  } else {
+    cab = `<th>Zona</th><th>Seção</th><th>Local</th><th>Votos</th><th class="num">Posição na urna</th><th class="num">% dos válidos</th><th class="num">Brancos+nulos</th><th class="num">Aptos</th>${temRede?'<th>Rede</th>':''}`;
+    corpo = mostrar.map(s=>{ const l = nomeLocal.get(s.local); return `<tr>
+      <td><b>${apZona(s.zona)}</b></td><td>${s.secao}</td>
+      <td class="quebra">${escapeHtml(vsTitulo(l?l.nome:''))}<div class="ap-meta">${escapeHtml(vsTitulo(s.bairro))} · ${escapeHtml(vsMunNome(s.municipio))}</div></td>
+      <td>${vsBarra(s.votos,max)}</td><td class="num">${s.posicao?`<span class="vs-pos ${s.posicao===1?'p1':''}">${s.posicao}º</span>`:'—'}</td>
+      <td class="num">${vsPct(s.votos,s.vv)}</td><td class="num">${vsPct(s.bn,s.tot)}</td><td class="num">${vsNum(s.aptos)}</td>
+      ${temRede?`<td class="quebra">${s.rede?`<span class="vs-rede">${vsNum(s.rede)} cadastrado${s.rede>1?'s':''}</span>${s.liderancas.length?`<div class="vs-lid">${escapeHtml(s.liderancas.join(', '))}</div>`:''}`:'—'}</td>`:''}</tr>`; }).join('');
+  }
+  const parcial = VS.aba==='secoes' && d.secoesParciais && !(VS.filtroMun && VS.secoesMun[VS.filtroMun]);
+  el.innerHTML = `
+    ${parcial ? `<div class="ap-aviso">Este estado tem ${vsNum(d.secoesTotal)} seções: aqui estão as da rede e as mais votadas. Escolha uma cidade para ver todas as seções dela.</div>` : ''}
+    <div class="table-wrap" style="overflow-x:auto"><table class="vs-tab"><thead><tr>${cab}</tr></thead>
+    <tbody>${corpo || `<tr><td colspan="10" class="ap-meta" style="cursor:default">Nada por aqui${VS.busca?' com essa busca':''}${VS.aba==='secoes'&&VS.soRede?' — a rede não tem ninguém votando nestas seções. Desmarque "Só seções onde a rede vota" para ver todas':''}.</td></tr>`}</tbody></table></div>
+    ${linhas.length>mostrar.length ? `<button class="btn-sm btn-outline vs-mais" onclick="VS.limite+=200;vsDesenharTabela()">Mostrar mais (${vsNum(linhas.length-mostrar.length)} restantes)</button>` : `<p class="ap-meta" style="margin-top:10px">${vsNum(linhas.length)} linha${linhas.length===1?'':'s'}</p>`}`;
+}
+
+function vsVerLocal(id){
+  const l = VS.dados.locais.find(x=>x.id===id); if(!l) return;
+  VS.filtroMun = l.municipio; VS.aba = 'secoes'; VS.soRede = false; VS.ordem = 'zona'; VS.limite = 100;
+  vsDesenharCorpo();
+  vsGarantirSecoesMun(l.municipio);
+  setTimeout(()=>{ const x = document.querySelector('#vs-aba-corpo .vs-busca'); if(x){ x.value = l.nome; VS.busca = l.nome; vsDesenharTabela(); } }, 20);
+}
+
+function vsExportar(){
+  if(!VS.dados) return;
+  const aba = VS.aba==='mapa' ? 'cidades' : VS.aba;
+  const abaAntes = VS.aba; VS.aba = aba;
+  const linhas = vsLinhasAba(); VS.aba = abaAntes;
+  const d = VS.dados; const c = d.candidato || {};
+  const loc = new Map(d.locais.map(l=>[l.id,l]));
+  const pc = (a,b)=> b ? (a/b*100).toFixed(2).replace('.',',') : '';
+  const cols = {
+    cidades: [['Cidade',m=>vsTitulo(m.nome)],['Votos',m=>m.votos],['% dos válidos',m=>pc(m.votos,m.vv)],['Urnas',m=>m.urnas],['Urnas com voto',m=>m.comVoto],['1º lugar em (seções)',m=>m.primeiro],['Brancos+nulos %',m=>pc(m.bn,m.tot)],['Cadastrados da rede',m=>m.rede],['Votos onde a rede vota',m=>m.votosRede]],
+    bairros: [['Cidade',b=>vsMunNome(b.municipio)],['Bairro',b=>vsTitulo(b.bairro)],['Votos',b=>b.votos],['% dos válidos',b=>pc(b.votos,b.vv)],['Escolas',b=>b.locais],['Urnas',b=>b.urnas],['Brancos+nulos %',b=>pc(b.bn,b.tot)],['Cadastrados da rede',b=>b.rede]],
+    locais:  [['Cidade',l=>vsMunNome(l.municipio)],['Bairro',l=>vsTitulo(l.bairro)],['Local de votação',l=>l.nome],['Endereço',l=>l.endereco||''],['Votos',l=>l.votos],['% dos válidos',l=>pc(l.votos,l.vv)],['Urnas',l=>l.urnas],['Aptos',l=>l.aptos],['Brancos+nulos %',l=>pc(l.bn,l.tot)],['Cadastrados da rede',l=>l.rede],['Lideranças',l=>l.liderancas.join(', ')],['Latitude',l=>l.lat??''],['Longitude',l=>l.lng??'']],
+    secoes:  [['Cidade',s=>vsMunNome(s.municipio)],['Zona',s=>s.zona],['Seção',s=>s.secao],['Local de votação',s=>(loc.get(s.local)||{}).nome||''],['Bairro',s=>vsTitulo(s.bairro)],['Votos',s=>s.votos],['Posição na urna',s=>s.posicao||''],['% dos válidos',s=>pc(s.votos,s.vv)],['Brancos+nulos %',s=>pc(s.bn,s.tot)],['Aptos',s=>s.aptos??''],['Cadastrados da rede',s=>s.rede],['Lideranças',s=>s.liderancas.join(', ')]],
+  }[aba];
+  const cel = (v)=>{ const t = String(v??''); return /[;"\n]/.test(t) ? `"${t.replace(/"/g,'""')}"` : t; };
+  const csv = '﻿' + [cols.map(x=>x[0]).join(';'), ...linhas.map(r=>cols.map(x=>cel(x[1](r))).join(';'))].join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type:'text/csv;charset=utf-8' }));
+  a.download = `votos-${(c.nome||VS.sel.numero).replace(/[^\w]+/g,'-').toLowerCase()}-${aba}${VS.filtroMun?'-'+vsMunNome(VS.filtroMun).replace(/[^\w]+/g,'-').toLowerCase():''}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+}
+
+// ── Mapa ────────────────────────────────────────────────────────────────────
+// Mesma ideia do mapa do eleicoes2026 (cada cidade pintada, malha do IBGE),
+// com uma camada a mais que lá não existe: as escolas, cada uma no seu ponto,
+// do tamanho dos votos que o candidato teve nelas.
+function vsAbaMapa(el){
+  const temLider = !VS_MUNICIPAL.includes(VS.sel.cargo);
+  el.innerHTML = `<div class="vs-ferramentas">
+      ${vsFiltroHtml()}
+      <div class="vs-cargos" style="margin:0">${[['votos','Votos do candidato'],['pct','% dos válidos'],...(temLider?[['lider','Quem venceu em cada cidade']]:[]),['bn','Brancos e nulos']]
+        .map(([k,t])=>`<button class="vs-chip ${VS.mapaModo===k?'on':''}" onclick="VS.mapaModo='${k}';vsAbaMapa(document.getElementById('vs-aba-corpo'))">${t}</button>`).join('')}</div>
+    </div>
+    <div class="vs-mapa-wrap"><div id="vs-mapa" class="vs-mapa"></div></div>
+    <p class="ap-meta" style="margin-top:8px">Clique numa cidade para ver os bairros e escolas dela. Aproxime o mapa para ver as escolas: cada círculo é um local de votação, do tamanho dos votos do candidato ali${VS.dados.rede.comSecao?'; borda dourada = a rede tem gente votando ali':''}.</p>
+    <div id="vs-cidade-card"></div>`;
+  vsDesenharMapa();
+}
+
+function vsTom(escala, frac){ return escala[Math.max(0, Math.min(escala.length-1, Math.floor(frac*escala.length)))]; }
+
+async function vsDesenharMapa(){
+  const alvo = document.getElementById('vs-mapa'); if(!alvo) return;
+  const d = VS.dados; const s = VS.sel;
+  try { await carregarLeaflet(); } catch(e){ alvo.innerHTML = `<div class="empty-state" style="padding:60px 20px"><p>${escapeHtml(e.message)}</p></div>`; return; }
+  if(!VS.malha[s.uf]){
+    try { VS.malha[s.uf] = await api(`/votos/malha/${s.uf}`+wsQuery()); }
+    catch(e){ VS.malha[s.uf] = null; }
+  }
+  if(VS.mapaModo==='lider' && !VS.lideres){
+    try { VS.lideres = await api(`/votos/lideres?ciclo=${s.ciclo}&pleito=${s.pleito}&uf=${s.uf}&cargo=${s.cargo}`+wsQuery('&')); }
+    catch(e){ VS.lideres = {}; showToast(e.message,'error'); }
+  }
+  if(!document.getElementById('vs-mapa')) return;
+  // Recriado a cada desenho: o HTML da aba é trocado inteiro (ver carregarMapa).
+  if(_vsMapa){ _vsMapa.remove(); _vsMapa = null; }
+  _vsMapa = L.map('vs-mapa', { scrollWheelZoom:false, preferCanvas:true, zoomSnap:.25 });
+  // Mesmo fundo do Mapa da Rede (OpenStreetMap, sem chave). O CARTO, mais
+  // limpo, passou a exigir chave de API em 2026; o cinza vem do CSS (.vs-mapa).
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18, attribution:'&copy; OpenStreetMap · TSE · IBGE',
+  }).addTo(_vsMapa);
+
+  const porIbge = new Map(d.municipios.filter(m=>m.ibge).map(m=>[String(m.ibge), m]));
+  const modo = VS.mapaModo;
+  const maxVotos = Math.max(1, ...d.municipios.map(m=>m.votos));
+  const maxPct = Math.max(0.0001, ...d.municipios.map(m=>m.vv?m.votos/m.vv:0));
+  const maxBn = Math.max(0.0001, ...d.municipios.map(m=>m.tot?m.bn/m.tot:0));
+  // Cor de cada candidato no modo "quem venceu": o escolhido em dourado, os
+  // demais pela ordem do resultado no estado.
+  const corCand = {}; let iCor = 0;
+  (VS.candidatos||[]).forEach(c=>{ corCand[c.numero] = c.numero===s.numero ? '#c8a84b' : VS_CORES[iCor++ % VS_CORES.length]; });
+  const nomeCand = Object.fromEntries((VS.candidatos||[]).map(c=>[c.numero, c.nome]));
+
+  const estilo = (f)=>{
+    const m = porIbge.get(String(f.properties.codarea));
+    const base = { color:'#ffffff', weight:.8, fillOpacity:.85 };
+    if(!m) return { ...base, fillColor:'#e9ecf2', fillOpacity:.5 };
+    if(modo==='lider'){
+      const l = VS.lideres && VS.lideres[m.codigo] && VS.lideres[m.codigo].lider;
+      return { ...base, fillColor: l ? (corCand[l.numero]||'#999') : '#e9ecf2', fillOpacity: l ? .8 : .4 };
+    }
+    if(modo==='bn') return { ...base, fillColor: vsTom(VS_ESCALA_BN, m.tot ? (m.bn/m.tot)/maxBn : 0) };
+    if(modo==='pct') return { ...base, fillColor: m.votos ? vsTom(VS_ESCALA, (m.votos/m.vv)/maxPct) : '#f4f5f8' };
+    // Escala logarítmica: uma cidade com 1/3 dos votos (Dourados, no Zé
+    // Teixeira de 2026) deixava todas as outras no mesmo tom claro.
+    return { ...base, fillColor: m.votos ? vsTom(VS_ESCALA, Math.log1p(m.votos)/Math.log1p(maxVotos)) : '#f4f5f8' };
+  };
+  const dica = (m)=>{
+    if(!m) return '';
+    let h = `<div class="vs-dica"><b>${escapeHtml(vsTitulo(m.nome))}</b><br>`;
+    if(modo==='lider'){
+      const L2 = VS.lideres && VS.lideres[m.codigo];
+      if(L2 && L2.lider) h += `1º ${escapeHtml(nomeCand[L2.lider.numero]||'nº '+L2.lider.numero)} — ${vsNum(L2.lider.votos)}<br>`;
+      if(L2 && L2.segundo) h += `2º ${escapeHtml(nomeCand[L2.segundo.numero]||'nº '+L2.segundo.numero)} — ${vsNum(L2.segundo.votos)}<br>`;
+    }
+    h += `<b>${vsNum(m.votos)}</b> votos de ${escapeHtml(d.candidato?.nome||'')} · ${vsPct(m.votos,m.vv)} dos válidos<br>`;
+    h += `Brancos e nulos: ${vsPct(m.bn,m.tot)}${m.rede?` · rede: ${vsNum(m.rede)}`:''}</div>`;
+    return h;
+  };
+
+  // Aproximado, a cidade vira só um véu claro: as ruas aparecem e as escolas
+  // (azul-escuro) não somem em cima do próprio azul da cidade.
+  const ZOOM_ESCOLAS = 9;
+  const estiloAtual = (f)=>{
+    const e = estilo(f);
+    return _vsMapa && _vsMapa.getZoom() >= ZOOM_ESCOLAS ? { ...e, fillOpacity: Math.min(e.fillOpacity, .22), weight:1.6, color:'#0f1f3d' } : e;
+  };
+  let camadaMun = null;
+  const malha = VS.malha[s.uf];
+  if(malha){
+    camadaMun = L.geoJSON(malha, {
+      style: estilo,
+      onEachFeature: (f, layer)=>{
+        const m = porIbge.get(String(f.properties.codarea));
+        if(!m) return;
+        layer.bindTooltip(()=>dica(m), { sticky:true, direction:'top', opacity:.97 });
+        layer.on('mouseover', ()=>layer.setStyle({ weight:2.4, color:'#0f1f3d' }));
+        layer.on('mouseout', ()=>layer.setStyle(estiloAtual(f)));
+        layer.on('click', ()=>{ VS.filtroMun = m.codigo; _vsMapa.fitBounds(layer.getBounds(), { padding:[20,20] }); vsCidadeCard(); vsAtualizarFiltroMapa(); });
+      },
+    }).addTo(_vsMapa);
+  }
+
+  // Escolas — só aparecem com o mapa aproximado (no estado inteiro viram borrão).
+  const escolas = L.layerGroup();
+  const maxLocal = Math.max(1, ...d.locais.map(l=>l.votos));
+  const maxBnLocal = Math.max(0.0001, ...d.locais.map(l=>l.tot?l.bn/l.tot:0));
+  d.locais.forEach(l=>{
+    if(l.lat==null || l.lng==null || (!l.votos && !l.rede)) return;
+    const cor = modo==='bn' ? vsTom(VS_ESCALA_BN, l.tot?(l.bn/l.tot)/maxBnLocal:0) : '#0f1f3d';
+    const c = L.circleMarker([l.lat, l.lng], {
+      radius: 3 + Math.sqrt(l.votos/maxLocal)*20, color: l.rede ? '#c8a84b' : '#ffffff', weight: l.rede ? 2.5 : 1,
+      fillColor: cor, fillOpacity: .72,
+    });
+    c.bindPopup(`<div class="vs-popup"><h4>${escapeHtml(vsTitulo(l.nome))}</h4>
+      <div class="ap-meta" style="margin-bottom:6px">${escapeHtml(vsTitulo(l.endereco||''))}<br>${escapeHtml(vsTitulo(l.bairro))} · ${escapeHtml(vsMunNome(l.municipio))}</div>
+      <div class="l"><span>Votos</span><b>${vsNum(l.votos)}</b></div>
+      <div class="l"><span>% dos válidos</span><b>${vsPct(l.votos,l.vv)}</b></div>
+      <div class="l"><span>Urnas · aptos</span><b>${l.urnas} · ${vsNum(l.aptos)}</b></div>
+      <div class="l"><span>Brancos e nulos</span><b>${vsPct(l.bn,l.tot)}</b></div>
+      ${l.rede?`<div class="l"><span>Rede votando aqui</span><b>${vsNum(l.rede)}</b></div>${l.liderancas.length?`<div class="ap-meta">${escapeHtml(l.liderancas.join(', '))}</div>`:''}`:''}
+      <div style="margin-top:8px"><a href="#" onclick="vsVerLocal('${escapeAttr(l.id)}');return false">Ver as seções →</a></div></div>`);
+    c.bindTooltip(`${escapeHtml(vsTitulo(l.nome))} · ${vsNum(l.votos)}`, { direction:'top' });
+    c.addTo(escolas);
+  });
+  // Aproximado, a cidade vira só um véu claro: as ruas aparecem e as escolas
+  // (azul-escuro) não somem em cima do próprio azul da cidade.
+  const mostrarEscolas = ()=>{
+    if(_vsMapa.getZoom() >= ZOOM_ESCOLAS) escolas.addTo(_vsMapa); else _vsMapa.removeLayer(escolas);
+    if(camadaMun) camadaMun.setStyle(estiloAtual);
+  };
+  _vsMapa.on('zoomend', mostrarEscolas);
+
+  // Legenda
+  const leg = L.control({ position:'bottomleft' });
+  leg.onAdd = ()=>{
+    const div = L.DomUtil.create('div','vs-legenda');
+    if(modo==='lider'){
+      const conta = {};
+      Object.values(VS.lideres||{}).forEach(x=>{ if(x.lider) conta[x.lider.numero] = (conta[x.lider.numero]||0)+1; });
+      const itens = Object.entries(conta).sort((a,b)=>b[1]-a[1]);
+      div.innerHTML = `<b>Mais votado em cada cidade</b>` + itens.slice(0,8).map(([n,q])=>`<div class="vs-leg-item"><i style="background:${corCand[n]||'#999'}"></i>${escapeHtml(nomeCand[n]||'nº '+n)} · <b>${q}</b></div>`).join('')
+        + (itens.length>8?`<div class="ap-meta">+ ${itens.length-8} candidatos</div>`:'');
+    } else {
+      const esc = modo==='bn' ? VS_ESCALA_BN : VS_ESCALA;
+      const tit = { votos:'Votos do candidato', pct:'% dos votos válidos', bn:'% de brancos e nulos' }[modo];
+      const maxTxt = { votos: vsNum(maxVotos), pct: vsPct(maxPct,1), bn: vsPct(maxBn,1) }[modo];
+      // Na escala logarítmica o meio da rampa não é a metade do máximo: mostra o valor real.
+      const meio = modo==='votos' ? `<span>${vsNum(Math.round(Math.expm1(Math.log1p(maxVotos)/2)))}</span>` : '';
+      div.innerHTML = `<b>${tit}</b><div class="vs-rampa">${esc.map(c=>`<span style="background:${c}"></span>`).join('')}</div><div class="vs-rampa-txt"><span>${modo==='votos'?'1':'0'}</span>${meio}<span>${maxTxt}</span></div>`
+        + `<div class="ap-meta" style="margin-top:6px">● escola: tamanho = votos${VS.dados.rede.comSecao?'<br><span style="color:#8a6a10">◯ borda dourada = a rede vota ali</span>':''}</div>`;
+    }
+    L.DomEvent.disableClickPropagation(div);
+    return div;
+  };
+  leg.addTo(_vsMapa);
+
+  if(camadaMun) _vsMapa.fitBounds(camadaMun.getBounds(), { padding:[10,10] });
+  else {
+    const pts = d.locais.filter(l=>l.lat!=null).map(l=>[l.lat,l.lng]);
+    if(pts.length) _vsMapa.fitBounds(pts, { padding:[20,20] }); else _vsMapa.setView([-15.78,-47.93], 4);
+  }
+  if(VS.filtroMun && camadaMun){
+    camadaMun.eachLayer(ly=>{ const m = porIbge.get(String(ly.feature.properties.codarea)); if(m && m.codigo===VS.filtroMun) _vsMapa.fitBounds(ly.getBounds(), { padding:[20,20] }); });
+  }
+  mostrarEscolas();
+  vsCidadeCard();
+}
+
+function vsAtualizarFiltroMapa(){
+  const f = document.querySelector('#vs-aba-corpo .vs-ferramentas');
+  if(!f) return;
+  const velho = f.querySelector('.vs-filtro'); if(velho) velho.remove();
+  if(VS.filtroMun) f.insertAdjacentHTML('afterbegin', vsFiltroHtml());
+}
+
+// Painel abaixo do mapa com a cidade escolhida: bairros e escolas mais fortes.
+function vsCidadeCard(){
+  const el = document.getElementById('vs-cidade-card'); if(!el) return;
+  const d = VS.dados;
+  if(!VS.filtroMun){ el.innerHTML = ''; return; }
+  const m = d.municipios.find(x=>x.codigo===VS.filtroMun); if(!m){ el.innerHTML=''; return; }
+  const bairros = d.bairros.filter(b=>b.municipio===m.codigo && b.votos).slice(0,8);
+  const locais = d.locais.filter(l=>l.municipio===m.codigo && l.votos).slice(0,8);
+  el.innerHTML = `<div class="card" style="margin:16px 0 0;box-shadow:none">
+    <div class="card-header" style="margin-bottom:10px"><div class="card-title">📍 ${escapeHtml(vsTitulo(m.nome))} — ${vsNum(m.votos)} votos · ${vsPct(m.votos,m.vv)} dos válidos</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn-sm btn-outline" onclick="vsFiltrarCidade('${m.codigo}','secoes')">Ver as ${vsNum(m.urnas)} seções</button><button class="btn-sm btn-outline" onclick="vsFiltrarCidade('');vsDesenharMapa()">✕</button></div></div>
+    <div class="vs-cidade-card">
+      <div><div class="stat-label">Bairros mais fortes</div><ul class="vs-top">${bairros.map(b=>`<li><b>${escapeHtml(vsTitulo(b.bairro))}</b><span>${vsNum(b.votos)} · ${vsPct(b.votos,b.vv)}</span></li>`).join('') || '<li><span>Sem voto nesta cidade</span></li>'}</ul></div>
+      <div><div class="stat-label">Escolas mais fortes</div><ul class="vs-top">${locais.map(l=>`<li><b>${escapeHtml(vsTitulo(l.nome))}</b><span>${vsNum(l.votos)} · ${vsPct(l.votos,l.vv)}</span></li>`).join('') || '<li><span>—</span></li>'}</ul></div>
+    </div></div>`;
 }
 
 // ══════════════════════════════════════════

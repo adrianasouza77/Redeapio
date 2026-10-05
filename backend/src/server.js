@@ -54,6 +54,7 @@ app.use('/api/conta', require('./routes/conta'));
 app.use('/api/config', require('./routes/config'));
 app.use('/api/mapas', require('./routes/mapas'));
 app.use('/api/apuracao', require('./routes/apuracao'));
+app.use('/api/votos', require('./routes/votos'));
 app.use('/api/nichos', require('./routes/nichos'));
 app.use('/api/historico', require('./routes/historico'));
 app.use('/api/ia', require('./routes/ia'));
@@ -81,6 +82,9 @@ aplicarMigracoes()
     // Busca dos boletins de urna em segundo plano (só para quem ativou a
     // apuração ao vivo). Depois das migrações, porque lê apuracao_config.
     require('./services/apuracao').iniciar();
+    // Varredura de estado (Votos por seção) que o reinício interrompeu continua
+    // de onde parou — o que já foi baixado está no banco.
+    require('./services/votosSecao').acordar();
   })
   .catch((err) => {
     console.error(err);

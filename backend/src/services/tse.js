@@ -292,12 +292,257 @@ async function resultadoMunicipio({ ciclo, eleicao, uf, municipio, cargo }) {
 }
 
 // Municípios de um estado naquela eleição (lista oficial, com código TSE).
+// "cdi" é o código IBGE do mesmo município — é ele que casa com a malha do
+// IBGE no mapa; o código TSE é outro número e não serve para isso.
 async function municipiosEleicao(ciclo, eleicao, uf) {
   const j = await comCache(`cm:${ciclo}:${eleicao}`, 24, () => baixar(`${BASE}/${ciclo}/${eleicao}/config/mun-e${pad(eleicao, 6)}-cm.json`));
   if (!j) return [];
   const estado = (j.abr || []).find((a) => String(a.cd).toLowerCase() === uf);
-  return (estado?.mu || []).map((m) => ({ codigo: m.cd, nome: m.nm }))
+  return (estado?.mu || []).map((m) => ({ codigo: m.cd, nome: m.nm, ibge: m.cdi || null, capital: m.c === 's' }))
     .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 }
 
-module.exports = { pad4, listarPleitos, configSecoes, buscarSecao, votosNoBU, buBinario, resultadoMunicipio, municipiosEleicao };
+// ─── Votos por seção: boletim completo, candidatos e locais de votação ──────
+
+// Eleições de um turno, com o código de cada cargo. O mesmo turno (pleito)
+// tem mais de uma "eleição" no TSE — em 2026, a 6257 é a de presidente e a
+// 6259 a estadual (governador, senador, deputados) — e o resultado de cada
+// cargo mora na pasta da sua eleição.
+async function eleicoesDoPleito(ciclo, pleito) {
+  const j = await comCache('ele-c', 1, () => baixar(`${BASE}/comum/config/ele-c.json`));
+  const p = (j?.pl || []).find((x) => String(x.cd) === String(pleito) && (x.c || j.c) === ciclo);
+  if (!p) return [];
+  return (p.e || []).filter((e) => String(e.tp) !== '7').map((e) => {
+    const cargos = new Map();
+    for (const a of e.abr || []) for (const c of a.cp || []) cargos.set(Number(c.cd), String(c.ds).trim());
+    return {
+      codigo: String(e.cd), turno: Number(e.t), nome: String(e.nm || '').replace(/&#186;/g, 'º'),
+      // tp 3 = municipal: o resultado e a lista de candidatos são por município.
+      municipal: String(e.tp) === '3' || [...cargos.keys()].every((c) => c === 11 || c === 13),
+      cargos: [...cargos].map(([cod, nome]) => ({ cod, nome })),
+    };
+  });
+}
+
+// O boletim inteiro de uma urna: todos os cargos, cada candidato, brancos,
+// nulos e legenda. É um arquivo só por urna, com tudo dentro — por isso a
+// varredura do estado baixa cada BU uma vez e depois serve qualquer candidato.
+//   cargos: { <codCargo>: { v: {numero: votos}, l: {partido: votos}, b, n, vv } }
+//   vv = votos válidos do cargo (nominais + legenda), base do "% da seção".
+// Conferido no BU da seção 0036/zona 0039 de Glória de Dourados (04/10/2026):
+// em todo cargo, nominais + legenda + brancos + nulos = comparecimento (e o
+// dobro em senador, que em 2026 elege dois por estado).
+function boletimCompleto(buf) {
+  const env = berLer(buf)[0];
+  const conteudo = (env?.filhos || []).find((n) => n.tag === 0x04);
+  if (!conteudo) throw new Error('BU binário sem conteúdo');
+  const raiz = berLer(buf, conteudo.ini, conteudo.fim)[0];
+  const cargos = {};
+  let aptos = null; let comparecimento = null;
+  const andar = (no, ctx) => {
+    const k = no.filhos;
+    if (!k) return;
+    // ResultadoVotacaoPorEleicao: idEleicao, qtdEleitoresAptos, ... (ver buBinario)
+    if (k.length >= 3 && k[0].tag === 0x02 && k[1].tag === 0x02
+        && k.some((c) => c.tag === 0x30 && (c.filhos || []).some((d) => d.tag === 0x30 && d.filhos?.[0]?.tag === 0x0a))) {
+      ctx = { ...ctx, aptos: berInt(buf, k[1]) };
+      if (aptos === null) aptos = ctx.aptos;
+    }
+    // ResultadoVotacao ::= SEQ { tipoCargo ENUM, qtdComparecimento INT, totaisVotosCargo SEQ }
+    if (k.length >= 3 && k[0].tag === 0x0a && k[1].tag === 0x02 && k[2].tag === 0x30) {
+      ctx = { ...ctx, comp: berInt(buf, k[1]) };
+      if (comparecimento === null) comparecimento = ctx.comp;
+    }
+    // TotalVotosCargo
+    if (k.length >= 3 && k[0].tag === 0x81 && k[1].tag === 0x02 && k[2].tag === 0x30) {
+      const r = { v: {}, l: {}, b: 0, n: 0, vv: 0 };
+      for (const v of k[2].filhos || []) {
+        const campo = (t) => (v.filhos || []).find((x) => x.tag === t);
+        const tipo = campo(0x81); const qtd = campo(0x82); const id = campo(0xa3);
+        if (!tipo || !qtd) continue;
+        const q = berInt(buf, qtd);
+        // tipoVoto: 1 nominal, 2 branco, 3 nulo, 4 legenda (voto só no partido).
+        switch (berInt(buf, tipo)) {
+          case 1: if (id?.filhos?.[1]) { r.v[berInt(buf, id.filhos[1])] = q; r.vv += q; } break;
+          case 2: r.b += q; break;
+          case 3: r.n += q; break;
+          case 4: if (id?.filhos?.[1]) { r.l[berInt(buf, id.filhos[1])] = q; r.vv += q; } break;
+          default: r.n += q; // "cargo sem candidato" e afins não são voto válido
+        }
+      }
+      cargos[berInt(buf, k[0])] = r;
+      return;
+    }
+    k.forEach((x) => andar(x, ctx));
+  };
+  andar(raiz, {});
+  return { aptos, comparecimento, cargos };
+}
+
+// Boletim completo de uma urna. null = ainda não divulgado.
+async function buscarBoletim({ ciclo, pleito, uf, municipio, zona, secao }) {
+  const p6 = pad(pleito, 6);
+  const pasta = `${BASE}/${ciclo}/arquivo-urna/${pleito}/dados/${uf}/${municipio}/${zona}/${secao}`;
+  const aux = await baixar(`${pasta}/p${p6}-${uf}-m${municipio}-z${zona}-s${secao}-aux.json`, { semCache: true });
+  if (!aux || !Array.isArray(aux.hashes) || !aux.hashes.length) return null;
+  // Mesma escolha de envio de buscarSecao().
+  const validos = aux.hashes.filter((h) => !/exclu|anulad|cancel/i.test(h.st || ''));
+  const h = validos.find((x) => /totalizad/i.test(x.st || '')) || validos[validos.length - 1];
+  const bin = h && (h.arq || []).find((a) => a.tp === 'bu');
+  if (!bin) return null;
+  const buf = await baixar(`${pasta}/${h.hash}/${bin.nm}`, { binario: true });
+  return buf ? boletimCompleto(buf) : null;
+}
+
+// Candidatos de um cargo, com nome de urna, partido, votos e situação. Vem do
+// resultado consolidado (-u.json), que o TSE publica mesmo com zero voto: é a
+// lista oficial de quem estava na urna. Cargo estadual: o arquivo é da UF;
+// prefeito/vereador: do município (o mesmo número existe em toda cidade).
+async function candidatosCargo({ ciclo, eleicao, uf, municipio, cargo }) {
+  const local = municipio ? `${uf}${municipio}` : uf;
+  const url = `${BASE}/${ciclo}/${eleicao}/dados/${uf}/${local}-c${pad(cargo, 4)}-e${pad(eleicao, 6)}-u.json`;
+  // 5 minutos: no dia seguinte à eleição o arquivo ainda muda (recontagem,
+  // candidato com registro julgado depois).
+  const j = await comCache(`cand:${url}`, 1 / 12, () => baixar(url));
+  if (!j || !Array.isArray(j.carg)) return null;
+  const candidatos = [];
+  for (const c of j.carg) {
+    for (const agr of c.agr || []) {
+      for (const par of agr.par || []) {
+        for (const cand of par.cand || []) {
+          candidatos.push({
+            numero: String(cand.n), nome: cand.nmu || cand.nm, nomeCompleto: cand.nm || null,
+            partido: par.sg || null, sq: cand.sqcand || null,
+            votos: Number(cand.vap) || 0, pct: cand.pvap || null,
+            situacao: cand.st || null, eleito: /^s$/i.test(cand.e || ''),
+            // "Válido", "Anulado", "Anulado sub judice"... — o que não é válido
+            // não entra no total, mas o eleitor pode ter digitado o número.
+            valido: !/anulad|cassad|indefer/i.test(cand.dvt || ''),
+            // "Anulado sub judice" ainda pode voltar a valer: o TSE não o conta
+            // nem como válido nem como nulo (fica em "vansj").
+            subJudice: /sub\s*judice/i.test(cand.dvt || ''),
+          });
+        }
+      }
+    }
+  }
+  candidatos.sort((a, b) => b.votos - a.votos || a.nome.localeCompare(b.nome, 'pt-BR'));
+  candidatos.forEach((c, i) => { c.posicao = i > 0 && c.votos === candidatos[i - 1].votos ? candidatos[i - 1].posicao : i + 1; });
+  const s = j.s || {};
+  return {
+    candidatos,
+    vagas: Number(j.carg[0]?.nv) || null,
+    secoesTotalizadas: Number(s.st) || 0, secoesTotal: Number(s.ts) || 0, pctTotalizado: s.pst || null,
+    final: j.tf === 's',
+    atualizadoEm: j.dg && j.hg ? `${j.dg} ${j.hg}` : null,
+  };
+}
+
+function fotoUrl(ciclo, eleicao, uf, sq) {
+  return sq ? `${BASE}/${ciclo}/${eleicao}/fotos/${uf}/${sq}.jpeg` : null;
+}
+
+// ─── Locais de votação (dados abertos do TSE) ───────────────────────────────
+// "Eleitorado por local de votação": uma linha por seção com escola,
+// endereço, BAIRRO e LATITUDE/LONGITUDE — é o que permite agrupar votos por
+// bairro e pôr cada escola no mapa. Vem num ZIP nacional de ~90 MB com um CSV
+// por UF dentro; em vez de baixar o ZIP inteiro, lemos o índice no fim do
+// arquivo e buscamos só os bytes do CSV do estado (a CDN aceita Range). O de
+// MS são ~500 KB em vez de 90 MB.
+const zlib = require('zlib');
+
+async function baixarFaixa(url, ini, fim) {
+  const resp = await fetch(url, { headers: { Range: `bytes=${ini}-${fim}` }, signal: AbortSignal.timeout(120000) });
+  if (resp.status === 404 || resp.status === 403) return null;
+  if (resp.status !== 206 && !resp.ok) throw new Error(`TSE respondeu ${resp.status} em ${url}`);
+  const buf = Buffer.from(await resp.arrayBuffer());
+  const total = Number(String(resp.headers.get('content-range') || '').split('/')[1]) || null;
+  // Servidor que ignora Range devolve o arquivo inteiro com 200: recorta aqui.
+  return { buf: resp.status === 206 ? buf : buf.subarray(ini, fim + 1), total: total || (resp.status === 200 ? buf.length : null) };
+}
+
+async function lerEntradaZip(url, testeNome) {
+  const fimArq = await baixarFaixa(url, 0, 0);
+  if (!fimArq || !fimArq.total) return null;
+  const tam = fimArq.total;
+  // EOCD: assinatura 0x06054b50 nos últimos 64 KB (22 bytes + comentário).
+  const cauda = await baixarFaixa(url, Math.max(0, tam - 65557), tam - 1);
+  const t = cauda.buf;
+  let e = -1;
+  for (let i = t.length - 22; i >= 0; i--) if (t.readUInt32LE(i) === 0x06054b50) { e = i; break; }
+  if (e < 0) throw new Error('ZIP do TSE sem índice');
+  const cdTam = t.readUInt32LE(e + 12); const cdIni = t.readUInt32LE(e + 16);
+  const cd = (await baixarFaixa(url, cdIni, cdIni + cdTam - 1)).buf;
+  for (let p = 0; p + 46 <= cd.length && cd.readUInt32LE(p) === 0x02014b50;) {
+    const metodo = cd.readUInt16LE(p + 10);
+    const comp = cd.readUInt32LE(p + 20);
+    const nl = cd.readUInt16LE(p + 28); const xl = cd.readUInt16LE(p + 30); const cl = cd.readUInt16LE(p + 32);
+    const loc = cd.readUInt32LE(p + 42);
+    const nome = cd.toString('latin1', p + 46, p + 46 + nl);
+    p += 46 + nl + xl + cl;
+    if (!testeNome(nome)) continue;
+    // O cabeçalho local tem nome/extra próprios (podem diferir do índice).
+    const cab = (await baixarFaixa(url, loc, loc + 29)).buf;
+    const ini = loc + 30 + cab.readUInt16LE(26) + cab.readUInt16LE(28);
+    const dados = (await baixarFaixa(url, ini, ini + comp - 1)).buf;
+    if (metodo === 0) return dados;
+    if (metodo === 8) return zlib.inflateRawSync(dados);
+    throw new Error(`ZIP do TSE com compressão não suportada (${metodo})`);
+  }
+  return null;
+}
+
+// Uma linha do CSV do TSE: campos entre aspas separados por ";", números sem
+// aspas. Não há ";" dentro dos campos nesse arquivo, mas há aspas no meio de
+// nome de escola ("ESCOLA "PROF. X"") — por isso o corte é por ";" e só as
+// aspas das pontas saem.
+function camposCsv(linha) {
+  return linha.split(';').map((c) => c.replace(/^"|"$/g, ''));
+}
+
+async function locaisVotacao(ano, uf) {
+  const url = `https://cdn.tse.jus.br/estatistica/sead/odsele/eleitorado_locais_votacao/eleitorado_local_votacao_${ano}.zip`;
+  const alvo = `_${ano}_${uf.toUpperCase()}.csv`;
+  const buf = await lerEntradaZip(url, (n) => n.toUpperCase().endsWith(alvo.toUpperCase()));
+  if (!buf) return null;
+  const linhas = new TextDecoder('latin1').decode(buf).split(/\r?\n/);
+  const cab = camposCsv(linhas[0]);
+  const col = (n) => cab.indexOf(n);
+  const c = {
+    turno: col('NR_TURNO'), mun: col('CD_MUNICIPIO'), munNome: col('NM_MUNICIPIO'), zona: col('NR_ZONA'), secao: col('NR_SECAO'),
+    principal: col('NR_SECAO_PRINCIPAL'), local: col('NR_LOCAL_VOTACAO'), localNome: col('NM_LOCAL_VOTACAO'),
+    end: col('DS_ENDERECO'), bairro: col('NM_BAIRRO'), cep: col('NR_CEP'), lat: col('NR_LATITUDE'), lng: col('NR_LONGITUDE'),
+    eleitores: col('QT_ELEITOR_SECAO'),
+  };
+  if (c.zona < 0 || c.secao < 0 || c.bairro < 0) throw new Error('O CSV de locais de votação do TSE mudou de formato.');
+  const num = (v) => { const x = Number(String(v || '').replace(',', '.')); return Number.isFinite(x) && x !== -1 ? x : null; };
+  const vistos = new Set();
+  const out = [];
+  for (let i = 1; i < linhas.length; i++) {
+    if (!linhas[i]) continue;
+    const f = camposCsv(linhas[i]);
+    const zona = pad4(f[c.zona]); const secao = pad4(f[c.secao]);
+    if (!zona || !secao) continue;
+    // O arquivo repete a seção no 2º turno; o local é o mesmo, fica o 1º.
+    const chave = `${zona}|${secao}`;
+    if (vistos.has(chave)) continue;
+    vistos.add(chave);
+    const principal = num(f[c.principal]);
+    const lat = num(f[c.lat]); const lng = num(f[c.lng]);
+    out.push({
+      municipio: String(f[c.mun]).padStart(5, '0'), municipioNome: f[c.munNome] || null, zona, secao,
+      principal: principal && principal > 0 ? pad4(principal) : secao,
+      local: f[c.local] || null, localNome: f[c.localNome] || null, endereco: f[c.end] || null,
+      bairro: (f[c.bairro] || '').trim() || null, cep: f[c.cep] || null,
+      // Coordenada zerada ou fora do Brasil é "sem coordenada", não um ponto no oceano.
+      lat: lat && lat < 6 && lat > -34 ? lat : null, lng: lng && lng < -28 && lng > -74 ? lng : null,
+      eleitores: num(f[c.eleitores]),
+    });
+  }
+  return out;
+}
+
+module.exports = {
+  pad4, listarPleitos, configSecoes, buscarSecao, votosNoBU, buBinario, resultadoMunicipio, municipiosEleicao,
+  eleicoesDoPleito, boletimCompleto, buscarBoletim, candidatosCargo, fotoUrl, locaisVotacao, CODIGO_CARGO,
+};

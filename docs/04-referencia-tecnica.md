@@ -57,12 +57,14 @@ backend/
       conta.js                autoatendimento: senha, login, aceite do termo
       config.js               limites da pirâmide por candidato
       apuracao.js             apuração ao vivo (BU do TSE × cadastrados)
+      votos.js                votos por seção: qualquer candidato, estado inteiro
       nichos.js               nichos temáticos da campanha
       historico.js            desempenho eleitoral histórico por município
       ia.js                   copiloto de IA
     services/mail.js          SMTP + template de recuperação
     services/tse.js           leitura do portal de resultados do TSE (BU por seção)
     services/apuracao.js      apuração ao vivo: cruzamento com a rede + laço de busca + metas
+    services/votosSecao.js    votos por seção: carga do estado (BU completo) + consultas + mapa
     services/historico.js     resultado oficial por município × rede de hoje
     services/ia.js            resumo da rede + chamada à API da Anthropic
     utils/
@@ -322,7 +324,52 @@ Apuração ao Vivo:
 - **por responsável**: meta da pessoa × votos nas urnas onde ela **e toda a
   equipe abaixo dela** votam (cada urna conta uma vez). É o mais perto que dá
   para chegar sem saber o voto de ninguém — e ninguém sabe: o voto é secreto.
-- verde ≥ 100%, amarelo ≥ 70%, vermelho abaixo disso.
+- verde ≥ 80%, amarelo 50–79%, vermelho abaixo de 50% (faixas do briefing
+  "Votos por seção" de 05/10/2026; até então eram 100% e 70%).
+
+### `tse_urnas`, `tse_coletas`, `tse_locais` — Votos por Seção
+
+Tela "📍 Votos por Seção" (briefing de 05/10/2026): Eleição › Cargo ›
+Candidato — **qualquer** candidato, não só o da campanha — e a tela mostra
+onde ele teve voto no estado inteiro, por cidade, bairro, escola e urna, no
+mapa e em tabela, cruzado com onde a rede tem gente cadastrada.
+
+A diferença para a apuração ao vivo: lá se busca **um número**, só nas zonas
+da rede, e guarda-se só o voto dele. Aqui o **boletim inteiro** de cada urna
+do estado é baixado uma vez (`services/votosSecao.js`), com todos os cargos e
+candidatos, e qualquer consulta depois é só leitura do banco.
+
+- **`tse_urnas`** — uma linha por urna (seção principal), sem `candidato_id`:
+  dado público, compartilhado entre campanhas. `cargos` é JSONB
+  `{ "<cód. cargo>": { v:{número:votos}, l:{partido:legenda}, b, n, vv } }`.
+  Uma linha por urna em vez de uma por candidato: MS ocupa 8 MB; SP (~100 mil
+  urnas) seria 15 milhões de linhas no outro formato.
+- **`tse_coletas`** — andamento da carga de um estado (botão "Carregar o
+  estado"). Laço único no servidor, 10 pedidos simultâneos ao TSE: MS (7.106
+  urnas) leva ~4,5 min, AC (2.270) ~1,5 min. Retoma sozinho depois de reinício.
+  "Atualizar do TSE" marca `refazer_desde` e baixa tudo de novo sem apagar.
+- **`tse_locais`** — dados abertos do TSE ("eleitorado por local de votação"):
+  escola, endereço, **bairro e latitude/longitude** de cada seção. O ZIP
+  nacional tem ~90 MB; o servidor lê o índice do ZIP e baixa por `Range` só o
+  CSV do estado (MS: 0,6 s). Em 2026 todas as 7.284 seções de MS vieram com
+  bairro e coordenada.
+- **Comparecimento, brancos e nulos são guardados aqui**, como total da urna.
+  A especificação da apuração ao vivo proibia guardar comparecimento (e
+  `apuracao_secoes` continua sem); o briefing de 05/10/2026 pede "% brancos +
+  nulos" por seção, e a dona do sistema seguiu o briefing novo.
+- **Válidos e nulos seguem o critério do TSE**, não o BU cru: voto em número
+  que não está na lista oficial como válido (registro negado/anulado) vira
+  nulo; "anulado sub judice" sai dos válidos e não entra nos nulos.
+- **Conferido em 05/10/2026** contra o resultado oficial: os 712 candidatos dos
+  5 cargos de MS e AC batem voto a voto, e válidos e brancos+nulos também.
+  A tela mostra "✓ A soma das N urnas bate com o total oficial do TSE".
+- **Mapa:** malha municipal do IBGE (mesma fonte do projeto eleicoes2026,
+  casada pelo código IBGE `cdi` do `mun-e…-cm.json`) pintada por votos, % dos
+  válidos, brancos+nulos ou "quem venceu em cada cidade"; aproximando, cada
+  escola vira um círculo do tamanho dos votos, com borda dourada onde a rede vota.
+- **Desempenho:** consulta de um candidato em MS ~0,3–0,9 s (resposta em gzip,
+  ~200 KB); repetida, ~0,15 s (cache de 1 min amarrado ao andamento da carga
+  — sem isso um resultado parcial era servido como final).
 
 ### `historico_config`, `resultado_urna`, `resultado_urna_municipio` — desempenho histórico (Tela 5)
 
@@ -762,6 +809,20 @@ misturar aumentaria o risco de mexer na pirâmide sem querer.
 | POST | `/manual` | importa `zona;seção;votos` colado (plano B) |
 
 Arquivo próprio (`routes/apuracao.js`), pelo mesmo motivo do `/mapas`.
+
+### `/votos` `[A]` — candidato, admin
+| Método | Rota | O quê |
+|---|---|---|
+| GET | `/eleicoes` | turnos publicados pelo TSE, com as eleições e cargos de cada um |
+| GET | `/municipios?ciclo=&eleicao=&uf=` | municípios (código TSE + IBGE) |
+| GET | `/candidatos?ciclo=&eleicao=&uf=&cargo=[&municipio=]` | lista oficial com foto, votos e situação |
+| GET | `/coleta?ciclo=&pleito=&uf=` | andamento da carga do estado |
+| POST | `/coleta` | começa (ou refaz, `refazer:true`) a carga do estado |
+| GET | `/resultado?…&cargo=&numero=[&secoesDoMunicipio=]` | o candidato por cidade, bairro, local e seção, × rede |
+| GET | `/lideres?ciclo=&pleito=&uf=&cargo=` | 1º e 2º de cada município (mapa "quem venceu") |
+| GET | `/malha/:uf` | malha municipal do IBGE (cache de um dia) |
+
+Prefeito e vereador exigem `municipio` (o número se repete de cidade em cidade).
 
 ### `/nichos` `[A]`
 `GET /` (qualquer perfil da rede lê), `POST /`, `PUT /:id`, `DELETE /:id` (candidato, admin).

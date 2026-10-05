@@ -567,3 +567,84 @@ CREATE INDEX IF NOT EXISTS idx_ia_ajuda_uso_usuario ON ia_ajuda_uso (usuario_id,
 -- Verificação em duas etapas (código do aplicativo autenticador). Opcional.
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS totp_segredo TEXT;
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS totp_ativo BOOLEAN NOT NULL DEFAULT false;
+-- ─── Votos por seção (briefing de 05/10/2026) ───────────────────────────────
+-- Boletim de urna COMPLETO de cada urna de um estado: todos os cargos e todos
+-- os candidatos. Dado público do TSE, igual para qualquer campanha — por isso
+-- não tem candidato_id: um estado é baixado uma vez e serve a todas as
+-- campanhas e a qualquer candidato escolhido na tela (o próprio, um aliado, um
+-- adversário). secao é sempre a seção PRINCIPAL da urna (as agregadas votam
+-- na mesma urna e saem no mesmo BU).
+--
+-- cargos = { "<código do cargo>": { "v": {número: votos}, "l": {partido: votos
+-- de legenda}, "b": brancos, "n": nulos, "vv": votos válidos } }. JSONB em vez
+-- de uma linha por candidato: uma urna de 2026 tem ~150 pares cargo×número, e
+-- São Paulo tem ~100 mil urnas — seriam 15 milhões de linhas num Postgres com
+-- 512 MB; assim é uma linha por urna.
+--
+-- Comparecimento e brancos/nulos por seção são totais públicos da urna, não
+-- dado de eleitor. A especificação da apuração ao vivo (que proibia guardar
+-- comparecimento — ver o bloco de apuracao_secoes acima, que continua valendo
+-- para aquela tabela) foi superada aqui pelo briefing de 05/10/2026, que pede
+-- "% brancos + nulos" por seção para achar onde há eleitor desmobilizado.
+CREATE TABLE IF NOT EXISTS tse_urnas (
+  ciclo           TEXT NOT NULL,
+  pleito          TEXT NOT NULL,
+  uf              TEXT NOT NULL,
+  zona            TEXT NOT NULL,
+  secao           TEXT NOT NULL,
+  municipio       TEXT NOT NULL,
+  aptos           INT,
+  comparecimento  INT,
+  cargos          JSONB NOT NULL,
+  coletado_em     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (ciclo, pleito, uf, zona, secao)
+);
+
+-- Andamento da varredura de um estado. refazer_desde: "baixar de novo" marca
+-- a hora; urna coletada antes dela volta a ser pendente, sem apagar nada —
+-- a tela continua mostrando o que já havia enquanto a nova volta corre.
+CREATE TABLE IF NOT EXISTS tse_coletas (
+  ciclo          TEXT NOT NULL,
+  pleito         TEXT NOT NULL,
+  uf             TEXT NOT NULL,
+  status         TEXT NOT NULL DEFAULT 'coletando',
+  total          INT,
+  coletadas      INT NOT NULL DEFAULT 0,
+  sem_bu         INT NOT NULL DEFAULT 0,
+  erro           TEXT,
+  refazer_desde  TIMESTAMPTZ,
+  iniciado_por   UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+  iniciado_em    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  atualizado_em  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  concluido_em   TIMESTAMPTZ,
+  PRIMARY KEY (ciclo, pleito, uf)
+);
+
+-- Local de votação de cada seção (dados abertos do TSE, "eleitorado por local
+-- de votação"): escola, endereço, bairro e coordenada. É o que divide os
+-- votos por bairro e põe cada escola no mapa. Também público e compartilhado.
+CREATE TABLE IF NOT EXISTS tse_locais (
+  ano            INT  NOT NULL,
+  uf             TEXT NOT NULL,
+  zona           TEXT NOT NULL,
+  secao          TEXT NOT NULL,
+  principal      TEXT NOT NULL,
+  municipio      TEXT NOT NULL,
+  local_numero   TEXT,
+  local_nome     TEXT,
+  endereco       TEXT,
+  bairro         TEXT,
+  cep            TEXT,
+  lat            DOUBLE PRECISION,
+  lng            DOUBLE PRECISION,
+  eleitores      INT,
+  PRIMARY KEY (ano, uf, zona, secao)
+);
+
+CREATE TABLE IF NOT EXISTS tse_locais_carga (
+  ano           INT  NOT NULL,
+  uf            TEXT NOT NULL,
+  linhas        INT  NOT NULL,
+  importado_em  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (ano, uf)
+);
