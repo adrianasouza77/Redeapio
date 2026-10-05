@@ -2,7 +2,9 @@ const express = require('express');
 const pool = require('../db');
 const asyncHandler = require('../utils/asyncHandler');
 const { registrar } = require('../utils/auditoria');
-const { validarTituloEleitoral } = require('../utils/tituloEleitoral');
+const { lerVotacao, gravarVotacao } = require('../utils/votacao');
+const campanha = require('../services/campanha');
+const { municipiosDeVotacao, locaisDaZona } = require('./candidato');
 const { buscarDuplicidade } = require('../utils/duplicidade');
 const { limitesDoCandidato } = require('../utils/limites');
 const { hash } = require('../utils/password');
@@ -124,8 +126,31 @@ router.get('/convite', asyncHandler(async (req, res) => {
   res.json({ nome: ctx.nomeRede, versaoTermo: termoVersaoAtual, criaLogin: ctx.criaLogin, novoNivel: ctx.novoNivel, nichos: await nichosDoCandidato(ctx.candidatoId) });
 }));
 
+// Município de votação e escolas (locais de votação) para o formulário público
+// — mesma lista do cadastro interno, da eleição do candidato dono do link.
+async function candidatoDoLink(q) {
+  const uuid = /^[0-9a-f-]{36}$/i;
+  if (q.lideranca && uuid.test(q.lideranca)) {
+    const ctx = await contextoConvitePessoal(q.lideranca).catch(() => null);
+    return ctx ? ctx.candidatoId : null;
+  }
+  if (q.candidato && uuid.test(q.candidato)) {
+    const { rows } = await pool.query("SELECT id FROM usuarios WHERE id = $1 AND perfil = 'candidato'", [q.candidato]);
+    return rows[0]?.id || null;
+  }
+  return null;
+}
+router.get('/votacao/municipios', asyncHandler(async (req, res) => {
+  const id = await candidatoDoLink(req.query);
+  res.json(await municipiosDeVotacao(id ? await campanha.carregarDados(id) : null));
+}));
+router.get('/votacao/locais', asyncHandler(async (req, res) => {
+  const id = await candidatoDoLink(req.query);
+  res.json(await locaisDaZona(id ? await campanha.carregarDados(id) : null, req.query.zona, req.query.municipio));
+}));
+
 router.post('/autocadastro', asyncHandler(async (req, res) => {
-  const { lideranca_id, candidato_id, nivel, nome, telefone, nascimento, endereco, regiao, cidade, estado, titulo, zona, secao, lgpd_aceite, login, senha } = req.body || {};
+  const { lideranca_id, candidato_id, nivel, nome, telefone, nascimento, endereco, regiao, cidade, estado, zona, secao, lgpd_aceite, login, senha } = req.body || {};
 
   if (!lgpd_aceite) {
     return res.status(400).json({ error: 'É necessário aceitar o termo de consentimento LGPD.' });
@@ -133,12 +158,14 @@ router.post('/autocadastro', asyncHandler(async (req, res) => {
   if (!nome || !telefone || !nascimento || !regiao) {
     return res.status(400).json({ error: 'Preencha nome, telefone, nascimento e bairro.' });
   }
-  if (!titulo || !zona || !secao) {
-    return res.status(400).json({ error: 'Título, zona e seção eleitoral são obrigatórios.' });
+  // O número do título de eleitor deixou de ser pedido (briefing "Votos por
+  // seção" v2: "zona e seção bastam e reduzem o risco LGPD"). Página antiga em
+  // cache que ainda o mande: é ignorado, não gravado.
+  if (!zona || !secao) {
+    return res.status(400).json({ error: 'Zona e seção eleitoral são obrigatórias (estão no título de eleitor ou no app e-Título).' });
   }
-  if (!validarTituloEleitoral(titulo)) {
-    return res.status(400).json({ error: 'Título de eleitor inválido. Confira os 12 números do seu título.' });
-  }
+  const titulo = null;
+  const votacao = lerVotacao(req.body);
   if (!lideranca_id && !candidato_id) return res.status(400).json({ error: 'Link de cadastro inválido.' });
 
   const ctx = await resolverContexto({ candidatoId: candidato_id, nivel, emissorId: lideranca_id });
@@ -236,6 +263,7 @@ router.post('/autocadastro', asyncHandler(async (req, res) => {
     }
 
     await gravarNichos(client, novoId, nichos.ids);
+    await gravarVotacao(client, novoId, votacao);
     await client.query('COMMIT');
     // O "ator" aqui é a própria pessoa que preencheu o formulário — não há
     // sessão. O candidato do workspace vem do link, não do contexto da

@@ -661,10 +661,12 @@
       <div class="field"><label>Cidade *</label><input type="text" id="auto-cidade" placeholder="Cidade"></div>
       <div class="field"><label>Estado</label><input type="text" id="auto-uf" placeholder="UF" maxlength="2" style="text-transform:uppercase"></div>
     </div>
-    <div class="field"><label>Nº Título Eleitoral *</label><input type="text" id="auto-titulo" placeholder="000000000000" inputmode="numeric" maxlength="12"></div>
+    <p style="font-size:12px;color:var(--slate-light);margin:4px 0 10px">Zona e seção estão no título de eleitor ou no app e-Título. O número do título não é pedido.</p>
     <div class="form-grid">
-      <div class="field"><label>Zona Eleitoral *</label><input type="text" id="auto-zona" placeholder="000" inputmode="numeric"></div>
+      <div class="field"><label>Município onde vota</label><select id="auto-munvot" class="ap-select" style="width:100%;min-width:0" onchange="votacaoLocais('auto')"><option value="">Carregando...</option></select><div style="font-size:11px;color:var(--slate-light);margin-top:4px">Pode ser diferente da cidade onde mora.</div></div>
+      <div class="field"><label>Zona Eleitoral *</label><input type="text" id="auto-zona" placeholder="000" inputmode="numeric" onchange="votacaoLocais('auto')"></div>
       <div class="field"><label>Seção Eleitoral *</label><input type="text" id="auto-secao" placeholder="0000" inputmode="numeric"></div>
+      <div class="field full"><label>Local de votação (escola) — opcional</label><select id="auto-local" class="ap-select" style="width:100%;min-width:0" onchange="votacaoEscolheuLocal('auto')"><option value="">Informe a zona para ver as escolas</option></select><div id="auto-local-dica" style="font-size:11px;color:var(--slate-light);margin-top:4px"></div></div>
     </div>
     <div id="auto-extra" class="form-grid"></div>
     <div id="auto-login-box" style="display:none">
@@ -681,7 +683,7 @@
     </div>
     <div class="lgpd-box">
       <input type="checkbox" id="auto-lgpd" style="margin-top:3px;flex-shrink:0">
-      <label for="auto-lgpd">Li e concordo com o <span class="termo-link" onclick="abrirTermoLeitura()">Termo de Consentimento para Tratamento de Dados Pessoais</span> e autorizo o uso dos meus dados (nome, telefone, data de nascimento, endereço, título eleitoral e seção eleitoral) exclusivamente para fins de organização da rede de apoio desta campanha/iniciativa, em conformidade com a Lei Geral de Proteção de Dados (LGPD — Lei nº 13.709/2018). Posso solicitar a exclusão dos meus dados a qualquer momento. *</label>
+      <label for="auto-lgpd">Li e concordo com o <span class="termo-link" onclick="abrirTermoLeitura()">Termo de Consentimento para Tratamento de Dados Pessoais</span> e autorizo o uso dos meus dados (nome, telefone, data de nascimento, endereço, zona e seção eleitoral) exclusivamente para fins de organização da rede de apoio desta campanha/iniciativa, em conformidade com a Lei Geral de Proteção de Dados (LGPD — Lei nº 13.709/2018). Posso solicitar a exclusão dos meus dados a qualquer momento. *</label>
     </div>
     <div id="auto-result" style="display:none;margin-bottom:16px;padding:14px;border-radius:8px;font-size:13px"></div>
     <div class="form-actions" style="display:flex;gap:10px">
@@ -1056,7 +1058,7 @@ function textoTermoCompleto(){
     <h4>1. Identificação do Controlador</h4>
     <p>O tratamento dos seus dados pessoais é de responsabilidade de <strong>${CONFIG.candidatoNome}</strong> ("Controlador"), que utiliza a plataforma ${CONFIG.appNome}, operada por <strong>Adriana Pereira de Souza</strong> ("Operadora"), inscrita no CNPJ nº <strong>68.014.930/0001-38</strong>, nos termos do art. 39 da LGPD. <em>(CNPJ/CPF e endereço do Controlador a preencher pelo cliente antes da campanha.)</em></p>
     <h4>2. Dados coletados</h4>
-    <p>Nome completo, telefone/WhatsApp, e-mail (quando informado), endereço/bairro/zona eleitoral, título de eleitor, e manifestação de apoio político (dado pessoal sensível, art. 5º, II, LGPD).</p>
+    <p>Nome completo, telefone/WhatsApp, e-mail (quando informado), endereço/bairro, município, zona e seção eleitoral (o número do título de eleitor não é coletado), e manifestação de apoio político (dado pessoal sensível, art. 5º, II, LGPD).</p>
     <h4>3. Finalidade do tratamento</h4>
     <p>Os dados são usados exclusivamente para organização e gestão da rede de apoiadores, envio de comunicações sobre agenda/eventos, e convites para atividades políticas voluntárias. Não são vendidos nem compartilhados com terceiros alheios à campanha.</p>
     <h4>4. Consentimento específico para dado sensível</h4>
@@ -1153,6 +1155,7 @@ function verificarAutoCadastro() {
       _autoCriaLogin = !!data.criaLogin;
       document.getElementById('auto-login-box').style.display = _autoCriaLogin ? 'block' : 'none';
       const aviso = document.getElementById('auto-aviso-link');
+      votacaoIniciar('auto', {}, votOrigemPublica());
       if(aviso) aviso.innerHTML = `Depois de entrar, gere o <strong>seu próprio</strong> link em “🔗 Gerar link de cadastro”. Se você repassar <em>este</em> link, quem se cadastrar entra como apoiador de <strong>${data.nome}</strong> — e não seu.`;
     };
     if(_autoCandidatoId && _autoNivel) {
@@ -1177,7 +1180,6 @@ async function salvarAutoCadastro() {
   const bairro = document.getElementById('auto-bairro').value.trim();
   const cidade = document.getElementById('auto-cidade').value.trim();
   const uf = document.getElementById('auto-uf').value.trim();
-  const titulo = document.getElementById('auto-titulo').value.trim();
   const zona = document.getElementById('auto-zona').value.trim();
   const secao = document.getElementById('auto-secao').value.trim();
   const lgpd = document.getElementById('auto-lgpd').checked;
@@ -1195,16 +1197,10 @@ async function salvarAutoCadastro() {
     res.innerHTML = '⚠️ Data de nascimento inválida — use o formato dia/mês/ano, ex: 07/03/1958.';
     return;
   }
-  if(!titulo || !zona || !secao) {
+  if(!zona || !secao) {
     res.style.display = 'block';
     res.style.background = '#fff5f5'; res.style.border = '1px solid #c53030'; res.style.color = '#c53030';
-    res.innerHTML = '⚠️ Preencha título, zona e seção eleitoral — são obrigatórios para evitar problemas no cadastro.';
-    return;
-  }
-  if(!validarTituloEleitoral(titulo)) {
-    res.style.display = 'block';
-    res.style.background = '#fff5f5'; res.style.border = '1px solid #c53030'; res.style.color = '#c53030';
-    res.innerHTML = '⚠️ Título de eleitor inválido — confira os 12 números do seu título.';
+    res.innerHTML = '⚠️ Preencha zona e seção eleitoral — estão no título de eleitor ou no app e-Título.';
     return;
   }
   if(!lgpd) {
@@ -1237,7 +1233,7 @@ async function salvarAutoCadastro() {
     const resp = await api('/public/autocadastro', { method:'POST', body: JSON.stringify({
       lideranca_id: _autoLiderancaId, candidato_id: _autoCandidatoId, nivel: _autoNivel, nome, telefone: tel, nascimento: nasc,
       endereco: end || null, regiao: bairro, cidade: cidade || null, estado: uf || null,
-      titulo: titulo || null, zona: zona || null, secao: secao || null,
+      zona: zona || null, secao: secao || null, ...lerCamposVotacao('auto'),
       lgpd_aceite: true, lgpd_versao: _versaoTermoAutocadastro,
       login, senha,
       nichos: lerNichos('auto'), meta_votos: lerMeta('auto'),
@@ -1580,9 +1576,9 @@ function showPage(page) {
     case 'nichos':        c.innerHTML=renderNichos(); break;
     case 'historico':     c.innerHTML=renderHistorico(); setTimeout(hiIniciar,50); break;
     case 'minha-rede':    c.innerHTML=renderMinhaRede(); break;
-    case 'cadastrar':     c.innerHTML=renderCadastrar(); break;
+    case 'cadastrar':     c.innerHTML=renderCadastrar(); setTimeout(()=>votacaoIniciar('c'),50); break;
     case 'minha-conta':   c.innerHTML=renderMinhaConta(); setTimeout(mcCarregarSeguranca,50); break;
-    case 'usuarios':      c.innerHTML=renderUsuarios(); setTimeout(carregarListaUsuarios,50); break;
+    case 'usuarios':      c.innerHTML=renderUsuarios(); setTimeout(()=>{ carregarListaUsuarios(); votacaoIniciar('nu'); },50); break;
     case 'configuracoes': c.innerHTML=renderConfiguracoes(); break;
     case 'vagas':         c.innerHTML=renderVagas(); setTimeout(carregarVagas,50); break;
     case 'busca-pessoa':  c.innerHTML=renderBuscaPessoa(); break;
@@ -1609,6 +1605,9 @@ function renderDashboard(){
       <div class="stat-card"><div class="stat-label">Coordenadores · nível 2</div><div class="stat-value">${n2}</div><div class="stat-sub">limite: ${CONFIG.limiteNivel2} cada</div></div>
       <div class="stat-card"><div class="stat-label">Mobilizadores · nível 3</div><div class="stat-value">${n3}</div><div class="stat-sub">limite: ${CONFIG.limiteNivel3} cada</div></div>
       <div class="stat-card"><div class="stat-label">Apoiadores Orgânicos · base</div><div class="stat-value">${n4}</div><div class="stat-sub">limite: ${CONFIG.limiteNivel4} cada</div></div>
+      ${(()=>{ const com=APOIADORES.filter(a=>String(a.zona||'').trim()&&String(a.secao||'').trim()).length; const pct=total?Math.round(com/total*100):0;
+        // Briefing "Votos por seção": o Prometido × Entregue só é confiável com esta taxa alta.
+        return `<div class="stat-card" style="cursor:pointer" onclick="showPage('apoiadores')" title="O relatório Prometido × Entregue só é confiável quando esta taxa é alta"><div class="stat-label">Rede com seção preenchida</div><div class="stat-value" style="color:${pct>=80?'var(--green)':pct>=50?'#8a6a10':'var(--red)'}">${pct}%</div><div class="stat-sub">${com} de ${total} com zona e seção</div></div>`; })()}
     </div>
     <div class="card">
       <div class="card-header"><div class="card-title">Por Zona Eleitoral</div>
@@ -1932,7 +1931,7 @@ function renderApoiadores(){
     </div>
     <p id="filtro-contagem" class="ap-meta" style="margin:-4px 0 10px"></p>
     <div class="table-wrap">
-      <table><thead><tr><th>Nome</th><th>Região</th><th>Nível</th><th>Telefone</th><th>Nascimento</th><th>Título</th><th>Zona</th><th>Seção</th><th>Ações</th></tr></thead>
+      <table><thead><tr><th>Nome</th><th>Região</th><th>Nível</th><th>Telefone</th><th>Nascimento</th><th>Vota em</th><th>Zona</th><th>Seção</th><th>Ações</th></tr></thead>
       <tbody id="apoiadores-tbody">
         ${APOIADORES.map(a=>`
           <tr data-nome="${a.nome.toLowerCase()}" data-regiao="${(a.regiao||'').toLowerCase()}" data-nivel="${a.nivel}" data-semresp="${(!a.parent_id && a.nivel !== 1)?'1':'0'}" data-nichos="${(a.nichos||[]).join(' ') || '__sem'}" data-zona="${numZS(a.zona)||'__sem'}" data-secao="${numZS(a.secao)||'__sem'}">
@@ -1941,7 +1940,7 @@ function renderApoiadores(){
             <td onclick="showDetail('${a.id}')" style="cursor:pointer">${nivelBadge(a.nivel)}</td>
             <td onclick="showDetail('${a.id}')" style="cursor:pointer">${a.telefone}</td>
             <td onclick="showDetail('${a.id}')" style="cursor:pointer">${formatDate(a.nascimento)}</td>
-            <td style="font-family:monospace;font-size:12px">${a.titulo||'—'}</td><td>${a.zona||'—'}</td><td>${a.secao||'—'}</td>
+            <td>${a.municipio_votacao_nome ? escapeHtml(vsTitulo(a.municipio_votacao_nome)) : '—'}</td><td>${a.zona||'—'}</td><td>${a.secao||'—'}</td>
             <td style="white-space:nowrap">
               ${currentRole==='admin'?`<button class="btn-sm btn-outline" style="font-size:11px;padding:4px 8px" title="Log deste cadastro" onclick="abrirLogPessoa('${a.id}','${escapeAttr(a.nome)}')">📜</button>`:''}
               <button class="btn-sm btn-outline" style="font-size:11px;padding:4px 8px" onclick="editarApoiador('${a.id}')">✏️</button>
@@ -1966,7 +1965,7 @@ const DUP_CORES = {
 };
 
 function dupLinhaPessoa(a){
-  const dados = [a.regiao||'—', a.telefone||'—', a.titulo?`título ${a.titulo}`:'sem título', formatDate(a.nascimento)];
+  const dados = [a.regiao||'—', a.telefone||'—', a.zona?`zona ${a.zona}${a.secao?' · seção '+a.secao:''}`:'sem zona/seção', formatDate(a.nascimento)];
   return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border);font-size:12px;color:var(--slate);flex-wrap:wrap">
     <span style="flex:1;min-width:200px"><strong style="color:var(--navy)">${escapeHtml(a.nome)}</strong> ${nivelBadge(a.nivel)}<br>${escapeHtml(dados.join(' · '))}${a.login?` · <code style="background:#f0f2f8;padding:1px 5px;border-radius:3px">${escapeHtml(a.login)}</code>`:''}</span>
     <span style="display:flex;gap:6px">
@@ -2212,9 +2211,10 @@ function renderCadastrar(){
       <div class="field full"><label>Bairro / Região *</label><input type="text" id="c-reg" placeholder="Bairro"></div>
       <div class="field"><label>Cidade *</label><input type="text" id="c-cidade" placeholder="Cidade"></div>
       <div class="field"><label>Estado</label><input type="text" id="c-uf" placeholder="UF" maxlength="2" style="text-transform:uppercase"></div>
-      <div class="field"><label>Nº Título Eleitoral</label><input type="text" id="c-titulo" placeholder="0000000000000" inputmode="numeric" maxlength="12"></div>
-      <div class="field"><label>Zona Eleitoral</label><input type="text" id="c-zona" placeholder="000" inputmode="numeric"></div>
+      ${htmlMunicipioVotacao('c')}
+      <div class="field"><label>Zona Eleitoral</label><input type="text" id="c-zona" placeholder="000" inputmode="numeric" onchange="votacaoLocais('c')"></div>
       <div class="field"><label>Seção Eleitoral</label><input type="text" id="c-secao" placeholder="0000" inputmode="numeric"></div>
+      ${htmlLocalVotacao('c')}
       ${campoMetaHtml('c', null, novoNivel)}
       ${campoNichosHtml('c')}
     </div>
@@ -2288,9 +2288,10 @@ function renderUsuarios(){
       <div class="field"><label>Bairro / Região</label><input type="text" id="nu-regiao" placeholder="Bairro"></div>
       <div class="field"><label>Cidade</label><input type="text" id="nu-cidade" placeholder="Cidade"></div>
       <div class="field"><label>Estado</label><input type="text" id="nu-uf" placeholder="UF" maxlength="2" style="text-transform:uppercase"></div>
-      <div class="field"><label>Nº Título Eleitoral</label><input type="text" id="nu-titulo" placeholder="0000000000000" inputmode="numeric" maxlength="12"></div>
-      <div class="field"><label>Zona Eleitoral</label><input type="text" id="nu-zona" placeholder="000" inputmode="numeric"></div>
+      ${htmlMunicipioVotacao('nu')}
+      <div class="field"><label>Zona Eleitoral</label><input type="text" id="nu-zona" placeholder="000" inputmode="numeric" onchange="votacaoLocais('nu')"></div>
       <div class="field"><label>Seção Eleitoral</label><input type="text" id="nu-secao" placeholder="0000" inputmode="numeric"></div>
+      ${htmlLocalVotacao('nu')}
       ${campoMetaHtml('nu', null, 1)}
       ${campoNichosHtml('nu')}
     </div>
@@ -2312,13 +2313,12 @@ async function carregarListaUsuarios(){
   card.innerHTML=`
   <div class="card-header"><div class="card-title">Usuários (${data.length})</div></div>
   <div class="table-wrap">
-  <table><thead><tr><th>Nome</th><th>Login</th><th>E-mail</th><th>Perfil</th><th>Título</th><th>Zona</th><th>Seção</th><th>Ações</th></tr></thead>
+  <table><thead><tr><th>Nome</th><th>Login</th><th>E-mail</th><th>Perfil</th><th>Zona</th><th>Seção</th><th>Ações</th></tr></thead>
   <tbody>${data.map(u=>`
     <tr><td><strong>${u.nome}</strong></td>
     <td><code style="background:#f0f2f8;padding:2px 8px;border-radius:4px;font-size:12px">${u.login}</code></td>
     <td>${u.email ? u.email : '<span style="color:var(--slate-light)">— sem e-mail</span>'}</td>
     <td><span class="badge ${rBadge[u.perfil]||'badge'}">${rLabel[u.perfil]||u.perfil}</span></td>
-    <td style="font-family:monospace;font-size:12px">${u.titulo||'—'}</td>
     <td>${u.zona||'—'}</td>
     <td>${u.secao||'—'}</td>
     <td><div style="display:flex;gap:6px;flex-wrap:wrap">
@@ -2361,9 +2361,10 @@ function editarUsuario(u){
         </div>
         <div class="config-section-title">🗳️ Dados eleitorais</div>
         <div class="form-grid">
-          <div class="field full"><label>Nº Título Eleitoral</label><input type="text" id="eu-titulo" value="${escapeAttr(u.titulo||'')}" placeholder="0000000000000" inputmode="numeric" maxlength="12"></div>
-          <div class="field"><label>Zona Eleitoral</label><input type="text" id="eu-zona" value="${escapeAttr(u.zona||'')}" placeholder="000" inputmode="numeric"></div>
+          ${htmlMunicipioVotacao('eu', APOIADORES.find(x=>x.id===u.id))}
+          <div class="field"><label>Zona Eleitoral</label><input type="text" id="eu-zona" value="${escapeAttr(u.zona||'')}" placeholder="000" inputmode="numeric" onchange="votacaoLocais('eu')"></div>
           <div class="field"><label>Seção Eleitoral</label><input type="text" id="eu-secao" value="${escapeAttr(u.secao||'')}" placeholder="0000" inputmode="numeric"></div>
+          ${htmlLocalVotacao('eu', APOIADORES.find(x=>x.id===u.id))}
         </div>
         <div class="form-actions" style="display:flex;gap:10px;margin-top:16px">
           <button onclick="document.getElementById('modal-editar-usuario').remove()" style="flex:1;padding:12px;background:#f0f0f0;border:none;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif">Cancelar</button>
@@ -2371,6 +2372,7 @@ function editarUsuario(u){
         </div>
       </div>
     </div>`);
+  votacaoIniciar('eu', APOIADORES.find(x=>x.id===u.id) || u);
 }
 
 // Só dispara o "já existe" quando o login realmente mudou — senão o próprio
@@ -2401,7 +2403,7 @@ async function salvarEdicaoUsuario(id){
       regiao: document.getElementById('eu-reg').value.trim() || null,
       cidade: document.getElementById('eu-cidade').value.trim() || null,
       estado: document.getElementById('eu-uf').value.trim() || null,
-      titulo: document.getElementById('eu-titulo').value.trim() || null,
+      ...lerCamposVotacao('eu'),
       zona: document.getElementById('eu-zona').value.trim() || null,
       secao: document.getElementById('eu-secao').value.trim() || null,
     })});
@@ -4841,9 +4843,10 @@ function editarApoiador(id) {
           <div class="field"><label>Bairro / Região</label><input type="text" id="ed-reg" value="${a.regiao||''}" placeholder="Bairro"></div>
           <div class="field"><label>Cidade</label><input type="text" id="ed-cidade" value="${a.cidade||''}"></div>
           <div class="field"><label>Estado</label><input type="text" id="ed-uf" value="${a.estado||''}" maxlength="2" style="text-transform:uppercase"></div>
-          <div class="field"><label>Nº Título Eleitoral</label><input type="text" id="ed-titulo" value="${a.titulo||''}" placeholder="0000000000000" inputmode="numeric" maxlength="12"></div>
-          <div class="field"><label>Zona Eleitoral</label><input type="text" id="ed-zona" value="${a.zona||''}" placeholder="000" inputmode="numeric"></div>
-          <div class="field"><label>Seção Eleitoral</label><input type="text" id="ed-secao" value="${a.secao||''}" placeholder="0000" inputmode="numeric"></div>
+          ${htmlMunicipioVotacao('ed', a)}
+          <div class="field"><label>Zona Eleitoral</label><input type="text" id="ed-zona" value="${escapeAttr(a.zona||'')}" placeholder="000" inputmode="numeric" onchange="votacaoLocais('ed')"></div>
+          <div class="field"><label>Seção Eleitoral</label><input type="text" id="ed-secao" value="${escapeAttr(a.secao||'')}" placeholder="0000" inputmode="numeric"></div>
+          ${htmlLocalVotacao('ed', a)}
           ${campoMetaHtml('ed', a.meta_votos, a.nivel)}
           ${campoNichosHtml('ed', a.nichos||[])}
         </div>
@@ -4884,6 +4887,7 @@ function editarApoiador(id) {
     </div>
   `);
   if(papelEfetivo()==='candidato'||currentRole==='lideranca') atualizarResponsavelSelect(id);
+  votacaoIniciar('ed', a);
 }
 
 // Popula o select "Responsável por" com quem está um nível acima, dentro da
@@ -4924,7 +4928,7 @@ async function salvarEdicao(id) {
     regiao: document.getElementById('ed-reg').value.trim() || null,
     cidade: document.getElementById('ed-cidade').value.trim() || null,
     estado: document.getElementById('ed-uf').value.trim() || null,
-    titulo: document.getElementById('ed-titulo').value.trim() || null,
+    ...lerCamposVotacao('ed'),
     zona: document.getElementById('ed-zona').value.trim() || null,
     secao: document.getElementById('ed-secao').value.trim() || null,
     nichos: lerNichos('ed'),
@@ -4964,7 +4968,6 @@ async function salvarApoiador(){
   const endereco=document.getElementById('c-endereco').value.trim();
   const cidade=document.getElementById('c-cidade').value.trim();
   const uf=document.getElementById('c-uf').value.trim();
-  const tit=document.getElementById('c-titulo').value.trim();
   const zon=document.getElementById('c-zona').value.trim();
   const sec=document.getElementById('c-secao').value.trim();
   if(!nome||!tel||!nascDigitado||!reg){showToast('Preencha os campos obrigatórios.','error');return;}
@@ -4975,7 +4978,7 @@ async function salvarApoiador(){
   try {
     await api('/apoiadores', { method:'POST', body: JSON.stringify({
       nome, telefone:tel, nascimento:nasc, regiao:reg,
-      endereco:endereco||null, cidade:cidade||null, estado:uf||null, titulo:tit||null, zona:zon||null, secao:sec||null,
+      endereco:endereco||null, cidade:cidade||null, estado:uf||null, zona:zon||null, secao:sec||null, ...lerCamposVotacao('c'),
       nichos: lerNichos('c'), meta_votos: lerMeta('c'),
     })});
     await carregarApoiadores();
@@ -5005,7 +5008,6 @@ async function criarUsuario(){
   const regiao=document.getElementById('nu-regiao').value.trim();
   const cidade=document.getElementById('nu-cidade').value.trim();
   const uf=document.getElementById('nu-uf').value.trim();
-  const titulo=document.getElementById('nu-titulo').value.trim();
   const zona=document.getElementById('nu-zona').value.trim();
   const secao=document.getElementById('nu-secao').value.trim();
   if(!nome||!login||!senha||!perfil){showToast('Preencha todos os campos.','error');return;}
@@ -5019,7 +5021,7 @@ async function criarUsuario(){
     result = await api('/usuarios', { method:'POST', body: JSON.stringify({
       nome, login, senha, perfil, nivel: nivelEscolhido, telefone: tel || null, email: email || null,
       endereco: endereco || null, regiao: regiao || null, cidade: cidade || null, estado: uf || null,
-      titulo: titulo || null, zona: zona || null, secao: secao || null,
+      zona: zona || null, secao: secao || null, ...lerCamposVotacao('nu'),
       nichos: lerNichos('nu'), meta_votos: lerMeta('nu'),
       as: workspaceAdmin?.id,
     })});
@@ -5258,9 +5260,10 @@ function showDetail(id){
     <div class="detail-row"><span class="detail-key">Endereço</span><span class="detail-val ${canSee?'':'sensitive'}" onclick="this.classList.toggle('revealed')">${a.endereco||'—'}</span></div>
     <div class="detail-row"><span class="detail-key">Cidade</span><span class="detail-val">${a.cidade||'—'}${a.estado?' / '+a.estado:''}</span></div>
     <div class="detail-row"><span class="detail-key">Nascimento</span><span class="detail-val ${canSee?'':'sensitive'}" onclick="this.classList.toggle('revealed')">${formatDate(a.nascimento)}</span></div>
-    <div class="detail-row"><span class="detail-key">Título Eleitoral</span><span class="detail-val ${canSee?'':'sensitive'}" onclick="this.classList.toggle('revealed')">${a.titulo||'—'}</span></div>
+    ${a.municipio_votacao_nome ? `<div class="detail-row"><span class="detail-key">Vota em</span><span class="detail-val">${escapeHtml(vsTitulo(a.municipio_votacao_nome))}</span></div>` : ''}
     <div class="detail-row"><span class="detail-key">Zona Eleitoral</span><span class="detail-val ${canSee?'':'sensitive'}" onclick="this.classList.toggle('revealed')">${a.zona||'—'}</span></div>
     <div class="detail-row"><span class="detail-key">Seção Eleitoral</span><span class="detail-val ${canSee?'':'sensitive'}" onclick="this.classList.toggle('revealed')">${a.secao||'—'}</span></div>
+    ${a.local_votacao_nome ? `<div class="detail-row"><span class="detail-key">Local de votação</span><span class="detail-val">${escapeHtml(a.local_votacao_nome)}</span></div>` : ''}
     ${!canSee?'<p style="font-size:11px;color:var(--slate-light);margin-top:12px;text-align:center">🔒 Clique para revelar</p>':''}
     ${a.nivel<=3?`<button class="btn-sm btn-navy" style="width:100%;margin-top:14px" onclick="abrirFichaEntrega('${a.id}')">📊 Prometido × entregue, seção por seção</button>`:''}
     ${currentRole==='admin'?`<button class="btn-sm btn-outline" style="width:100%;margin-top:14px" onclick="closeModal('modal-detail');abrirLogPessoa('${a.id}','${escapeAttr(a.nome)}')">📜 Ver o histórico deste cadastro</button>`:''}`;
@@ -5613,10 +5616,10 @@ function exportXLSX(dados, nomeArquivo, rotulo){
   const abas=[
     { nome:'Apoiadores',
       colunas:[{titulo:'Nome',largura:32},{titulo:'Telefone',largura:18},{titulo:'Bairro',largura:24},
-        {titulo:'Zona Eleitoral',largura:14},{titulo:'Seção',largura:10},{titulo:'Título de Eleitor',largura:20},
+        {titulo:'Zona Eleitoral',largura:14},{titulo:'Seção',largura:10},{titulo:'Município de votação',largura:22},
         {titulo:'Endereço',largura:30},{titulo:'Cidade',largura:18},{titulo:'UF',largura:6},
         {titulo:'Nascimento',largura:14},{titulo:'Nível',largura:8},{titulo:'Cadastrado em',largura:14}],
-      linhas: dados.map(a=>[a.nome,a.telefone||'',bairroDe(a),zonaDe(a),a.secao||'',a.titulo||'',
+      linhas: dados.map(a=>[a.nome,a.telefone||'',bairroDe(a),zonaDe(a),a.secao||'',a.municipio_votacao_nome||'',
         a.endereco||'',a.cidade||'',a.estado||'',formatDate(a.nascimento),a.nivel,formatDate(a.created_at)]) },
     { nome:'Por Bairro',
       colunas:[{titulo:'Bairro',largura:32},{titulo:'Apoiadores',largura:14},{titulo:'% da rede',largura:12}],
@@ -5677,9 +5680,9 @@ function exportPDF(dados, nomeArquivo, rotulo){
 }
 
 function exportCSV(data,filename){
-  const h=['Nome','Telefone','Endereço','Cidade','UF','Nascimento','Bairro','Titulo','Zona Eleitoral','Secao','Nivel'];
+  const h=['Nome','Telefone','Endereço','Cidade','UF','Nascimento','Bairro','Municipio de votacao','Zona Eleitoral','Secao','Nivel'];
   const rows=data.map(a=>[a.nome,a.telefone,a.endereco||'—',a.cidade||'—',a.estado||'—',formatDate(a.nascimento),
-    bairroDe(a),a.titulo||'—',zonaDe(a),a.secao||'—',a.nivel]);
+    bairroDe(a),a.municipio_votacao_nome||'—',zonaDe(a),a.secao||'—',a.nivel]);
   // Aspas dentro do valor viram aspas duplicadas, que é como o CSV escapa. Sem
   // isso um nome com aspas (ou o Excel do cliente com separador ponto-e-vírgula)
   // deslocava todas as colunas seguintes daquela linha.
@@ -5753,6 +5756,89 @@ function faltaNicho(prefixo){
 
 // Meta de votos: Líder, Coordenador e Mobilizador. Campo numérico que NÃO
 // reescreve o valor a cada tecla (regra do teclado de celular — ver mascaraLogin).
+// ── Onde a pessoa vota (briefing "Votos por seção" v2, item 2) ─────────────
+// Município de votação pelo código do TSE (pode ser outra cidade da que a
+// pessoa mora), zona, seção e — opcional — o local de votação, escolhido numa
+// lista depois de informar a zona. O número do título NÃO é mais pedido:
+// zona e seção bastam e reduzem o risco LGPD. Os campos de zona e seção não
+// são reescritos a cada tecla (armadilha do teclado de celular).
+const VOT = { origem:{}, cacheMun:{}, locais:{} };
+function votOrigemInterna(){
+  return { mun:'/candidato/votacao/municipios'+wsQuery(), loc:(z,m)=>`/candidato/votacao/locais?zona=${encodeURIComponent(z)}&municipio=${encodeURIComponent(m||'')}`+wsQuery('&') };
+}
+function votOrigemPublica(){
+  const q = _autoLiderancaId ? `lideranca=${encodeURIComponent(_autoLiderancaId)}` : `candidato=${encodeURIComponent(_autoCandidatoId||'')}`;
+  return { mun:`/public/votacao/municipios?${q}`, loc:(z,m)=>`/public/votacao/locais?${q}&zona=${encodeURIComponent(z)}&municipio=${encodeURIComponent(m||'')}` };
+}
+function htmlMunicipioVotacao(p, a){
+  a = a || {};
+  return `<div class="field"><label>Município onde vota</label>
+    <select id="${p}-munvot" class="ap-select" style="width:100%;min-width:0" onchange="votacaoLocais('${p}')">
+      <option value="${escapeAttr(a.municipio_votacao||'')}" data-nome="${escapeAttr(a.municipio_votacao_nome||'')}">${a.municipio_votacao_nome ? escapeHtml(vsTitulo(a.municipio_votacao_nome)) : 'Carregando...'}</option></select>
+    <div class="ap-meta" style="margin-top:4px">Pode ser diferente da cidade onde mora.</div></div>`;
+}
+function htmlLocalVotacao(p, a){
+  a = a || {};
+  return `<div class="field full"><label>Local de votação (escola) — opcional</label>
+    <select id="${p}-local" class="ap-select" style="width:100%;min-width:0" onchange="votacaoEscolheuLocal('${p}')">
+      <option value="${escapeAttr(a.local_votacao||'')}" data-nome="${escapeAttr(a.local_votacao_nome||'')}">${a.local_votacao_nome ? escapeHtml(a.local_votacao_nome) : 'Informe a zona para ver as escolas'}</option></select>
+    <div class="ap-meta" id="${p}-local-dica" style="margin-top:4px"></div></div>`;
+}
+async function votacaoIniciar(p, a, origem){
+  a = a || {};
+  VOT.origem[p] = origem || votOrigemInterna();
+  const sel = document.getElementById(p+'-munvot'); if(!sel) return;
+  const chave = VOT.origem[p].mun;
+  if(!VOT.cacheMun[chave]){
+    try { VOT.cacheMun[chave] = (await api(chave)).municipios || []; } catch(e){ VOT.cacheMun[chave] = []; }
+  }
+  const lista = VOT.cacheMun[chave];
+  const atual = a.municipio_votacao || sel.value || '';
+  if(!lista.length){
+    // Candidato ainda sem os dados do TSE: o campo some, zona e seção bastam.
+    sel.closest('.field').style.display = 'none';
+    const loc = document.getElementById(p+'-local'); if(loc) loc.closest('.field').style.display = 'none';
+    return;
+  }
+  sel.innerHTML = `<option value="">Escolha a cidade...</option>` + lista.map(m=>`<option value="${m.codigo}" data-nome="${escapeAttr(m.nome)}" ${m.codigo===atual?'selected':''}>${escapeHtml(vsTitulo(m.nome))}</option>`).join('');
+  if(!atual){
+    // Sugestão: a cidade onde mora, se ela estiver na lista.
+    const cid = apSemAcento(document.getElementById(p+'-cidade')?.value || a.cidade || '');
+    const m = cid && lista.find(x=>apSemAcento(x.nome)===cid);
+    if(m) sel.value = m.codigo;
+  }
+  if(document.getElementById(p+'-zona')?.value.trim()) votacaoLocais(p, a.local_votacao);
+}
+async function votacaoLocais(p, selecionado){
+  const z = document.getElementById(p+'-zona')?.value.trim();
+  const sel = document.getElementById(p+'-local'); if(!sel || !VOT.origem[p]) return;
+  if(!z){ sel.innerHTML = '<option value="">Informe a zona para ver as escolas</option>'; return; }
+  const m = document.getElementById(p+'-munvot')?.value || '';
+  const atual = selecionado !== undefined ? selecionado : sel.value;
+  sel.innerHTML = '<option value="">Carregando escolas...</option>';
+  let r = { locais:[] };
+  try { r = await api(VOT.origem[p].loc(z, m)); } catch(e){}
+  VOT.locais[p] = r.locais || [];
+  sel.innerHTML = `<option value="">${VOT.locais[p].length ? 'Escolha a escola (opcional)...' : 'Nenhuma escola encontrada para esta zona'}</option>`
+    + VOT.locais[p].map(l=>`<option value="${escapeAttr(l.numero||'')}" data-nome="${escapeAttr(l.nome||'')}" ${String(l.numero)===String(atual)?'selected':''}>${escapeHtml(l.nome||'Local '+l.numero)}${l.bairro?' — '+escapeHtml(vsTitulo(l.bairro)):''}</option>`).join('');
+  votacaoEscolheuLocal(p);
+}
+function votacaoEscolheuLocal(p){
+  const dica = document.getElementById(p+'-local-dica'); if(!dica) return;
+  const n = document.getElementById(p+'-local')?.value;
+  const l = (VOT.locais[p]||[]).find(x=>String(x.numero)===String(n));
+  dica.textContent = l && l.secoes && l.secoes.length ? `Seções desta escola: ${l.secoes.slice(0,12).join(', ')}${l.secoes.length>12?'…':''}` : '';
+}
+function lerCamposVotacao(p){
+  const m = document.getElementById(p+'-munvot');
+  const l = document.getElementById(p+'-local');
+  const nome = (sel)=> sel && sel.selectedOptions[0] ? (sel.selectedOptions[0].dataset.nome || '') : '';
+  return {
+    municipio_votacao: m && m.value ? m.value : null, municipio_votacao_nome: m && m.value ? nome(m) : null,
+    local_votacao: l && l.value ? l.value : null, local_votacao_nome: l && l.value ? nome(l) : null,
+  };
+}
+
 function campoMetaHtml(prefixo, valor, nivel, dica){
   if(nivel && nivel > 3) return '';
   return `<div class="field"><label>Meta de votos *</label><input type="text" id="${prefixo}-meta" inputmode="numeric" maxlength="8" autocomplete="off" value="${valor==null?'':valor}" placeholder="Ex.: 50">

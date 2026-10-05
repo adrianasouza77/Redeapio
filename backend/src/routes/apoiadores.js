@@ -9,6 +9,7 @@ const { hash, gerarSenhaTemporaria, gerarSenhaFacil } = require('../utils/passwo
 const asyncHandler = require('../utils/asyncHandler');
 const { registrar, diferencas } = require('../utils/auditoria');
 const { prepararNichos, gravarNichos, prepararMeta, anexarNichos } = require('../utils/nichos');
+const { lerVotacao, gravarVotacao } = require('../utils/votacao');
 
 const router = express.Router();
 router.use(authRequired, resolveWorkspace);
@@ -736,7 +737,9 @@ async function consultarPhoton(termo, cidade, bbox) {
 }
 
 router.post('/', requireRole('lideranca', 'apoiador'), asyncHandler(async (req, res) => {
-  const { nome, telefone, nascimento, regiao, endereco, cidade, estado, titulo, zona, secao } = req.body || {};
+  // Título de eleitor não é mais pedido nem gravado (briefing "Votos por seção" v2).
+  const { nome, telefone, nascimento, regiao, endereco, cidade, estado, zona, secao } = req.body || {};
+  const titulo = null;
   if (!nome || !telefone || !nascimento || !regiao) {
     return res.status(400).json({ error: 'Preencha nome, telefone, nascimento e bairro.' });
   }
@@ -769,6 +772,7 @@ router.post('/', requireRole('lideranca', 'apoiador'), asyncHandler(async (req, 
     [nome, telefone, nascimento, regiao, endereco || null, cidade || null, estado || null, titulo || null, zona || null, secao || null, novoNivel, req.user.id, meta.meta ?? null]
   );
   await gravarNichos(pool, rows[0].id, nichos.ids);
+  await gravarVotacao(pool, rows[0].id, lerVotacao(req.body));
   await registrar(req, {
     acao: 'apoiador.criar',
     alvoTipo: 'apoiador',
@@ -897,7 +901,8 @@ router.put('/:id', asyncHandler(async (req, res) => {
   if (meta.erro) return res.status(400).json({ error: meta.erro });
 
   const campos = ['nome=$1', 'telefone=$2', 'nascimento=$3', 'endereco=$4', 'regiao=$5', 'cidade=$6', 'estado=$7', 'titulo=$8', 'zona=$9', 'secao=$10'];
-  const vals = [nome, telefone || null, nascimento || null, endereco || null, regiao || null, cidade || null, estado || null, titulo || null, zona || null, secao || null];
+  // O formulário não manda mais o título: ausente, fica o que já estava gravado.
+  const vals = [nome, telefone || null, nascimento || null, endereco || null, regiao || null, cidade || null, estado || null, titulo === undefined ? antes.titulo : (titulo || null), zona || null, secao || null];
   if (novoNivel !== undefined) {
     campos.push(`nivel=$${vals.length + 1}`, `parent_id=$${vals.length + 2}`);
     vals.push(novoNivel, novoParentId);
@@ -927,6 +932,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
     throw err;
   }
   await gravarNichos(pool, id, nichos.ids);
+  await gravarVotacao(pool, id, lerVotacao(req.body));
 
   if (novoNivel !== undefined && (antes.nivel !== novoNivel || String(antes.parent_id) !== String(novoParentId))) {
     await registrar(req, {

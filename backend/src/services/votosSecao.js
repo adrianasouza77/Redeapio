@@ -24,14 +24,17 @@ const anoDoCiclo = (ciclo) => Number(String(ciclo).replace(/\D/g, '')) || null;
 // Carregados uma vez por ano/UF. O TSE só publica o arquivo do ano depois de
 // fechado o cadastro eleitoral; sem ele a tela funciona, só sem bairro/mapa.
 const carregandoLocais = new Map();
+// Ano/UF que o TSE não tem: não tenta baixar de novo a cada formulário aberto.
+const semArquivoLocais = new Map();
 async function garantirLocais(ano, uf) {
+  if (semArquivoLocais.get(`${ano}|${uf}`) > Date.now() - 6 * 3600e3) return 0;
   const { rows } = await pool.query('SELECT linhas FROM tse_locais_carga WHERE ano = $1 AND uf = $2', [ano, uf]);
   if (rows.length) return rows[0].linhas;
   const chave = `${ano}|${uf}`;
   if (!carregandoLocais.has(chave)) {
     carregandoLocais.set(chave, (async () => {
       const locais = await tse.locaisVotacao(ano, uf);
-      if (!locais || !locais.length) return 0;
+      if (!locais || !locais.length) { semArquivoLocais.set(`${ano}|${uf}`, Date.now()); return 0; }
       // Em blocos: uma única instrução com 100 mil linhas (SP) estoura o
       // limite de parâmetros do Postgres (65 535).
       for (let i = 0; i < locais.length; i += 1000) {
@@ -57,6 +60,18 @@ async function garantirLocais(ano, uf) {
     })().finally(() => carregandoLocais.delete(chave)));
   }
   return carregandoLocais.get(chave);
+}
+
+// Ano cujo cadastro de locais vale para uma eleição. O do próprio ano, quando
+// o TSE tem; senão o mais próximo (escola e seção mudam pouco entre uma
+// eleição e outra). Em out/2026 o arquivo de 2024 não estava mais no endereço
+// de sempre, e uma campanha de vereador de 2024 ficava sem bairro e sem escola.
+async function anoLocais(ano, uf) {
+  for (const a of [ano, ano + 2, ano - 2, ano + 4]) {
+    const n = await garantirLocais(a, uf).catch(() => 0);
+    if (n) return a;
+  }
+  return null;
 }
 
 // ─── Varredura do estado ────────────────────────────────────────────────────
@@ -121,7 +136,7 @@ async function umaVolta(col) {
   const chave = `${col.ciclo}|${col.pleito}|${col.uf}`;
   const ano = anoDoCiclo(col.ciclo);
   // Locais primeiro (meio segundo para MS). Falha aqui não para os votos.
-  if (ano) await garantirLocais(ano, col.uf).catch((e) => console.error('[votos] locais', col.uf, e.message));
+  if (ano) await anoLocais(ano, col.uf).catch((e) => console.error('[votos] locais', col.uf, e.message));
 
   const u = await urnasDoEstado(col.ciclo, col.pleito, col.uf);
   if (!u) throw new Error('Lista de seções do TSE indisponível.');
@@ -289,7 +304,7 @@ async function resultadoCandidato(p) {
 
 async function calcularResultado({ ciclo, pleito, eleicao, uf, cargo, numero, municipio, candidatoId, secoesDoMunicipio }) {
   const cod = String(cargo);
-  const ano = anoDoCiclo(ciclo);
+  const ano = (await anoLocais(anoDoCiclo(ciclo), uf)) || anoDoCiclo(ciclo);
   const cand = await tse.candidatosCargo({ ciclo, eleicao, uf, municipio, cargo }).catch(() => null);
   // Na urna, todo número digitado que existia na tela é voto nominal. O TSE
   // depois separa: voto em candidato anulado — ou com registro negado antes da
@@ -481,4 +496,4 @@ async function malhaEstado(uf) {
   return valor;
 }
 
-module.exports = { statusColeta, iniciarColeta, acordar, resultadoCandidato, lideresPorMunicipio, malhaEstado, COD_IBGE_UF, garantirLocais, urnasDoEstado, anoDoCiclo };
+module.exports = { statusColeta, iniciarColeta, acordar, resultadoCandidato, lideresPorMunicipio, malhaEstado, COD_IBGE_UF, garantirLocais, anoLocais, urnasDoEstado, anoDoCiclo };

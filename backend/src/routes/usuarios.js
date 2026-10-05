@@ -8,6 +8,7 @@ const { buscarDuplicidade } = require('../utils/duplicidade');
 const asyncHandler = require('../utils/asyncHandler');
 const { registrar, diferencas } = require('../utils/auditoria');
 const { prepararNichos, gravarNichos, prepararMeta } = require('../utils/nichos');
+const { lerVotacao, gravarVotacao } = require('../utils/votacao');
 
 const router = express.Router();
 router.use(authRequired, resolveWorkspace);
@@ -40,7 +41,9 @@ router.get('/verificar-login', asyncHandler(async (req, res) => {
 }));
 
 router.post('/', requireRole('candidato', 'admin'), asyncHandler(async (req, res) => {
-  const { nome, login, senha, perfil, telefone, email, endereco, regiao, cidade, estado, titulo, zona, secao } = req.body || {};
+  // Título de eleitor não é mais pedido nem gravado (briefing "Votos por seção" v2).
+  const { nome, login, senha, perfil, telefone, email, endereco, regiao, cidade, estado, zona, secao } = req.body || {};
+  const titulo = null;
   if (!nome || !login || !senha || !perfil) {
     return res.status(400).json({ error: 'Preencha todos os campos obrigatórios.' });
   }
@@ -92,6 +95,7 @@ router.post('/', requireRole('candidato', 'admin'), asyncHandler(async (req, res
         [novoUsuario.id, nome, telefone || '—', regiao || '—', endereco || null, cidade || null, estado || null, titulo || null, zona || null, secao || null, nivelFicha, req.effectiveId, meta.meta ?? null]
       );
       await gravarNichos(client, novoUsuario.id, nichos.ids);
+      await gravarVotacao(client, novoUsuario.id, lerVotacao(req.body));
     }
 
     await client.query('COMMIT');
@@ -159,7 +163,8 @@ router.put('/:id', requireRole('candidato', 'admin'), asyncHandler(async (req, r
 
   const vals = [
     nome.trim(), telefone || null, endereco || null, regiao || null, cidade || null, estado || null,
-    titulo?.trim() || null, zona?.trim() || null, secao?.trim() || null,
+    // O formulário não manda mais o título: ausente, fica o que já estava.
+    titulo === undefined ? owned.rows[0].titulo : (titulo?.trim() || null), zona?.trim() || null, secao?.trim() || null,
   ];
 
   try {
@@ -182,8 +187,9 @@ router.put('/:id', requireRole('candidato', 'admin'), asyncHandler(async (req, r
     // Mantém a ficha-espelho em apoiadores (pirâmide/Todos os Apoiadores) sincronizada.
     await pool.query(
       'UPDATE apoiadores SET nome=$1, telefone=$2, endereco=$3, regiao=$4, cidade=$5, estado=$6, titulo=$7, zona=$8, secao=$9 WHERE id = $10',
-      [nome.trim(), telefone || null, endereco || null, regiao || null, cidade || null, estado || null, titulo?.trim() || null, zona?.trim() || null, secao?.trim() || null, id]
+      [nome.trim(), telefone || null, endereco || null, regiao || null, cidade || null, estado || null, vals[6], zona?.trim() || null, secao?.trim() || null, id]
     );
+    await gravarVotacao(pool, id, lerVotacao(req.body));
     const mudancas = diferencas(owned.rows[0], rows[0], ['nome', 'login', 'email', 'telefone', 'endereco', 'regiao', 'cidade', 'estado', 'titulo', 'zona', 'secao']);
     if (Object.keys(mudancas).length) {
       await registrar(req, { acao: 'usuario.editar', alvoTipo: 'usuario', alvoId: id, alvoNome: rows[0].nome, detalhes: { campos: mudancas } });

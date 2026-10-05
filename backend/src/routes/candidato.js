@@ -218,18 +218,9 @@ async function municipiosDeVotacao(d) {
 async function locaisDaZona(d, zonaTxt, municipio) {
   const zona = tse.pad4(zonaTxt);
   if (!d || !zona) return { locais: [] };
-  let ano = d.ano;
-  let { rows } = await pool.query('SELECT 1 FROM tse_locais_carga WHERE ano = $1 AND uf = $2', [ano, d.uf]);
-  if (!rows.length) {
-    await votos.garantirLocais(ano, d.uf).catch(() => 0);
-    ({ rows } = await pool.query('SELECT 1 FROM tse_locais_carga WHERE ano = $1 AND uf = $2', [ano, d.uf]));
-    if (!rows.length) {
-      // O arquivo do ano ainda não saiu: usa o mais recente que houver.
-      const r = await pool.query('SELECT max(ano) AS ano FROM tse_locais_carga WHERE uf = $1', [d.uf]);
-      if (!r.rows[0].ano) return { locais: [] };
-      ano = r.rows[0].ano;
-    }
-  }
+  // O cadastro de locais do ano da eleição, ou o mais próximo que o TSE tiver.
+  const ano = await votos.anoLocais(d.ano, d.uf);
+  if (!ano) return { locais: [] };
   const mun = municipio && /^\d{5}$/.test(municipio) ? municipio : null;
   const { rows: locais } = await pool.query(
     `SELECT local_numero AS numero, max(local_nome) AS nome, max(bairro) AS bairro, max(endereco) AS endereco,

@@ -1,6 +1,7 @@
 const pool = require('../db');
 const tse = require('./tse');
 const campanha = require('./campanha');
+const votosSecao = require('./votosSecao');
 const { SQL_ARVORE_CANDIDATO } = require('../routes/apoiadores');
 
 // Relatório "Prometido × Entregue" (briefing "Votos por seção" v2, item 5).
@@ -57,7 +58,7 @@ async function urnasDoCandidato(d) {
        LEFT JOIN tse_locais l ON l.ano = $6 AND l.uf = u.uf AND l.zona = u.zona AND l.secao = u.secao
       WHERE u.ciclo = $1 AND u.pleito = $2 AND u.uf = $3 AND c.j IS NOT NULL
         AND ($7::text[] IS NULL OR u.municipio = ANY($7))`,
-    [d.ciclo, d.pleito, d.uf, String(d.cargo), d.numero, d.ano, municipios, validos, subJudice]
+    [d.ciclo, d.pleito, d.uf, String(d.cargo), d.numero, (await votosSecao.anoLocais(d.ano, d.uf)) || d.ano, municipios, validos, subJudice]
   );
   const munNomes = new Map((await tse.municipiosEleicao(d.ciclo, d.eleicao, d.uf).catch(() => [])).map((m) => [m.codigo, m.nome]));
   const urnas = new Map();
