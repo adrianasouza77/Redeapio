@@ -317,6 +317,7 @@
   .ia-texto{font-size:13px;color:var(--slate);line-height:1.55;}
   .ia-detalhe{font-size:12.5px;color:var(--slate);line-height:1.55;background:var(--bg);border-radius:8px;padding:10px;margin-top:8px;}
   .ia-acao{margin-top:8px;font-weight:600;color:var(--green);}
+  .ia-de{font-size:12px;color:var(--slate);background:var(--bg);border-radius:8px;padding:8px 10px;margin-bottom:10px;line-height:1.45;}
   .ia-ver{background:none;border:none;color:var(--navy);font-size:12px;font-weight:600;text-decoration:underline;cursor:pointer;padding:6px 0 0;font-family:'Inter',sans-serif;}
   /* ASSISTENTE DE AJUDA — reaproveita o painel do copiloto (.ia-painel). O
      botão sobe quando o do copiloto também está na tela, para não cobrir. */
@@ -849,7 +850,7 @@
 <button id="ia-botao" class="ia-botao" onclick="iaAbrir()" style="display:none" title="Copiloto de IA"><span>🤖</span> Me ajuda a entender isso</button>
 <div id="ia-painel" class="ia-painel" aria-hidden="true">
   <div class="ia-cabeca">
-    <div><div class="ia-titulo">🤖 Copiloto da rede</div><div class="ia-sub">Lê os números da sua rede e diz, em linguagem simples, onde reforçar.</div></div>
+    <div><div class="ia-titulo">🤖 Copiloto da rede</div><div class="ia-sub">Explica a tela aberta com os seus números e filtros, em linguagem simples.</div></div>
     <button class="ia-fechar" onclick="iaFechar()" aria-label="Fechar">✕</button>
   </div>
   <div id="ia-corpo" class="ia-corpo"></div>
@@ -1583,6 +1584,8 @@ function showPage(page) {
   // Endereço inventado (link velho, erro de digitação) cai na tela inicial do
   // perfil em vez de deixar o conteúdo em branco.
   if(!paginasPermitidas().includes(page)) page = paginaPadrao();
+  // A leitura do Copiloto é da tela em que foi pedida: trocou de tela, fecha.
+  if(page !== paginaAtual) iaFechar();
   paginaAtual = page;
   const endereco = '#/' + page;
   if(location.hash !== endereco){
@@ -8289,19 +8292,40 @@ async function hiAbrir(codigo){
 // ══════════════════════════════════════════
 //  COPILOTO DE IA
 // ══════════════════════════════════════════
-// Painel lateral com 3 a 8 alertas em linguagem simples (território por seção, e a rede de cada Líder nos 4 níveis). A IA lê só um resumo
-// com contagens (nenhum dado pessoal sai do servidor). A última leitura fica
-// guardada: abrir o painel não gasta chamada, só o botão de gerar gasta.
-const IA = { dados:null, gerando:false };
-const IA_TIPOS = {
-  vazio_territorial:    ['📍','Vazio territorial'],
-  desequilibrio_nicho:  ['⚖️','Desequilíbrio de nicho'],
-  meta_irrealista:      ['🎯','Meta fora da realidade'],
-  gargalo_hierarquico:  ['🧱','Gargalo na hierarquia'],
-  padrao_pos_eleicao:   ['🗳️','Padrão depois da eleição'],
-  diagnostico_historico:['📊','Diagnóstico histórico'],
-  rede_da_lideranca:    ['👥','Rede da liderança'],
-};
+// Painel lateral que explica a TELA aberta (orientação técnica "Copiloto da
+// rede por tela", 06/10/2026): o que ela mostra, os 3 pontos mais importantes
+// e uma ação para a semana, com o candidato e os filtros em uso. O servidor
+// monta um resumo por tela, só com números (nenhum dado pessoal sai dele).
+// A leitura fica guardada por tela + candidato + filtros: abrir o painel não
+// gasta chamada, só o botão de gerar gasta.
+const IA = { dados:null, gerando:false, ctx:null };
+// Qual leitura cada página pede. Página sem resumo próprio cai na geral.
+const IA_TELA_DA_PAGINA = { dashboard:'inicio', apoiadores:'apoiadores', votos:'votos_por_secao', entrega:'prometido_entregue' };
+function iaContexto(){
+  const filtros = {}; const rotulo = { candidato:'', filtros:'' };
+  let tela = IA_TELA_DA_PAGINA[paginaAtual] || 'geral';
+  if(paginaAtual==='rede') tela = visaoRede==='territorio' ? 'territorio' : 'rede';
+  if(tela==='votos_por_secao'){
+    const s = VS.sel;
+    Object.assign(filtros, { ciclo:s.ciclo, pleito:s.pleito, eleicao:s.eleicao, uf:s.uf, cargo:s.cargo, numero:s.numero, municipio:VS.filtroMun||'' });
+    const c = VS.dados && VS.dados.candidato;
+    if(c && c.nome) rotulo.candidato = `${c.nome}${VS_CARGO_CURTO[s.cargo] ? ' ('+VS_CARGO_CURTO[s.cargo]+')' : ''}`;
+    rotulo.filtros = VS.filtroMun ? vsMunNome(VS.filtroMun) : 'estado inteiro';
+  }
+  if(tela==='prometido_entregue'){
+    const F = EN.filtros || {}; const fd = (EN.dados && EN.dados.filtrosDisponiveis) || {};
+    ['municipio','zona','bairro','nivel','nicho','lideranca'].forEach(k=>{ if(F[k]) filtros[k] = F[k]; });
+    filtros.aba = EN.aba;
+    const partes = [];
+    if(F.municipio){ const m = (fd.municipios||[]).find(x=>x.codigo===F.municipio); partes.push(m ? vsTitulo(m.nome) : F.municipio); }
+    if(F.zona) partes.push('zona '+apZona(F.zona));
+    if(F.bairro) partes.push(F.bairro);
+    if(F.nivel) partes.push(({1:'Líderes',2:'Coordenadores',3:'Mobilizadores'})[F.nivel]);
+    if(F.lideranca){ const l = (fd.liderancas||[]).find(x=>x.id===F.lideranca); partes.push('líder '+(l ? l.nome : '—')); }
+    rotulo.filtros = partes.join(' · ');
+  }
+  return { tela, filtros, rotulo };
+}
 function iaAtualizarBotao(){
   const b = document.getElementById('ia-botao');
   if(b) b.style.display = (currentUser && papelEfetivo()==='candidato') ? 'flex' : 'none';
@@ -8312,7 +8336,8 @@ async function iaAbrir(){
   document.getElementById('ia-painel').classList.add('aberto');
   document.getElementById('ia-painel').setAttribute('aria-hidden','false');
   document.getElementById('ia-corpo').innerHTML = '<p class="ap-meta">Carregando...</p>';
-  try { IA.dados = await api('/ia' + wsQuery()); }
+  IA.ctx = iaContexto();
+  try { IA.dados = await api('/ia?ctx=' + encodeURIComponent(JSON.stringify({ tela:IA.ctx.tela, filtros:IA.ctx.filtros })) + wsQuery('&')); }
   catch(e){ IA.dados = null; document.getElementById('ia-corpo').innerHTML = `<p style="color:var(--red)">${escapeHtml(e.message)}</p>`; return; }
   iaDesenhar();
 }
@@ -8327,26 +8352,37 @@ function iaDesenhar(){
     c.innerHTML = `<div class="ap-aviso">O copiloto ainda não foi ativado neste servidor: falta a chave da API da Anthropic. Assim que ela for configurada, este painel passa a funcionar — nada mais precisa mudar.</div>`;
     return;
   }
-  const u = d.ultimo;
+  const u = d.ultimo; const L = u && u.leitura;
   const quando = u ? new Date(u.gerado_em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : null;
+  const rotuloAgora = [d.nomeTela, IA.ctx && IA.ctx.rotulo.candidato, IA.ctx && IA.ctx.rotulo.filtros].filter(Boolean).join(' | ');
   c.innerHTML = `
-    <button class="btn-sm btn-navy" style="width:100%" onclick="iaGerar()" ${IA.gerando||d.usadasHoje>=d.limite?'disabled':''}>${IA.gerando?'Lendo a sua rede... (leva uns segundos)':(u?'🔄 Gerar leitura nova':'✨ Ler a minha rede')}</button>
-    <p class="ap-meta" style="margin:8px 0 14px;text-align:center">${quando?`Última leitura: ${quando} · `:''}${d.usadasHoje} de ${d.limite} leituras hoje</p>
-    ${u ? (u.insights||[]).map((i,k)=>{ const [ic, rot] = IA_TIPOS[i.tipo] || ['💡','Leitura']; return `
+    <div class="ia-de">Leitura de: <b>${escapeHtml(u ? u.rotulo : rotuloAgora)}</b></div>
+    <button class="btn-sm btn-navy" style="width:100%" onclick="iaGerar()" ${IA.gerando||d.usadasHoje>=d.limite?'disabled':''}>${IA.gerando?'Lendo esta tela... (leva uns segundos)':(u?'🔄 Gerar leitura nova':'✨ Explicar esta tela')}</button>
+    <p class="ap-meta" style="margin:8px 0 14px;text-align:center">${quando?`Última leitura desta tela: ${quando} · `:''}${d.usadasHoje} de ${d.limite} leituras hoje</p>
+    ${u && u.desatualizada ? `<div class="ap-aviso" style="margin-bottom:12px">Os dados mudaram desde esta leitura (cadastros, metas ou votos). Gere uma leitura nova para ver os números de agora.</div>` : ''}
+    ${L && L.pontos ? `
+      <div class="ia-texto" style="margin-bottom:12px">${escapeHtml(L.o_que_mostra||'')}</div>
+      ${L.pontos.map((p,k)=>`
       <div class="ia-card">
-        <div class="ia-tipo">${ic} ${rot}${i.territorio_ou_nicho_afetado?` · <span>${escapeHtml(i.territorio_ou_nicho_afetado)}</span>`:''}</div>
-        <div class="ia-card-titulo">${escapeHtml(i.titulo||'')}</div>
-        <div class="ia-texto">${escapeHtml(i.texto)}</div>
-        <div class="ia-detalhe" id="ia-det-${k}" style="display:none">${escapeHtml(i.detalhe||'')}${i.acao_sugerida?`<div class="ia-acao">👉 ${escapeHtml(i.acao_sugerida)}</div>`:''}</div>
-        <button class="ia-ver" onclick="const e=document.getElementById('ia-det-${k}');const v=e.style.display==='none';e.style.display=v?'block':'none';this.textContent=v?'esconder detalhe':'ver detalhe'">ver detalhe</button>
-      </div>`; }).join('') : `<p class="ap-meta">Clique no botão para o copiloto ler a sua rede: quantos em cada papel, nicho e seção eleitoral, a rede de cada liderança nos 4 níveis, metas e — se configurados — a apuração e o desempenho histórico.</p>`}
-    <p class="ap-meta" style="margin-top:14px;line-height:1.5">A IA não decide nada: ela só traduz os números da sua rede. Nenhum nome, telefone ou título de eleitor é enviado a ela.</p>`;
+        <div class="ia-tipo">Ponto ${k+1}</div>
+        <div class="ia-card-titulo">${escapeHtml(p.titulo||'')}</div>
+        <div class="ia-texto">${escapeHtml(p.texto||'')}</div>
+        <div class="ia-detalhe" id="ia-det-${k}" style="display:none">${escapeHtml(p.detalhe||'')}</div>
+        ${p.detalhe?`<button class="ia-ver" onclick="const e=document.getElementById('ia-det-${k}');const v=e.style.display==='none';e.style.display=v?'block':'none';this.textContent=v?'esconder detalhe':'ver detalhe'">ver detalhe</button>`:''}
+      </div>`).join('')}
+      ${L.acao_da_semana?`<div class="ia-card" style="border-left-color:var(--green)"><div class="ia-tipo">Ação para esta semana</div><div class="ia-acao" style="margin-top:6px">👉 ${escapeHtml(L.acao_da_semana)}</div></div>`:''}
+      ${L.dados_que_faltam?`<p class="ap-meta" style="line-height:1.5">ℹ️ Faltou para esta leitura: ${escapeHtml(L.dados_que_faltam)}</p>`:''}`
+    : `<p class="ap-meta">Clique no botão para o copiloto explicar o que esta tela mostra, com os seus números e os filtros que estão aplicados agora.</p>`}
+    <p class="ap-meta" style="margin-top:14px;line-height:1.5">A IA não decide nada: ela só traduz os números desta tela. Nenhum nome, telefone ou título de eleitor é enviado a ela.</p>`;
 }
 async function iaGerar(){
   IA.gerando = true; iaDesenhar();
+  // O contexto é o do momento do clique: se a pessoa mudou um filtro com o
+  // painel aberto, a leitura é dos filtros de agora.
+  IA.ctx = iaContexto();
   try {
-    const r = await api('/ia/gerar' + wsQuery(), { method:'POST' });
-    IA.dados.ultimo = { gerado_em: r.gerado_em, insights: r.insights };
+    const r = await api('/ia/gerar' + wsQuery(), { method:'POST', body: JSON.stringify(IA.ctx) });
+    IA.dados.ultimo = { gerado_em: r.gerado_em, leitura: r.leitura, rotulo: r.rotulo, desatualizada:false };
     IA.dados.usadasHoje++;
   } catch(e){ showToast(e.message, 'error'); }
   IA.gerando = false; iaDesenhar();

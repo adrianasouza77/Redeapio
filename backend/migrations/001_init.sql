@@ -549,6 +549,17 @@ CREATE TABLE IF NOT EXISTS ia_insights (
   tokens_saida    INT
 );
 CREATE INDEX IF NOT EXISTS idx_ia_insights_candidato ON ia_insights (candidato_id, gerado_em DESC);
+-- Copiloto por tela (06/10/2026): a leitura passa a ser da tela que a pessoa
+-- está vendo. chave = hash de candidato + tela + filtros (a mesma combinação é
+-- a mesma leitura guardada); contexto = tela, filtros e o rótulo "Leitura
+-- de: …"; versao_dados = impressão da rede/votos quando a leitura foi feita
+-- (mudou, a tela marca como desatualizada). Leituras antigas ficam com
+-- chave NULL e simplesmente não aparecem mais.
+ALTER TABLE ia_insights ADD COLUMN IF NOT EXISTS tela TEXT;
+ALTER TABLE ia_insights ADD COLUMN IF NOT EXISTS chave TEXT;
+ALTER TABLE ia_insights ADD COLUMN IF NOT EXISTS contexto JSONB;
+ALTER TABLE ia_insights ADD COLUMN IF NOT EXISTS versao_dados TEXT;
+CREATE INDEX IF NOT EXISTS idx_ia_insights_chave ON ia_insights (candidato_id, chave, gerado_em DESC);
 
 -- Assistente de ajuda: só a contagem de uso, para o limite diário por pessoa.
 -- A pergunta e a resposta não são guardadas (podem conter dado pessoal colado

@@ -533,7 +533,35 @@ chamada) e há teto diário por campanha (`IA_LIMITE_DIA`). Sem
 Segue o princípio [a IA nunca age sozinha](#ia-aprovacao-humana): só produz
 alertas para leitura.
 
-Desde 06/10/2026 (pedido da dona), de 3 a 8 alertas:
+**Copiloto por tela** (orientação técnica de 06/10/2026). A leitura explica a
+tela aberta, não a rede em geral. O navegador manda `{ tela, filtros }`
+(`iaContexto()` no `index.html`): `dashboard`→`inicio`, `rede`→`rede` (ou
+`territorio` na visão por território), `apoiadores`, `votos`→`votos_por_secao`
+(eleição, cargo, número, município), `entrega`→`prometido_entregue`
+(município, zona, bairro, nível, nicho, líder, aba). Qualquer outra página
+cai em `geral` (o resumo antigo, `montarResumo`).
+
+- `services/iaResumos.js`: uma função de resumo por tela, todas sobre a mesma
+  base (`carregarRede`, com os mesmos códigos de pessoa).
+  `normalizarContexto` descarta tela e filtro fora da lista e valida cada
+  valor: alguns viram consulta e URL do TSE.
+- `services/ia.js`: instrução base + complemento da tela (`PROMPT_TELA`).
+  A resposta é `{ o_que_mostra, pontos[3], acao_da_semana, dados_que_faltam }`.
+- **Cache**: `ia_insights.chave` = sha1(candidato, tela, filtros). Abrir o
+  painel mostra a última leitura daquela combinação. `versao_dados` é a
+  "impressão" da rede (contagem, último cadastro, soma das metas, com seção,
+  com responsável), da última importação do TSE e da apuração ao vivo. Se
+  mudou, a leitura aparece como desatualizada, com o botão de gerar de novo.
+  O teto `IA_LIMITE_DIA` vale para todas as telas somadas. Leituras de antes
+  (sem chave) não aparecem mais.
+- **Rótulo "Leitura de: tela | candidato | filtros"**: montado no navegador
+  (ele já tem os nomes do município, do líder e do candidato da tela),
+  guardado em `contexto.rotulo`, e **nunca enviado à IA**. Para a IA vão os
+  filtros normalizados, com o líder como código.
+- Votos por Seção mostra qualquer candidato do estado: o resumo fala do
+  candidato **da tela**, cruzado com a rede do candidato ativo.
+
+Regras do resumo, desde 06/10/2026 (pedido da dona), em todas as telas:
 
 - **Território eleitoral é a seção, nunca a zona.** O rótulo é sempre
   `Zona 18 · Seção 123`: o número da seção se repete em toda zona, e somar a
@@ -544,8 +572,7 @@ Desde 06/10/2026 (pedido da dona), de 3 a 8 alertas:
 - **`por_lideranca`**: cada Líder (até 30, os de rede maior primeiro) com a
   própria rede nos 4 níveis, as seções onde ela está (`so_base` = seção só
   com Apoiador, sem Líder/Coordenador/Mobilizador), os Coordenadores dele e,
-  com apuração, meta × votos nas urnas da equipe. O card é do tipo
-  `rede_da_lideranca`.
+  com apuração, meta × votos nas urnas da equipe (leitura `geral`).
 - **Pessoas vão como código**, nunca nome: `Líder 3`, `Coordenador 3.1`,
   `Mobilizador 3.1.2` (o número diz de quem é equipe; sem Líder acima fica
   sob o `0`). Vale também para `votos_por_local`. O mapa código → pessoa é

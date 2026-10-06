@@ -29,14 +29,22 @@ router.post('/ajuda', authRequired, asyncHandler(async (req, res) => {
 // workspace): o resumo é da rede inteira.
 router.use(authRequired, resolveWorkspace, requireRole('candidato', 'admin'));
 
+// Tela e filtros chegam como ?ctx=<JSON> (GET) ou no corpo (POST). Tudo passa
+// pela lista de telas e pela validação de filtros em iaResumos.normalizarContexto.
+function contextoDe(texto) {
+  if (!texto || String(texto).length > 3000) return {};
+  try { return JSON.parse(texto); } catch { return {}; }
+}
+
 router.get('/', asyncHandler(async (req, res) => {
-  res.json(await ia.situacao(req.effectiveId));
+  res.json(await ia.situacao(req.effectiveId, contextoDe(req.query.ctx)));
 }));
 
 router.post('/gerar', asyncHandler(async (req, res) => {
   try {
-    const r = await ia.gerar(req.effectiveId);
-    await registrar(req, { acao: 'ia.gerar', alvoTipo: 'config', detalhes: { modelo: r.modelo, insights: r.insights.length } });
+    const b = req.body || {};
+    const r = await ia.gerar(req.effectiveId, { tela: b.tela, filtros: b.filtros }, b.rotulo);
+    await registrar(req, { acao: 'ia.gerar', alvoTipo: 'config', detalhes: { modelo: r.modelo, tela: r.tela } });
     res.json(r);
   } catch (e) {
     if (e.status) return res.status(e.status).json({ error: e.message });
