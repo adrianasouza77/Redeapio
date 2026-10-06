@@ -420,9 +420,35 @@ decisão à parte, com backup).
 **Relatório Prometido × Entregue** (`services/entrega.js`, aba ✅): por Líder,
 Coordenador e Mobilizador, as urnas onde votam ele e toda a equipe abaixo
 (mesma árvore da pirâmide: `parent_id` ou quem cadastrou) × votos do
-candidato nelas. Meta = `meta_votos` ou, vazia, o tamanho da rede abaixo.
+candidato nelas.
+
+Desde 06/10/2026 (um Mobilizador com 8 cadastrados aparecia "entregando
+662%", e a soma dos Líderes de Dourados passou do total do candidato):
+
+- **`votos` = votos ATRIBUÍDOS à equipe** (`utils/atribuicao.js`). Em cada
+  urna, a rede inteira pode ter dado no máximo min(votos, cadastrados da rede
+  ali); esse teto se divide entre as equipes pelos cadastrados de cada uma
+  ali, arredondando para baixo. Nenhuma equipe passa dos próprios
+  cadastrados na seção, e equipes do mesmo nível somadas nunca passam do
+  total. O total das urnas fica em `votosSecoes`, só como referência. A
+  mesma regra vale na apuração ao vivo (`calcularMetas`), então a pirâmide,
+  o relatório, o painel do Coordenador Geral e o copiloto mostram o mesmo
+  número.
+- **Meta = `meta_votos` declarada, ou nada.** Sem meta, `entrega` é null e
+  a tela diz "sem meta". Usar o tamanho da rede como meta fazia "bater a
+  meta" quem não prometeu nada, e as mesmas pessoas viravam meta de dois
+  candidatos de cargos diferentes. A meta de cada candidato mora no vínculo
+  (`apoiador_candidatos.meta_votos`), que o `SQL_ARVORE_CANDIDATO` já traz.
+- **`atribuicao`** na resposta: `totalImportado` (votos do candidato nas
+  urnas do filtro de território), `atribuidosRede`, `foraDaRede`,
+  `somaPorNivel` e `alertas`: a trava avisa se a soma de um nível passar do
+  que cabe à rede (não deveria acontecer; se acontecer é alguém em duas
+  equipes do mesmo nível). Quem só vê a própria rede não recebe o quadro na
+  tela.
+- Filtrando por liderança, a linha dela vai para o topo: é o total da rede.
+
 "Seção compartilhada" = a mesma urna na área de duas pessoas do mesmo nível;
-conta inteira para as duas. Visão por zona/seção ordenada por % brancos+nulos
+a urna se divide entre elas pela regra acima. Visão por zona/seção ordenada por % brancos+nulos
 (÷ comparecimento; em senador de 2 vagas, ÷ 2×comparecimento). Filtros de
 território valem para as urnas; nível/nicho/liderança para as linhas. Quem vê:
 candidato (e admin/CG no workspace) tudo; Líder e Coordenador só a própria

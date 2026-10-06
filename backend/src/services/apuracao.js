@@ -1,6 +1,7 @@
 const pool = require('../db');
 const tse = require('./tse');
 const { SQL_ARVORE_CANDIDATO } = require('../routes/apoiadores');
+const { votosDaEquipe, inteiro } = require('../utils/atribuicao');
 
 // Apuração ao vivo — cruza o total de votos do candidato em cada seção (dado
 // público do BU) com quantos apoiadores a rede cadastrou naquela seção.
@@ -143,10 +144,12 @@ async function painel(candidatoId) {
 
 // Meta prometida × resultado (Telas 3 e 4 da especificação).
 //  - Por zona: soma das metas de quem mora na zona × votos do candidato na zona inteira.
-//  - Por responsável: a meta da pessoa × votos nas urnas onde ela e toda a
-//    equipe abaixo dela votam. É a leitura mais justa possível sem saber em
-//    quem cada um votou (e isso ninguém sabe: o voto é secreto). A mesma urna
-//    conta uma vez só, mesmo com várias pessoas da equipe nela.
+//  - Por responsável: a meta da pessoa × votos ATRIBUÍDOS à equipe dela nas
+//    urnas onde ela e toda a equipe abaixo votam (utils/atribuicao.js: cada
+//    urna divide, pelos cadastrados de cada equipe ali, só o que cabe na rede).
+//    Até 06/10/2026 a urna contava inteira: um Líder com 4 cadastrados numa
+//    seção levava todos os votos do candidato nela. O total das urnas segue em
+//    votosSecoes. Sem meta declarada, meta fica null e a tela diz "sem meta".
 function calcularMetas(u, res, zonas) {
   const comMeta = (a) => a.nivel >= 1 && a.nivel <= 3;
   const porZona = zonas.map((z) => {
@@ -200,11 +203,18 @@ function calcularMetas(u, res, zonas) {
     }
     const urnas = new Set();
     for (const id of vistos) { const o = u.onde.get(id); if (o && o.urna) urnas.add(o.urna); }
-    let votos = 0; let apuradas = 0; let aptos = 0;
-    for (const k of urnas) { const r = res.get(k); if (r) { votos += r.votos; apuradas++; aptos += r.aptos || 0; } }
+    const naUrna = new Map();
+    for (const id of vistos) { const k = u.onde.get(id)?.urna; if (k) naUrna.set(k, (naUrna.get(k) || 0) + 1); }
+    let votosSecoes = 0; let atribuidos = 0; let apuradas = 0; let aptos = 0;
+    for (const k of urnas) {
+      const r = res.get(k); if (!r) continue;
+      votosSecoes += r.votos; apuradas++; aptos += r.aptos || 0;
+      atribuidos += votosDaEquipe(r.votos, u.secoesRede.get(k)?.cadastrados, naUrna.get(k));
+    }
+    const votos = inteiro(atribuidos);
     return {
       id: a.id, nome: a.nome, nivel: a.nivel, zona: u.onde.get(a.id)?.zona || null, meta: a.meta_votos,
-      equipe: vistos.size - 1, urnasTotal: urnas.size, urnasApuradas: apuradas, votos,
+      equipe: vistos.size - 1, urnasTotal: urnas.size, urnasApuradas: apuradas, votos, votosSecoes,
       // Eleitores aptos nas seções da equipe — é o teto da meta ("meta
       // prometida maior que o total de votantes da seção" = meta irrealista).
       aptosSecoes: apuradas === urnas.size ? aptos : null,
@@ -216,8 +226,10 @@ function calcularMetas(u, res, zonas) {
         const [zona, secao] = k.split('|');
         const r = res.get(k);
         const daEquipe = [...vistos].filter((id) => u.onde.get(id)?.urna === k);
+        const cadRede = u.secoesRede.get(k)?.cadastrados || 0;
         return { zona, secao, cadastrados: daEquipe.length, pessoas: daEquipe.map((id) => porNome.get(id)).filter(Boolean),
-          apurada: !!r, votos: r ? r.votos : null };
+          cadastradosRede: cadRede, apurada: !!r, votos: r ? r.votos : null,
+          atribuidos: r ? inteiro(votosDaEquipe(r.votos, cadRede, daEquipe.length)) : null };
       }).sort((x, y) => x.zona.localeCompare(y.zona) || x.secao.localeCompare(y.secao)),
     };
   });

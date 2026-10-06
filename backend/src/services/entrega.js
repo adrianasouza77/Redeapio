@@ -10,11 +10,21 @@ const { SQL_ARVORE_CANDIDATO } = require('../routes/apoiadores');
 // pessoas da rede dele (ele mesmo + todos abaixo) e compara com os votos do
 // candidato nessas seções. O voto é secreto e o dado do TSE é por seção, não
 // por pessoa: o número indica a entrega da ÁREA DE INFLUÊNCIA, nunca o voto
-// de alguém — a tela diz isso. Seção onde atua mais de uma liderança conta
-// inteira para todas, sinalizada, sem tentar dividir.
+// de alguém — a tela diz isso.
+//
+// Desde 06/10/2026 "votos" é o ATRIBUÍDO à equipe (utils/atribuicao.js): cada
+// seção divide entre as equipes, pelos cadastrados de cada uma ali, só o que
+// cabe na rede. Até então a seção contava inteira para cada liderança, e a
+// soma dos líderes de Dourados passou do total do candidato. O total da urna
+// continua em "votosSecoes", como referência. Sem meta declarada, a entrega
+// fica "sem meta": usar o tamanho da rede como meta fazia parecer que alguém
+// tinha prometido — e misturava a meta de candidatos de cargos diferentes
+// com as mesmas pessoas.
 //
 // Os votos vêm de tse_urnas (o boletim de cada urna, carregado pelo botão
 // "Importar votos do TSE"); a rede vem da mesma consulta da pirâmide.
+
+const { votosDaEquipe, votosDaRede, inteiro } = require('../utils/atribuicao');
 
 const NIVEIS_COM_META = [1, 2, 3];
 
@@ -130,6 +140,11 @@ async function relatorio(candidatoId, { filtros = {}, raiz = null, detalhe = nul
     urnaDe.set(a.id, `${z}|${loc ? loc.principal : s}`);
     comSecao++;
   }
+  // Cadastrados da rede INTEIRA em cada urna — a base da divisão dos votos.
+  // Não depende de quem está vendo: o Líder que só vê a própria rede recebe a
+  // mesma fatia que o candidato vê para ele.
+  const cadastradosNaUrna = new Map();
+  for (const k of urnaDe.values()) cadastradosNaUrna.set(k, (cadastradosNaUrna.get(k) || 0) + 1);
 
   // Filtros de território valem para as URNAS: "em Dourados", a entrega de
   // cada liderança conta só as seções de Dourados.
@@ -166,12 +181,31 @@ async function relatorio(candidatoId, { filtros = {}, raiz = null, detalhe = nul
   for (const a of rede) {
     if (!NIVEIS_COM_META.includes(a.nivel)) continue;
     const equipe = subarvore(a.id);
-    const urnasEquipe = new Set();
-    for (const id of equipe) { const k = urnaDe.get(id); if (k && urnaNoFiltro(k)) urnasEquipe.add(k); }
+    // Quantos da equipe (ela mesma incluída: também vota) em cada urna.
+    const naUrna = new Map();
+    for (const id of equipe) { const k = urnaDe.get(id); if (k && urnaNoFiltro(k)) naUrna.set(k, (naUrna.get(k) || 0) + 1); }
+    const urnasEquipe = new Set(naUrna.keys());
+    let atribuidos = 0;
+    for (const [k, n] of naUrna) atribuidos += votosDaEquipe(urnas.get(k).votos, cadastradosNaUrna.get(k), n);
     // Mesma base da "rede cadastrada": só quem está abaixo, sem a própria pessoa.
     const comSecaoEquipe = [...equipe].filter((id) => id !== a.id && urnaDe.has(id)).length;
-    linhas.push({ a, equipe, urnasEquipe, comSecaoEquipe });
+    linhas.push({ a, equipe, urnasEquipe, naUrna, atribuidos, comSecaoEquipe });
   }
+
+  // Trava: a soma do atribuído aos Líderes (e a dos Coordenadores, e a dos
+  // Mobilizadores) não pode passar do que a rede pode ter dado, nem do total
+  // importado do TSE no escopo. Pela regra da divisão isso não acontece; se um
+  // dia acontecer (pirâmide com ciclo, alguém em duas equipes do mesmo nível),
+  // a tela avisa em vez de mostrar número impossível calado.
+  const urnasEscopo = [...urnas.keys()].filter(urnaNoFiltro);
+  const totalImportado = urnasEscopo.reduce((t, k) => t + urnas.get(k).votos, 0);
+  const atribuidosRede = urnasEscopo.reduce((t, k) => t + votosDaRede(urnas.get(k).votos, cadastradosNaUrna.get(k)), 0);
+  const somaPorNivel = { 1: 0, 2: 0, 3: 0 };
+  for (const l of linhas) somaPorNivel[l.a.nivel] += l.atribuidos;
+  const PAPEL_PLURAL = { 1: 'Líderes', 2: 'Coordenadores', 3: 'Mobilizadores' };
+  const alertas = NIVEIS_COM_META
+    .filter((n) => somaPorNivel[n] > Math.min(atribuidosRede, totalImportado) + 0.5)
+    .map((n) => `A soma dos ${PAPEL_PLURAL[n]} (${inteiro(somaPorNivel[n])}) passou do total de votos do candidato nestas seções (${Math.min(atribuidosRede, totalImportado)}). Confira se alguém está em duas equipes ao mesmo tempo.`);
 
   // Seções compartilhadas: a mesma urna na área de duas pessoas do MESMO nível
   // (um líder sempre "compartilha" com os próprios coordenadores — isso não
@@ -205,23 +239,25 @@ async function relatorio(candidatoId, { filtros = {}, raiz = null, detalhe = nul
     const lista = [...l.urnasEquipe].map((k) => urnas.get(k));
     const t = somar(lista);
     const redeCadastrada = l.equipe.size - 1;
-    const meta = a.meta_votos != null ? a.meta_votos : redeCadastrada;
-    const entrega = meta ? pct(t.votos, meta) : null;
+    const meta = a.meta_votos != null ? a.meta_votos : null;
+    const votos = inteiro(l.atribuidos);
+    const entrega = meta ? pct(votos, meta) : null;
     const compartilhadas = [...l.urnasEquipe].filter((k) => (atuantes.get(`${a.nivel}|${k}`) || []).length > 1);
     resultado.push({
       id: a.id, nome: a.nome, nivel: a.nivel, vinculo: !!a.vinculo,
       superior: (() => { const p = porId.get(a.parent_id || a.cadastrado_por); return p ? p.nome : null; })(),
       zona: tse.pad4(a.zona) || null, secao: tse.pad4(a.secao) || null,
       redeCadastrada, comSecao: l.comSecaoEquipe,
-      meta, metaDeclarada: a.meta_votos != null,
+      meta, metaDeclarada: meta != null,
       secoesCobertas: l.urnasEquipe.size,
-      votos: t.votos, entrega,
+      // votos = atribuído à equipe; votosSecoes = total do candidato nas urnas.
+      votos, votosSecoes: t.votos, entrega,
       pctSecao: pct(t.votos, t.vv),
       brancos: t.brancos, nulos: t.nulos,
       pctBrancosNulos: pct(t.brancos + t.nulos, t.comparecimento * votosPorEleitor),
       aptos: t.aptos, comparecimento: t.comparecimento,
       compartilhadas: compartilhadas.length,
-      sinal: l.urnasEquipe.size ? faixaDoSinal(entrega, d) : 'cinza',
+      sinal: l.urnasEquipe.size && meta ? faixaDoSinal(entrega, d) : 'cinza',
       secoes: [...l.urnasEquipe].sort(),
       secoesCompartilhadas: compartilhadas.sort(),
     });
@@ -241,12 +277,21 @@ async function relatorio(candidatoId, { filtros = {}, raiz = null, detalhe = nul
       r.porSecao = [...porUrna.entries()].map(([k, nomesEquipe]) => {
         const u = urnas.get(k);
         return { ...u, cadastrados: nomesEquipe.length, pessoas: nomesEquipe.slice(0, 30),
+          cadastradosRede: cadastradosNaUrna.get(k) || 0,
+          atribuidos: inteiro(votosDaEquipe(u.votos, cadastradosNaUrna.get(k), l.naUrna.get(k) || 0)),
           pctSecao: pct(u.votos, u.vv), pctBrancosNulos: pct(u.brancos + u.nulos, u.comparecimento * votosPorEleitor),
           compartilhada: (atuantes.get(`${a.nivel}|${k}`) || []).length > 1 };
       }).sort((x, y) => y.cadastrados - x.cadastrados || y.votos - x.votos);
     }
   }
   resultado.sort((x, y) => (y.entrega ?? -1) - (x.entrega ?? -1) || y.votos - x.votos);
+  // Filtrando por uma liderança, a linha dela é o TOTAL da rede dela e vai
+  // para o topo (pedido da dona, 06/10/2026: "aqui não aparece o total por
+  // líder"); antes ela se perdia no meio da equipe, ordenada por entrega.
+  if (filtroLider) {
+    const i = resultado.findIndex((r) => r.id === filtros.lideranca);
+    if (i > 0) resultado.unshift(...resultado.splice(i, 1));
+  }
 
   // Visão por zona e por seção: todas as seções do escopo (ou só as da rede
   // de quem está vendo), com aptos, comparecimento, votos, brancos e nulos,
@@ -262,6 +307,8 @@ async function relatorio(candidatoId, { filtros = {}, raiz = null, detalhe = nul
     const ids = liderancasNaUrna.get(k) || [];
     return {
       ...u, pctSecao: pct(u.votos, u.vv), pctBrancosNulos: pct(u.brancos + u.nulos, u.comparecimento * votosPorEleitor),
+      cadastradosRede: cadastradosNaUrna.get(k) || 0,
+      daRede: votosDaRede(u.votos, cadastradosNaUrna.get(k)),
       liderancas: ids.filter((id) => !visiveis || visiveis.has(id)).map((id) => nomes.get(id)),
       compartilhada: [1, 2, 3].some((n) => (atuantes.get(`${n}|${k}`) || []).length > 1),
     };
@@ -336,6 +383,14 @@ async function relatorio(candidatoId, { filtros = {}, raiz = null, detalhe = nul
     totalOficial: oficial ? oficial.votos : null,
     rede: { total: visiveis ? visiveis.size - 1 : rede.length, comSecao: visiveis ? [...visiveis].filter((id) => urnaDe.has(id)).length : comSecao },
     totais: { ...totais, pctBrancosNulos: pct(totais.brancos + totais.nulos, totais.comparecimento * votosPorEleitor), secoes: secoes.length },
+    // Escopo = as seções dos filtros de território (município, zona, bairro),
+    // da rede inteira do candidato. foraDaRede = votos que nenhuma equipe pode
+    // reivindicar: urna sem ninguém da rede, ou mais votos que cadastrados.
+    atribuicao: {
+      totalImportado, atribuidosRede, foraDaRede: totalImportado - atribuidosRede,
+      somaPorNivel: Object.fromEntries(NIVEIS_COM_META.map((n) => [n, inteiro(somaPorNivel[n])])),
+      alertas,
+    },
     liderancas: resultado,
     zonas, secoes, locais: locaisOut,
     filtrosDisponiveis: { municipios: municipiosDisp, zonas: zonasDisp, bairros: bairrosDisp, nichos,

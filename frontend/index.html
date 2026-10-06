@@ -882,9 +882,25 @@ async function api(path, opts = {}) {
   const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
   // credentials:'include' manda o cookie httpOnly da sessão junto — o token
   // não fica acessível pelo JS (protege contra roubo via XSS).
-  const resp = await fetch(API_BASE + path, { ...opts, headers, credentials: 'include' });
+  // "Load failed" (Safari/iPhone) e "Failed to fetch" (Chrome) são a conexão
+  // caindo no meio do caminho — em inglês, e sem dizer que a tela ficou pela
+  // metade. Vira um aviso que diz isso (pedido da dona, 06/10/2026).
+  let resp;
+  try { resp = await fetch(API_BASE + path, { ...opts, headers, credentials: 'include' }); }
+  catch {
+    const erro = new Error('A conexão caiu antes de os dados chegarem: a leitura ficou incompleta. Tente de novo.');
+    erro.incompleta = true;
+    throw erro;
+  }
   let data = null;
   try { data = await resp.json(); } catch {}
+  // Resposta cortada no meio (proxy encerrando relatório pesado) chega com
+  // status 200 e JSON quebrado: tratar como dado que veio vazio esconderia isso.
+  if (resp.ok && data === null && (resp.headers.get('content-type') || '').includes('json')) {
+    const erro = new Error('Os dados chegaram pela metade: a leitura ficou incompleta. Tente de novo.');
+    erro.incompleta = true;
+    throw erro;
+  }
   if (!resp.ok) {
     if (resp.status === 401 && currentUser) doLogout();
     const erro = new Error((data && data.error) || 'Erro na requisição.');
@@ -1768,10 +1784,16 @@ async function carregarEntregaAoVivo(){
   try {
     const r = await api('/entrega/ao-vivo'+wsQuery());
     ENTREGA_AV = { ativo: !!r.ativo, porId: new Map((r.pessoas||[]).map(p=>[String(p.id), p])), faixas: r.faixas || { verde:80, amarela:50 }, aviso: r.aviso || '' };
-  } catch(e){ ENTREGA_AV = { ativo:false, porId:new Map(), faixas:{ verde:80, amarela:50 } }; }
+  } catch(e){
+    // Antes o erro sumia e a pirâmide aparecia sem os números, como se não
+    // houvesse apuração. Agora avisa que a leitura está incompleta.
+    ENTREGA_AV = { ativo:false, erro:e.message, porId:new Map(), faixas:{ verde:80, amarela:50 } };
+    showToast('Os votos da apuração não carregaram: ' + e.message, 'error');
+  }
 }
-// Sem meta declarada vale o tamanho da equipe (regra do briefing "Votos por seção").
-function metaEfetiva(e){ return e.meta != null ? e.meta : e.equipe; }
+// Sem meta declarada não há % de entrega (06/10/2026). Usar o tamanho da equipe
+// como meta fazia "bater a meta" quem nunca prometeu nada.
+function metaEfetiva(e){ return e.meta; }
 function statusEntrega(e){
   if(!e.urnasTotal) return { cls:'ap-st-cinza', txt:'sem seção na equipe', pct:null };
   if(!e.urnasApuradas) return { cls:'ap-st-cinza', txt:'aguardando urnas', pct:null };
@@ -1790,7 +1812,7 @@ function entregaNo(a){
   const st = statusEntrega(e);
   return zs + `<div class="pn-entrega" onclick="event.stopPropagation();abrirFichaEntrega('${a.id}')" title="Ver seção por seção">
     <span>👥 <b>${apNum(e.equipe)}</b> cadastros</span>
-    <span>🗳️ <b>${e.urnasApuradas ? apNum(e.votos) : '—'}</b> votos em ${e.urnasTotal} seç${e.urnasTotal===1?'ão':'ões'}</span>
+    <span title="Votos atribuídos à equipe: em cada seção, só o que cabe nos cadastrados dela">🗳️ <b>${e.urnasApuradas ? apNum(e.votos) : '—'}</b> votos da equipe em ${e.urnasTotal} seç${e.urnasTotal===1?'ão':'ões'}</span>
     <span class="ap-st ${st.cls}">${st.pct==null ? st.txt : st.pct+'% da meta'}</span></div>`;
 }
 function fichaEntregaHtml(e){
@@ -1801,25 +1823,27 @@ function fichaEntregaHtml(e){
   return `
     <div class="fe-resumo">
       <b>${escapeHtml(e.nome)}</b> — ${nivelBadge(e.nivel)} ${e.zona ? `· zona <b>${apZona(e.zona)}</b>` : ''}${e.secao ? ` · seção <b>${escapeHtml(e.secao)}</b>` : ''}<br>
-      ${e.meta != null ? `Prometeu <b>${apNum(e.meta)}</b> votos.` : `Não declarou meta — usando o tamanho da equipe (<b>${apNum(e.equipe)}</b>) como meta.`}
+      ${e.meta != null ? `Prometeu <b>${apNum(e.meta)}</b> votos.` : 'Não declarou meta (sem meta, não há % de entrega).'}
       A equipe tem <b>${apNum(e.equipe)}</b> pessoa${e.equipe===1?'':'s'} cadastrada${e.equipe===1?'':'s'} abaixo dele(a), votando em <b>${e.urnasTotal}</b> seç${e.urnasTotal===1?'ão':'ões'}.
-      ${e.urnasApuradas ? `Nessas seções o candidato teve <b>${apNum(e.votos)}</b> votos${e.urnasApuradas<e.urnasTotal?` (${e.urnasApuradas} de ${e.urnasTotal} seções apuradas)`:''} — <span class="ap-st ${st.cls}">${st.pct==null?st.txt:st.pct+'% da meta · '+st.txt}</span>` : 'As seções da equipe ainda não foram apuradas.'}
-      ${propria && propria.apurada ? `<br>Na seção dele(a) (${escapeHtml(propria.secao)}): <b>${apNum(propria.votos)}</b> voto${propria.votos===1?'':'s'} para <b>${propria.cadastrados}</b> cadastrado${propria.cadastrados===1?'':'s'}.` : ''}
+      ${e.urnasApuradas ? `Nessas seções o candidato teve <b>${apNum(e.votosSecoes ?? e.votos)}</b> votos no total${e.urnasApuradas<e.urnasTotal?` (${e.urnasApuradas} de ${e.urnasTotal} seções apuradas)`:''}; desses, <b>${apNum(e.votos)}</b> cabem à equipe dele(a) — <span class="ap-st ${st.cls}">${st.pct==null?st.txt:st.pct+'% da meta · '+st.txt}</span>` : 'As seções da equipe ainda não foram apuradas.'}
+      ${propria && propria.apurada ? `<br>Na seção dele(a) (${escapeHtml(propria.secao)}): <b>${apNum(propria.votos)}</b> voto${propria.votos===1?'':'s'} para <b>${propria.cadastrados}</b> cadastrado${propria.cadastrados===1?'':'s'} da equipe${propria.atribuidos!=null?` — cabem à equipe <b>${apNum(propria.atribuidos)}</b>`:''}.` : ''}
       ${semVoto ? `<br>⚠️ <b>${semVoto}</b> seç${semVoto===1?'ão':'ões'} da equipe com zero voto.` : ''}
     </div>
     ${det.length ? `<div class="table-wrap" style="overflow-x:auto"><table class="fe-tabela">
-      <thead><tr><th>Zona</th><th>Seção</th><th>Cadastrados ali</th><th>Votos</th><th>Votos ÷ cadastros</th></tr></thead>
+      <thead><tr><th>Zona</th><th>Seção</th><th>Cadastrados ali</th><th>Votos na seção</th><th title="O que cabe à equipe: a seção divide, pelos cadastrados de cada equipe, só o que cabe na rede">Da equipe</th><th title="Da equipe ÷ cadastrados da equipe ali: nunca passa de 100%">Da equipe ÷ cadastros</th></tr></thead>
       <tbody>${det.map(s=>`<tr>
         <td>${apZona(s.zona)}</td><td><b>${escapeHtml(s.secao)}</b></td>
-        <td><b>${s.cadastrados}</b><div class="fe-nomes">${(s.pessoas||[]).map(escapeHtml).join(', ')}</div></td>
+        <td><b>${s.cadastrados}</b>${s.cadastradosRede>s.cadastrados?`<span class="ap-meta"> de ${s.cadastradosRede} da rede</span>`:''}<div class="fe-nomes">${(s.pessoas||[]).map(escapeHtml).join(', ')}</div></td>
         <td>${s.apurada ? `<b>${apNum(s.votos)}</b>` : '<span class="ap-meta">aguardando</span>'}</td>
-        <td>${s.apurada && s.cadastrados ? Math.round(s.votos/s.cadastrados*100)+'%' : '—'}</td></tr>`).join('')}</tbody>
+        <td>${s.apurada ? `<b>${apNum(s.atribuidos ?? 0)}</b>` : '—'}</td>
+        <td>${s.apurada && s.cadastrados ? Math.round((s.atribuidos ?? 0)/s.cadastrados*100)+'%' : '—'}</td></tr>`).join('')}</tbody>
     </table></div>` : '<p class="ap-meta">Ninguém da equipe tem seção eleitoral informada — sem seção não dá para cruzar com o voto.</p>'}
     <p class="fe-aviso">${escapeHtml((ENTREGA_AV && ENTREGA_AV.aviso) || 'Indica a entrega da área de influência, não o voto individual.')} O TSE divulga o total de cada urna: a seção mostra quantos votos o candidato teve ali, nunca em quem uma pessoa votou.</p>`;
 }
 async function abrirFichaEntrega(id){
   if(!ENTREGA_AV) await carregarEntregaAoVivo();
   const e = ENTREGA_AV.porId.get(String(id));
+  if(!e && ENTREGA_AV.erro){ showToast('Leitura incompleta: ' + ENTREGA_AV.erro, 'error'); return; }
   if(!e){ showToast(ENTREGA_AV.ativo ? 'Essa pessoa não tem meta (só Líder, Coordenador e Mobilizador).' : 'Configure a Apuração ao Vivo para ver a entrega de cada pessoa.', 'info'); return; }
   document.getElementById('modal-detail-title').textContent = 'Prometido × entregue — ' + e.nome;
   document.getElementById('modal-detail-body').innerHTML = fichaEntregaHtml(e);
@@ -6549,7 +6573,7 @@ function apHtmlMetas(d){
     <div class="card-title" style="font-size:14px;margin-bottom:8px">Ranking por responsável</div>
     <p class="ap-meta" style="margin:-4px 0 10px">Clique no nome para ver, seção por seção, quantos da equipe votam ali e quantos votos vieram.</p>
     <div class="table-wrap" style="overflow-x:auto"><table>
-      <thead><tr><th>#</th><th>Nome</th><th>Papel</th><th>Zona / seção</th><th>Meta</th><th>Votos nas urnas da equipe</th><th>Situação</th></tr></thead>
+      <thead><tr><th>#</th><th>Nome</th><th>Papel</th><th>Zona / seção</th><th>Meta</th><th title="Em cada urna, só o que cabe nos cadastrados da equipe">Votos da equipe</th><th>Situação</th></tr></thead>
       <tbody>${ranking.map((r,i)=>{
         const propria = r.secao ? (r.secoesDetalhe||[]).find(s=>s.secao===r.secao && s.zona===r.zona) : null;
         const aberto = AP.abertoResp === r.id;
@@ -6558,14 +6582,14 @@ function apHtmlMetas(d){
         <td>${nivelBadge(r.nivel)}</td>
         <td>${r.zona?apZona(r.zona):'—'}${r.secao?` / <b>${escapeHtml(r.secao)}</b>`:''}${propria&&propria.apurada?`<div class="ap-meta">${apNum(propria.votos)} voto${propria.votos===1?'':'s'} na seção dele(a)</div>`:''}</td>
         <td>${apNum(r.meta)}</td>
-        <td>${r.urnasTotal ? `${apNum(r.votos)} <span class="ap-meta">(${r.urnasApuradas} de ${r.urnasTotal} urnas)</span>` : '<span class="ap-meta">ninguém da equipe com seção</span>'}</td>
+        <td>${r.urnasTotal ? `<b>${apNum(r.votos)}</b> <span class="ap-meta">de ${apNum(r.votosSecoes ?? r.votos)} nas urnas (${r.urnasApuradas} de ${r.urnasTotal} urnas)</span>` : '<span class="ap-meta">ninguém da equipe com seção</span>'}</td>
         <td>${pill(r.st)}</td></tr>
         ${aberto ? `<tr><td colspan="7" style="background:#f6f8fc"><table class="fe-tabela" style="width:100%">
-          <thead><tr><th>Zona</th><th>Seção</th><th>Da equipe, votam ali</th><th>Votos</th></tr></thead>
+          <thead><tr><th>Zona</th><th>Seção</th><th>Da equipe, votam ali</th><th>Votos na seção</th><th>Da equipe</th></tr></thead>
           <tbody>${[...(r.secoesDetalhe||[])].sort((x,y)=>y.cadastrados-x.cadastrados||(y.votos||0)-(x.votos||0)).map(s=>`<tr>
             <td>${apZona(s.zona)}</td><td><b>${escapeHtml(s.secao)}</b></td>
             <td><b>${s.cadastrados}</b><div class="fe-nomes">${(s.pessoas||[]).map(escapeHtml).join(', ')}</div></td>
-            <td>${s.apurada?`<b>${apNum(s.votos)}</b>`:'<span class="ap-meta">aguardando</span>'}</td></tr>`).join('') || '<tr><td colspan="4" class="ap-meta">Ninguém da equipe com seção informada.</td></tr>'}</tbody>
+            <td>${s.apurada?`<b>${apNum(s.votos)}</b>`:'<span class="ap-meta">aguardando</span>'}</td><td>${s.apurada?`<b>${apNum(s.atribuidos ?? 0)}</b>`:'—'}</td></tr>`).join('') || '<tr><td colspan="5" class="ap-meta">Ninguém da equipe com seção informada.</td></tr>'}</tbody>
         </table></td></tr>` : ''}`; }).join('') || `<tr><td colspan="7" class="ap-meta">Ninguém declarou meta ainda. A meta é preenchida no cadastro ou na edição de cada Líder, Coordenador e Mobilizador.</td></tr>`}</tbody>
     </table></div>
   </div>`;
@@ -6843,7 +6867,7 @@ async function cdTique(){
 // nulos, ordenada pela maior taxa. O voto é secreto: a tela mostra o aviso
 // obrigatório e nunca fala em "voto de fulano".
 const EN = { dados:null, filtros:{}, aba:'liderancas', aberto:null, limite:150, carregando:false };
-const EN_SINAL = { verde:['ap-st-verde','entregou'], amarelo:['ap-st-amarelo','ficou perto'], vermelho:['ap-st-vermelho','abaixo'], cinza:['ap-st-cinza','sem seção'] };
+const EN_SINAL = { verde:['ap-st-verde','entregou'], amarelo:['ap-st-amarelo','ficou perto'], vermelho:['ap-st-vermelho','abaixo'], cinza:['ap-st-cinza','sem seção'], semMeta:['ap-st-cinza','sem meta'] };
 
 function renderEntrega(){
   return `
@@ -6860,8 +6884,11 @@ function enQuery(){
 }
 async function enCarregar(){
   EN.carregando = true; enDesenhar();
-  try { EN.dados = await api('/entrega'+enQuery()); }
-  catch(e){ EN.dados = { erro: e.message }; }
+  // Se a atualização falhar com dados já na tela, eles ficam — com o aviso de
+  // que não são a leitura pedida (trocar o filtro e ver os números antigos
+  // calados seria pior que ver o erro).
+  try { EN.dados = await api('/entrega'+enQuery()); EN.falha = null; }
+  catch(e){ if(EN.dados && !EN.dados.erro) EN.falha = e.message; else EN.dados = { erro: e.message }; }
   EN.carregando = false;
   // Campanha estadual/federal: o município é obrigatório (briefing) — entra o primeiro.
   const d = EN.dados;
@@ -6926,34 +6953,52 @@ function enDesenhar(){
     <button class="btn-sm btn-outline" onclick="enExportar('pdf')">📕 PDF</button>
   </div>
   ${EN.carregando ? '<p class="ap-meta">Atualizando...</p>' : ''}
+  ${EN.falha ? `<div class="ap-aviso ap-aviso-erro">⚠️ Leitura incompleta: ${escapeHtml(EN.falha)} Os números abaixo são da leitura anterior e podem não bater com os filtros. <button class="btn-sm btn-outline" onclick="enCarregar()">Tentar de novo</button></div>` : ''}
+  ${enHtmlAtribuicao(d)}
   <div class="card">${EN.aba==='liderancas' ? enHtmlLiderancas(d) : EN.aba==='zonas' ? enHtmlZonas(d) : enHtmlSecoes(d.secoes, true)}</div>`;
 }
 
 function enHtmlSecoesDe(d, chaves, compartilhadas){
   const set = new Set(chaves); const comp = new Set(compartilhadas||[]);
   const lista = d.secoes.filter(s=>set.has(s.chave)).sort((a,b)=>b.votos-a.votos);
-  return `<table class="fe-tabela" style="width:100%"><thead><tr><th>Zona</th><th>Seção</th><th>Local</th><th>Votos</th><th>% da seção</th><th>Brancos</th><th>Nulos</th><th>Lideranças ali</th></tr></thead>
+  return `<table class="fe-tabela" style="width:100%"><thead><tr><th>Zona</th><th>Seção</th><th>Local</th><th>Votos na seção</th><th title="Menor entre os votos e os cadastrados da rede ali">Cabem à rede</th><th>% da seção</th><th>Brancos</th><th>Nulos</th><th>Lideranças ali</th></tr></thead>
     <tbody>${lista.map(s=>`<tr><td>${apZona(s.zona)}</td><td><b>${s.secao}</b>${comp.has(s.chave)?' <span class="badge badge-gold" title="Mais de uma liderança atua nesta seção">compartilhada</span>':''}</td>
       <td class="ap-meta">${escapeHtml(s.local||'—')}${s.bairro && s.bairro!=='Bairro não informado'?' · '+escapeHtml(s.bairro):''}</td>
-      <td><b>${vsNum(s.votos)}</b></td><td>${enPct(s.pctSecao)}</td><td>${vsNum(s.brancos)}</td><td>${vsNum(s.nulos)}</td>
-      <td class="fe-nomes">${(s.liderancas||[]).map(escapeHtml).join(', ')}</td></tr>`).join('') || '<tr><td colspan="8" class="ap-meta">Nenhuma seção.</td></tr>'}</tbody></table>`;
+      <td><b>${vsNum(s.votos)}</b></td><td>${vsNum(s.daRede)} <span class="ap-meta">(${vsNum(s.cadastradosRede)} cad.)</span></td><td>${enPct(s.pctSecao)}</td><td>${vsNum(s.brancos)}</td><td>${vsNum(s.nulos)}</td>
+      <td class="fe-nomes">${(s.liderancas||[]).map(escapeHtml).join(', ')}</td></tr>`).join('') || '<tr><td colspan="9" class="ap-meta">Nenhuma seção.</td></tr>'}</tbody></table>`;
+}
+
+// Votos do candidato no escopo × o que cabe à rede, e a trava: se a soma dos
+// Líderes passar do total, avisa (06/10/2026). Quem só vê a própria rede não
+// recebe o quadro: "fora da rede" ali seria a rede dos outros.
+function enHtmlAtribuicao(d){
+  const a = d.atribuicao; if(!a || d.restrito) return '';
+  return `${(a.alertas||[]).map(t=>`<div class="ap-aviso ap-aviso-erro">⚠️ ${escapeHtml(t)}</div>`).join('')}
+  <div class="card" style="padding:14px 18px"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;font-size:13px">
+    <div><div class="ap-meta">Votos do candidato nestas seções</div><b style="font-size:20px">${vsNum(a.totalImportado)}</b></div>
+    <div><div class="ap-meta">Cabem à rede</div><b style="font-size:20px;color:var(--green)">${vsNum(a.atribuidosRede)}</b></div>
+    <div><div class="ap-meta">Fora da rede</div><b style="font-size:20px">${vsNum(a.foraDaRede)}</b><div class="ap-meta">seção sem ninguém da rede, ou mais votos que cadastrados</div></div>
+    <div><div class="ap-meta">Somando os Líderes</div><b style="font-size:20px">${vsNum(a.somaPorNivel[1])}</b><div class="ap-meta">nunca passa do que cabe à rede</div></div>
+  </div></div>`;
 }
 
 function enHtmlLiderancas(d){
   const ls = d.liderancas;
   if(!ls.length) return `<p class="ap-meta">Nenhum Líder, Coordenador ou Mobilizador${Object.values(EN.filtros).some(Boolean)?' com esses filtros':''}.</p>`;
-  return `<p class="ap-meta" style="margin-bottom:10px">Clique numa linha para abrir as seções dela. Meta em cinza = não declarada (vale o tamanho da rede).</p>
+  // Filtrando por uma liderança, a primeira linha é ela: o total da rede dela.
+  const totalId = EN.filtros.lideranca && ls[0] && ls[0].id===EN.filtros.lideranca ? ls[0].id : null;
+  return `<p class="ap-meta" style="margin-bottom:10px">Clique numa linha para abrir as seções dela. <b>Votos da equipe</b> = em cada seção, a parte dos votos que cabe nos cadastrados da equipe ali (dividida entre as equipes que votam na mesma seção); <b>votos nas seções</b> = o total do candidato nessas urnas, só como referência. Sem meta declarada, não há % de entrega.</p>
   <div class="table-wrap" style="overflow-x:auto"><table>
-    <thead><tr><th>Nome</th><th>Rede cadastrada</th><th>Meta</th><th>Seções cobertas</th><th>Votos nas seções</th><th>% de entrega</th><th>% da seção</th><th>Brancos</th><th>Nulos</th><th>% br.+nulos</th><th title="Seções onde também vota gente de outra pessoa do mesmo nível: os votos dali contam inteiros para as duas, sem dividir">Seções compartilhadas</th></tr></thead>
-    <tbody>${ls.map(l=>`<tr class="ap-linha-zona" onclick="enAbrir('${l.id}')">
-      <td><b>${escapeHtml(l.nome)}</b> ${nivelBadge(l.nivel)}${l.vinculo?' <span class="badge" title="Cadastrada em outro candidato da rede">vínculo</span>':''}<div class="ap-meta">${l.zona?'zona '+apZona(l.zona)+(l.secao?' · seção '+l.secao:''):'sem zona'}${l.superior?' · de '+escapeHtml(l.superior):''}</div></td>
+    <thead><tr><th>Nome</th><th>Rede cadastrada</th><th>Meta</th><th>Seções cobertas</th><th>Votos da equipe</th><th>Votos nas seções</th><th>% de entrega</th><th>% da seção</th><th>Brancos</th><th>Nulos</th><th>% br.+nulos</th><th title="Seções onde também vota gente de outra pessoa do mesmo nível: os votos dali contam inteiros para as duas, sem dividir">Seções compartilhadas</th></tr></thead>
+    <tbody>${ls.map(l=>`<tr class="ap-linha-zona" onclick="enAbrir('${l.id}')"${l.id===totalId?' style="background:#eef3fb;border-bottom:2px solid var(--navy)"':''}>
+      <td>${l.id===totalId?'<div class="ap-meta" style="font-weight:700;color:var(--navy)">TOTAL DA REDE</div>':''}<b>${escapeHtml(l.nome)}</b> ${nivelBadge(l.nivel)}${l.vinculo?' <span class="badge" title="Cadastrada em outro candidato da rede">vínculo</span>':''}<div class="ap-meta">${l.zona?'zona '+apZona(l.zona)+(l.secao?' · seção '+l.secao:''):'sem zona'}${l.superior?' · de '+escapeHtml(l.superior):''}</div></td>
       <td>${vsNum(l.redeCadastrada)} <span class="ap-meta">(${vsNum(l.comSecao)} c/ seção)</span></td>
-      <td ${l.metaDeclarada?'':'style="color:var(--slate-light)"'}>${vsNum(l.meta)}</td>
-      <td>${vsNum(l.secoesCobertas)}</td><td><b>${vsNum(l.votos)}</b></td>
-      <td>${enSinal(l.sinal, l.entrega)}</td><td>${enPct(l.pctSecao)}</td>
+      <td>${l.metaDeclarada ? vsNum(l.meta) : '<span class="ap-meta">sem meta</span>'}</td>
+      <td>${vsNum(l.secoesCobertas)}</td><td><b>${vsNum(l.votos)}</b></td><td class="ap-meta">${vsNum(l.votosSecoes ?? l.votos)}</td>
+      <td>${l.metaDeclarada || !l.secoesCobertas ? enSinal(l.sinal, l.entrega) : enSinal('semMeta', null)}</td><td>${enPct(l.pctSecao)}</td>
       <td>${vsNum(l.brancos)}</td><td>${vsNum(l.nulos)}</td><td>${enPct(l.pctBrancosNulos)}</td>
       <td>${l.compartilhadas ? `<span class="badge badge-gold">${l.compartilhadas}</span>` : '—'}</td></tr>
-      ${EN.aberto===l.id ? `<tr><td colspan="11" style="background:#f6f8fc">${enHtmlSecoesDe(d, l.secoes, l.secoesCompartilhadas)}</td></tr>` : ''}`).join('')}</tbody>
+      ${EN.aberto===l.id ? `<tr><td colspan="12" style="background:#f6f8fc">${enHtmlSecoesDe(d, l.secoes, l.secoesCompartilhadas)}</td></tr>` : ''}`).join('')}</tbody>
   </table></div>`;
 }
 
@@ -6972,10 +7017,10 @@ function enHtmlSecoes(secoes, paginar){
   const lista = paginar ? secoes.slice(0, EN.limite) : secoes;
   return `${paginar?'<p class="ap-meta" style="margin-bottom:10px">Ordenado pela maior taxa de brancos + nulos.</p>':''}
   <div class="table-wrap" style="overflow-x:auto"><table class="fe-tabela" style="width:100%">
-    <thead><tr><th>Zona</th><th>Seção</th><th>Local</th><th>Aptos</th><th>Comparec.</th><th>Votos</th><th>Brancos</th><th>Nulos</th><th>% br.+nulos</th><th>Lideranças</th></tr></thead>
+    <thead><tr><th>Zona</th><th>Seção</th><th>Local</th><th>Aptos</th><th>Comparec.</th><th>Votos</th><th title="Cadastrados da rede que votam na seção">Rede ali</th><th title="Menor entre os votos e os cadastrados da rede ali">Cabem à rede</th><th>Brancos</th><th>Nulos</th><th>% br.+nulos</th><th>Lideranças</th></tr></thead>
     <tbody>${lista.map(s=>`<tr><td>${apZona(s.zona)}</td><td><b>${s.secao}</b>${s.compartilhada?' <span class="badge badge-gold">compartilhada</span>':''}</td>
       <td class="ap-meta">${escapeHtml(s.local||'—')}${s.bairro && s.bairro!=='Bairro não informado'?' · '+escapeHtml(s.bairro):''}</td>
-      <td>${vsNum(s.aptos)}</td><td>${vsNum(s.comparecimento)}</td><td><b>${vsNum(s.votos)}</b></td><td>${vsNum(s.brancos)}</td><td>${vsNum(s.nulos)}</td>
+      <td>${vsNum(s.aptos)}</td><td>${vsNum(s.comparecimento)}</td><td><b>${vsNum(s.votos)}</b></td><td>${vsNum(s.cadastradosRede||0)}</td><td>${vsNum(s.daRede||0)}</td><td>${vsNum(s.brancos)}</td><td>${vsNum(s.nulos)}</td>
       <td><b>${enPct(s.pctBrancosNulos)}</b></td><td class="fe-nomes">${(s.liderancas||[]).map(escapeHtml).join(', ')}</td></tr>`).join('')}</tbody>
   </table></div>
   ${paginar && secoes.length > lista.length ? `<button class="btn-sm btn-outline" style="margin-top:10px" onclick="EN.limite+=300;enDesenhar()">Mostrar mais (${vsNum(secoes.length-lista.length)})</button>` : ''}`;
@@ -6987,15 +7032,15 @@ function enExportar(formato){
   let colunas, linhas, titulo;
   if(EN.aba==='liderancas'){
     titulo = 'Prometido × Entregue — por liderança';
-    colunas = ['Nome','Papel','Zona','Seção','Rede cadastrada','Meta','Seções cobertas','Votos nas seções','% de entrega','% da seção','Brancos','Nulos','% brancos+nulos','Seções compartilhadas','Sinal'];
-    linhas = d.liderancas.map(l=>[l.nome, PAPEIS[l.nivel], l.zona||'', l.secao||'', l.redeCadastrada, l.meta, l.secoesCobertas, l.votos, l.entrega??'', l.pctSecao??'', l.brancos, l.nulos, l.pctBrancosNulos??'', l.compartilhadas, l.sinal]);
+    colunas = ['Nome','Papel','Zona','Seção','Rede cadastrada','Meta','Seções cobertas','Votos da equipe','% de entrega','% da seção','Brancos','Nulos','% brancos+nulos','Seções compartilhadas','Sinal','Votos nas seções (total)'];
+    linhas = d.liderancas.map(l=>[l.nome, PAPEIS[l.nivel], l.zona||'', l.secao||'', l.redeCadastrada, l.metaDeclarada?l.meta:'sem meta', l.secoesCobertas, l.votos, l.entrega??'', l.pctSecao??'', l.brancos, l.nulos, l.pctBrancosNulos??'', l.compartilhadas, l.metaDeclarada?l.sinal:'sem meta', l.votosSecoes??'']);
   } else {
     const zonas = EN.aba==='zonas';
     titulo = zonas ? 'Brancos e nulos — por zona' : 'Brancos e nulos — por seção';
     colunas = zonas ? ['Município','Zona','Seções','Aptos','Comparecimento','Votos do candidato','% da seção','Brancos','Nulos','% brancos+nulos']
-      : ['Município','Zona','Seção','Local','Bairro','Aptos','Comparecimento','Votos do candidato','% da seção','Brancos','Nulos','% brancos+nulos','Lideranças'];
+      : ['Município','Zona','Seção','Local','Bairro','Aptos','Comparecimento','Votos do candidato','% da seção','Brancos','Nulos','% brancos+nulos','Lideranças','Cadastrados da rede','Cabem à rede'];
     linhas = zonas ? d.zonas.map(z=>[z.municipioNome, z.zona, z.secoes, z.aptos, z.comparecimento, z.votos, z.pctSecao??'', z.brancos, z.nulos, z.pctBrancosNulos??''])
-      : d.secoes.map(s=>[s.municipioNome, s.zona, s.secao, s.local||'', s.bairro||'', s.aptos, s.comparecimento, s.votos, s.pctSecao??'', s.brancos, s.nulos, s.pctBrancosNulos??'', (s.liderancas||[]).join('; ')]);
+      : d.secoes.map(s=>[s.municipioNome, s.zona, s.secao, s.local||'', s.bairro||'', s.aptos, s.comparecimento, s.votos, s.pctSecao??'', s.brancos, s.nulos, s.pctBrancosNulos??'', (s.liderancas||[]).join('; '), s.cadastradosRede||0, s.daRede||0]);
   }
   if(formato==='csv'){
     const celula=(v)=>`"${String(v==null?'':v).replace(/"/g,'""')}"`;
@@ -7009,7 +7054,7 @@ function enExportar(formato){
     subtitulo: `${d.dados.cargo} nº ${d.dados.numero} · ${d.dados.ano} · gerado em ${_carimbo()}`,
     rodape: 'RedeApoio · Indica a entrega da área de influência, não o voto individual · uso restrito à campanha (LGPD)',
     blocos: [
-      { tipo:'kpis', itens:[{rotulo:'Votos nas seções',valor:vsNum(d.totais.votos)},{rotulo:'Seções',valor:vsNum(d.totais.secoes)},{rotulo:'Brancos + nulos',valor:enPct(d.totais.pctBrancosNulos)},{rotulo:'Rede com seção',valor:d.rede.total?Math.round(d.rede.comSecao/d.rede.total*100)+'%':'—'}] },
+      { tipo:'kpis', itens:[{rotulo:'Votos nas seções',valor:vsNum(d.totais.votos)},...(d.atribuicao && !d.restrito ? [{rotulo:'Cabem à rede',valor:vsNum(d.atribuicao.atribuidosRede)},{rotulo:'Fora da rede',valor:vsNum(d.atribuicao.foraDaRede)}] : []),{rotulo:'Seções',valor:vsNum(d.totais.secoes)},{rotulo:'Brancos + nulos',valor:enPct(d.totais.pctBrancosNulos)},{rotulo:'Rede com seção',valor:d.rede.total?Math.round(d.rede.comSecao/d.rede.total*100)+'%':'—'}] },
       { tipo:'tabela', colunas: principais.map(i=>({ titulo: colunas[i], largura: i===0 && EN.aba==='liderancas' ? 4 : 1.6 })), linhas: linhas.map(r=>principais.map(i=>r[i]==null?'':String(r[i]))) },
     ],
   });
@@ -7122,7 +7167,9 @@ function rgHtmlAba(){
         ${c.semDados ? '<div class="ap-meta">Dados do candidato não preenchidos.</div>' : c.indisponivel ? '<div class="ap-meta">TSE ainda não publicou.</div>' : `
         <div class="stat-value">${vsNum(c.votos)}</div><div class="stat-sub">votos${c.totalOficial!=null && !RG.municipio?` · oficial ${vsNum(c.totalOficial)}`:''}</div>
         <div style="margin-top:10px;font-size:12.5px;line-height:1.7">
-          Entrega da rede: <b>${pct(c.entrega)}</b> <span class="ap-meta">(${vsNum(c.votosNaRede)} de ${vsNum(c.metaTotal)} prometidos)</span><br>
+          ${(c.alertas||[]).map(t=>`<div class="ap-aviso ap-aviso-erro" style="margin:4px 0">⚠️ ${escapeHtml(t)}</div>`).join('')}
+          Entrega da rede: <b>${pct(c.entrega)}</b> <span class="ap-meta">(${vsNum(c.votosNaRede)} de ${vsNum(c.metaTotal)} prometidos${c.lideresSemMeta?` · ${c.lideresSemMeta} líder${c.lideresSemMeta>1?'es':''} sem meta fora da conta`:''})</span><br>
+          ${c.foraDaRede!=null?`Votos fora da rede: <b>${vsNum(c.foraDaRede)}</b><br>`:''}
           Rede cadastrada: <b>${vsNum(c.redeCadastrada)}</b> <span class="ap-meta">(${vsNum(c.comSecao)} com seção)</span><br>
           Brancos + nulos: <b>${pct(c.pctBrancosNulos)}</b><br>
           <span class="ap-st ap-st-verde">${c.sinal.verde}</span> <span class="ap-st ap-st-amarelo">${c.sinal.amarelo}</span> <span class="ap-st ap-st-vermelho">${c.sinal.vermelho}</span> <span class="ap-meta">líderes por sinal</span></div>`}
@@ -7135,7 +7182,7 @@ function rgHtmlAba(){
     <div class="table-wrap" style="overflow-x:auto"><table>
       <thead><tr><th>Liderança</th>${l.colunas.map(c=>`<th>${escapeHtml(c.nome)}<div class="ap-meta" style="text-transform:none">${escapeHtml(c.cargo||'')}</div></th>`).join('')}</tr></thead>
       <tbody>${l.linhas.map(p=>`<tr><td><b>${escapeHtml(p.nome)}</b></td>${l.colunas.map(c=>{ const x=p.porCandidato[c.id];
-        return `<td>${x ? `<span class="ap-st ${S[x.sinal]||'ap-st-cinza'}">${pct(x.entrega)}</span><div class="ap-meta">${PAPEIS[x.nivel]} · ${vsNum(x.votos)} de ${vsNum(x.meta)}</div>` : '<span class="ap-meta">—</span>'}</td>`; }).join('')}</tr>`).join('') || `<tr><td colspan="${l.colunas.length+1}" class="ap-meta">Ninguém com meta ainda.</td></tr>`}</tbody>
+        return `<td>${x ? `<span class="ap-st ${S[x.sinal]||'ap-st-cinza'}">${pct(x.entrega)}</span><div class="ap-meta">${PAPEIS[x.nivel]} · ${vsNum(x.votos)} ${x.meta!=null?'de '+vsNum(x.meta):'votos · sem meta'}</div>` : '<span class="ap-meta">—</span>'}</td>`; }).join('')}</tr>`).join('') || `<tr><td colspan="${l.colunas.length+1}" class="ap-meta">Ninguém com meta ainda.</td></tr>`}</tbody>
     </table></div>`;
   }
   const cands = (REDE_INFO && REDE_INFO.candidatos) || [];

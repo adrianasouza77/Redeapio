@@ -185,12 +185,18 @@ router.get('/painel', asyncHandler(async (req, res) => {
     if (rel.semDados || rel.indisponivel) { out.push({ ...base, semDados: !!rel.semDados, indisponivel: !!rel.indisponivel }); continue; }
     rel.filtrosDisponiveis.municipios.forEach((m) => municipios.set(m.codigo, m.nome));
     const lideres = rel.liderancas.filter((l) => l.nivel === 1);
-    const metaTotal = lideres.reduce((s, l) => s + (l.meta || 0), 0);
-    const daRede = new Set(rel.liderancas.flatMap((l) => l.secoes));
-    const votosNaRede = rel.secoes.filter((s) => daRede.has(s.chave)).reduce((s, x) => s + x.votos, 0);
+    // Só Líder com meta DESTE candidato entra na conta, contra os votos
+    // atribuídos às equipes desses mesmos Líderes. A meta mora no vínculo de
+    // cada candidato; antes, Líder sem meta entrava com o tamanho da rede, e as
+    // mesmas pessoas viravam "meta" do estadual e do federal ao mesmo tempo.
+    const comMeta = lideres.filter((l) => l.metaDeclarada);
+    const metaTotal = comMeta.reduce((s, l) => s + l.meta, 0);
+    const votosNaRede = comMeta.reduce((s, l) => s + l.votos, 0);
     out.push({
       ...base, votos: rel.totais.votos, totalOficial: rel.totalOficial, redeCadastrada: rel.rede.total, comSecao: rel.rede.comSecao,
       metaTotal, votosNaRede, entrega: metaTotal ? Math.round((votosNaRede / metaTotal) * 1000) / 10 : null,
+      lideresSemMeta: lideres.length - comMeta.length,
+      foraDaRede: rel.atribuicao.foraDaRede, alertas: rel.atribuicao.alertas,
       pctBrancosNulos: rel.totais.pctBrancosNulos,
       sinal: { verde: lideres.filter((l) => l.sinal === 'verde').length, amarelo: lideres.filter((l) => l.sinal === 'amarelo').length, vermelho: lideres.filter((l) => l.sinal === 'vermelho').length },
     });
