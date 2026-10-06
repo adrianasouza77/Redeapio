@@ -497,6 +497,30 @@ chamada) e há teto diário por campanha (`IA_LIMITE_DIA`). Sem
 Segue o princípio [a IA nunca age sozinha](#ia-aprovacao-humana): só produz
 alertas para leitura.
 
+Desde 06/10/2026 (pedido da dona), de 3 a 8 alertas:
+
+- **Território eleitoral é a seção, nunca a zona.** O rótulo é sempre
+  `Zona 18 · Seção 123`: o número da seção se repete em toda zona, e somar a
+  "Seção 10" de zonas diferentes mistura urnas sem relação. Cada seção leva a
+  zona **dela** (`secoesDetalhe` da apuração), não a do responsável — a
+  equipe pode votar em mais de uma zona. Na apuração, a agregada conta na
+  principal, como em `services/apuracao.js`.
+- **`por_lideranca`**: cada Líder (até 30, os de rede maior primeiro) com a
+  própria rede nos 4 níveis, as seções onde ela está (`so_base` = seção só
+  com Apoiador, sem Líder/Coordenador/Mobilizador), os Coordenadores dele e,
+  com apuração, meta × votos nas urnas da equipe. O card é do tipo
+  `rede_da_lideranca`.
+- **Pessoas vão como código**, nunca nome: `Líder 3`, `Coordenador 3.1`,
+  `Mobilizador 3.1.2` (o número diz de quem é equipe; sem Líder acima fica
+  sob o `0`). Vale também para `votos_por_local`. O mapa código → pessoa é
+  propriedade não enumerável do resumo e não entra no JSON;
+  `trocarCodigos()` põe o nome no texto depois que a resposta volta. Código
+  que a IA inventou fica como veio. Em `ia_insights`, `resumo` guarda só
+  códigos e `insights` guarda o texto já com nome.
+- Meta **não** é somada por seção no resumo: a de um Líder cobre a rede
+  inteira, e somá-la na seção onde ele mora dava urna com meta dez vezes
+  maior que os cadastrados. Meta × voto é por liderança.
+
 ### `ia_ajuda_uso` — assistente de ajuda
 
 `services/ajuda.js` + `services/ajuda-base.md`. Botão "❓ Ajuda" para

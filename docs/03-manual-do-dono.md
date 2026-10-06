@@ -179,6 +179,11 @@ Cada leitura custa uma chamada à API. O copiloto guarda a última leitura
 (reabrir o painel não gasta nada) e respeita o `IA_LIMITE_DIA`. Nenhum nome,
 telefone ou título de eleitor é enviado à IA — só contagens da rede.
 
+A leitura é **por seção** (sempre com a zona junto, para não misturar a seção
+10 de uma zona com a seção 10 de outra) e traz a **rede de cada Líder** nos 4
+níveis. A IA recebe as lideranças só como código ("Líder 3") e o sistema
+troca pelo nome antes de mostrar na tela.
+
 ### Forçar todo mundo a aceitar o termo de novo
 
 Sempre que o texto do termo LGPD mudar de forma relevante, **suba a

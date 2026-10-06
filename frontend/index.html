@@ -8230,7 +8230,7 @@ async function hiAbrir(codigo){
 // ══════════════════════════════════════════
 //  COPILOTO DE IA
 // ══════════════════════════════════════════
-// Painel lateral com 3 a 5 alertas em linguagem simples. A IA lê só um resumo
+// Painel lateral com 3 a 8 alertas em linguagem simples (território por seção, e a rede de cada Líder nos 4 níveis). A IA lê só um resumo
 // com contagens (nenhum dado pessoal sai do servidor). A última leitura fica
 // guardada: abrir o painel não gasta chamada, só o botão de gerar gasta.
 const IA = { dados:null, gerando:false };
@@ -8241,6 +8241,7 @@ const IA_TIPOS = {
   gargalo_hierarquico:  ['🧱','Gargalo na hierarquia'],
   padrao_pos_eleicao:   ['🗳️','Padrão depois da eleição'],
   diagnostico_historico:['📊','Diagnóstico histórico'],
+  rede_da_lideranca:    ['👥','Rede da liderança'],
 };
 function iaAtualizarBotao(){
   const b = document.getElementById('ia-botao');
@@ -8279,7 +8280,7 @@ function iaDesenhar(){
         <div class="ia-texto">${escapeHtml(i.texto)}</div>
         <div class="ia-detalhe" id="ia-det-${k}" style="display:none">${escapeHtml(i.detalhe||'')}${i.acao_sugerida?`<div class="ia-acao">👉 ${escapeHtml(i.acao_sugerida)}</div>`:''}</div>
         <button class="ia-ver" onclick="const e=document.getElementById('ia-det-${k}');const v=e.style.display==='none';e.style.display=v?'block':'none';this.textContent=v?'esconder detalhe':'ver detalhe'">ver detalhe</button>
-      </div>`; }).join('') : `<p class="ap-meta">Clique no botão para o copiloto ler a sua rede: quantos em cada papel, nicho e território, metas e — se configurados — a apuração e o desempenho histórico.</p>`}
+      </div>`; }).join('') : `<p class="ap-meta">Clique no botão para o copiloto ler a sua rede: quantos em cada papel, nicho e seção eleitoral, a rede de cada liderança nos 4 níveis, metas e — se configurados — a apuração e o desempenho histórico.</p>`}
     <p class="ap-meta" style="margin-top:14px;line-height:1.5">A IA não decide nada: ela só traduz os números da sua rede. Nenhum nome, telefone ou título de eleitor é enviado a ela.</p>`;
 }
 async function iaGerar(){
