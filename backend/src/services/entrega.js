@@ -168,7 +168,8 @@ async function relatorio(candidatoId, { filtros = {}, raiz = null, detalhe = nul
     const equipe = subarvore(a.id);
     const urnasEquipe = new Set();
     for (const id of equipe) { const k = urnaDe.get(id); if (k && urnaNoFiltro(k)) urnasEquipe.add(k); }
-    const comSecaoEquipe = [...equipe].filter((id) => urnaDe.has(id)).length;
+    // Mesma base da "rede cadastrada": só quem está abaixo, sem a própria pessoa.
+    const comSecaoEquipe = [...equipe].filter((id) => id !== a.id && urnaDe.has(id)).length;
     linhas.push({ a, equipe, urnasEquipe, comSecaoEquipe });
   }
 

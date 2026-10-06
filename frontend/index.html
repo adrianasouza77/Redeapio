@@ -6944,7 +6944,7 @@ function enHtmlLiderancas(d){
   if(!ls.length) return `<p class="ap-meta">Nenhum Líder, Coordenador ou Mobilizador${Object.values(EN.filtros).some(Boolean)?' com esses filtros':''}.</p>`;
   return `<p class="ap-meta" style="margin-bottom:10px">Clique numa linha para abrir as seções dela. Meta em cinza = não declarada (vale o tamanho da rede).</p>
   <div class="table-wrap" style="overflow-x:auto"><table>
-    <thead><tr><th>Nome</th><th>Rede cadastrada</th><th>Meta</th><th>Seções cobertas</th><th>Votos nas seções</th><th>% de entrega</th><th>% da seção</th><th>Brancos</th><th>Nulos</th><th>% br.+nulos</th><th>Compart.</th></tr></thead>
+    <thead><tr><th>Nome</th><th>Rede cadastrada</th><th>Meta</th><th>Seções cobertas</th><th>Votos nas seções</th><th>% de entrega</th><th>% da seção</th><th>Brancos</th><th>Nulos</th><th>% br.+nulos</th><th title="Seções onde também vota gente de outra pessoa do mesmo nível: os votos dali contam inteiros para as duas, sem dividir">Seções compartilhadas</th></tr></thead>
     <tbody>${ls.map(l=>`<tr class="ap-linha-zona" onclick="enAbrir('${l.id}')">
       <td><b>${escapeHtml(l.nome)}</b> ${nivelBadge(l.nivel)}${l.vinculo?' <span class="badge" title="Cadastrada em outro candidato da rede">vínculo</span>':''}<div class="ap-meta">${l.zona?'zona '+apZona(l.zona)+(l.secao?' · seção '+l.secao:''):'sem zona'}${l.superior?' · de '+escapeHtml(l.superior):''}</div></td>
       <td>${vsNum(l.redeCadastrada)} <span class="ap-meta">(${vsNum(l.comSecao)} c/ seção)</span></td>
