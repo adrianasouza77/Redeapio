@@ -3,6 +3,7 @@ const pool = require('../db');
 const { authRequired } = require('../middleware/auth');
 const resolveWorkspace = require('../middleware/workspace');
 const asyncHandler = require('../utils/asyncHandler');
+const jsonComprimido = require('../utils/jsonComprimido');
 const { nivelUsuario } = require('../utils/nivelUsuario');
 const entrega = require('../services/entrega');
 const apuracao = require('../services/apuracao');
@@ -118,17 +119,18 @@ router.get('/pessoa/:id', asyncHandler(async (req, res) => {
 // vivo só busca as seções das zonas onde a rede tem gente: nada de baixar o
 // estado inteiro. Candidato vê todos; Líder e Coordenador, a própria rede;
 // Mobilizador e Apoiador, nada (mesma regra do relatório).
-router.get('/ao-vivo', asyncHandler(async (req, res) => {
+// Linhas da apuração ao vivo que quem pediu pode ver (null = sem acesso).
+async function linhasAoVivo(req) {
   const candidatoId = campanha.candidatoDoPedido(req);
-  if (!candidatoId) return res.json({ ativo: false });
+  if (!candidatoId) return { ativo: false };
   let raiz = null;
   if (req.effectivePerfil !== 'candidato') {
     const nivel = await nivelUsuario(req.user);
-    if (nivel !== 1 && nivel !== 2) return res.json({ ativo: false });
+    if (nivel !== 1 && nivel !== 2) return { ativo: false };
     raiz = req.user.id;
   }
   const p = await apuracao.painel(candidatoId);
-  if (!p.config || !p.metas) return res.json({ ativo: false, configurado: !!p.config, erro: p.erro || null });
+  if (!p.config || !p.metas) return { ativo: false, configurado: !!p.config, erro: p.erro || null };
   let linhas = p.metas.porResponsavel;
   if (raiz) {
     const { rows: rede } = await pool.query(`SELECT id, parent_id, cadastrado_por FROM (${SQL_ARVORE_CANDIDATO}) r`, [candidatoId]);
@@ -144,13 +146,37 @@ router.get('/ao-vivo', asyncHandler(async (req, res) => {
     linhas = linhas.filter((l) => vistos.has(l.id));
   }
   const d = await campanha.carregarDados(candidatoId);
-  res.json({
+  return {
     ativo: true,
     aviso: 'Indica a entrega da área de influência, não o voto individual.',
     faixas: { verde: d?.faixa_verde ?? 80, amarela: d?.faixa_amarela ?? 50 },
     candidato: { cargo: p.config.cargo, numero: p.config.numero, ultimaBusca: p.config.ultimaBusca },
-    pessoas: linhas,
-  });
+    linhas,
+  };
+}
+
+// Os cartões da pirâmide só usam os totais de cada pessoa. Até 06/10/2026 esta
+// rota mandava também, para cada Líder/Coordenador/Mobilizador, a lista seção
+// por seção com o nome de cada pessoa da equipe — quem está na base aparecia
+// na lista de cada superior. Numa rede de 4 mil pessoas eram ~1,6 MB a cada
+// abertura da pirâmide, e no 4G chegava cortado ("Load failed"). Agora vão só
+// os totais (~5 KB comprimido); a lista vem em /ao-vivo/pessoa/:id, ao clicar.
+router.get('/ao-vivo', asyncHandler(async (req, res) => {
+  const r = await linhasAoVivo(req);
+  if (!r.ativo) return res.json(r);
+  const { linhas, ...resto } = r;
+  jsonComprimido(req, res, { ...resto, pessoas: linhas.map(({ secoesDetalhe, secoes, ...l }) => l) });
+}));
+
+// Ficha de uma pessoa (o clique no cartão): a lista seção por seção, com os
+// nomes de quem da equipe vota em cada uma. Mesma regra de acesso da lista.
+router.get('/ao-vivo/pessoa/:id', asyncHandler(async (req, res) => {
+  if (!UUID.test(req.params.id)) return res.status(400).json({ error: 'Pessoa inválida.' });
+  const r = await linhasAoVivo(req);
+  if (!r.ativo) return res.status(404).json({ error: 'Configure a Apuração ao Vivo para ver a entrega de cada pessoa.' });
+  const linha = r.linhas.find((l) => l.id === req.params.id);
+  if (!linha) return res.status(404).json({ error: 'Essa pessoa não tem meta (só Líder, Coordenador e Mobilizador) ou está fora da sua rede.' });
+  jsonComprimido(req, res, { aviso: r.aviso, faixas: r.faixas, pessoa: linha });
 }));
 
 module.exports = router;

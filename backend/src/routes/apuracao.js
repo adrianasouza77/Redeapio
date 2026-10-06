@@ -3,6 +3,7 @@ const pool = require('../db');
 const { authRequired, requireRole } = require('../middleware/auth');
 const resolveWorkspace = require('../middleware/workspace');
 const asyncHandler = require('../utils/asyncHandler');
+const jsonComprimido = require('../utils/jsonComprimido');
 const { registrar } = require('../utils/auditoria');
 const tse = require('../services/tse');
 const apuracao = require('../services/apuracao');
@@ -18,8 +19,10 @@ const UFS = ['ac','al','ap','am','ba','ce','df','es','go','ma','mt','ms','mg','p
 // Títulos exatamente como aparecem no cabeçalho de cada bloco do BU.
 const CARGOS = ['PRESIDENTE','GOVERNADOR','SENADOR','DEPUTADO FEDERAL','DEPUTADO ESTADUAL','DEPUTADO DISTRITAL','PREFEITO','VEREADOR'];
 
+// O painel leva, por responsável, a lista seção por seção com os nomes da
+// equipe: em rede de 4 mil pessoas passa de 1,5 MB. Comprimido, ~15x menor.
 router.get('/', asyncHandler(async (req, res) => {
-  res.json(await apuracao.painel(req.effectiveId));
+  jsonComprimido(req, res, await apuracao.painel(req.effectiveId));
 }));
 
 // Eleições que o TSE já publicou, para a tela oferecer em lista em vez de

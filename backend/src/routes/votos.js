@@ -16,15 +16,7 @@ router.use(authRequired, resolveWorkspace, requireRole('candidato', 'admin'));
 // As seções do estado inteiro passam de 1,5 MB em JSON (MS, 7 mil urnas); no
 // 4G de campanha isso pesa. O servidor não tem compressão ligada para o resto
 // da API, então só esta resposta sai em gzip (~8x menor).
-const zlib = require('zlib');
-function jsonComprimido(req, res, dados) {
-  const corpo = Buffer.from(JSON.stringify(dados));
-  if (corpo.length > 20000 && /\bgzip\b/.test(req.headers['accept-encoding'] || '')) {
-    res.set({ 'Content-Type': 'application/json; charset=utf-8', 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' });
-    return res.send(zlib.gzipSync(corpo));
-  }
-  return res.type('application/json').send(corpo);
-}
+const jsonComprimido = require('../utils/jsonComprimido');
 
 const UFS = ['ac','al','ap','am','ba','ce','df','es','go','ma','mt','ms','mg','pa','pb','pr','pe','pi','rj','rn','rs','ro','rr','sc','sp','se','to'];
 const MUNICIPAIS = [11, 13]; // prefeito, vereador: o número se repete em cada cidade

@@ -460,6 +460,16 @@ cartão, e a ficha seção por seção com os nomes de quem vota em cada uma. Us
 **apuração ao vivo** (`calcularMetas`), que já existe em produção e só busca as
 zonas da rede. A Apuração ao Vivo ganhou a tabela por seção e os nomes por seção.
 
+`/ao-vivo` manda **só os totais** de cada pessoa; a lista seção por seção com
+os nomes vem em `GET /entrega/ao-vivo/pessoa/:id`, quando a ficha abre (mesma
+regra de acesso). Até 06/10/2026 a lista ia junto para todo mundo: quem está
+na base aparecia na lista de cada superior, e numa rede de 4 mil pessoas eram
+~1,6 MB a cada abertura da pirâmide — no 4G chegava cortado ("Load failed").
+Agora ~5 KB. As duas rotas e o painel da apuração (`GET /apuracao`) saem em
+gzip (`utils/jsonComprimido.js`, o mesmo de Votos por Seção). Não adianta
+"guardar pronto no banco": os votos já estão em `apuracao_secoes`; o que
+pesava era o tamanho da resposta, não o cálculo.
+
 **Rede com vários candidatos** (`redes`, `usuarios.rede_id`,
 `usuarios.rede_ver_outros`, `apoiador_candidatos`, perfil `coordenador_geral`):
 - Todo candidato tem uma rede (o boot cria "Rede de X" para quem não tem);

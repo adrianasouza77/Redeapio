@@ -1788,7 +1788,9 @@ async function carregarEntregaAoVivo(){
     // Antes o erro sumia e a pirâmide aparecia sem os números, como se não
     // houvesse apuração. Agora avisa que a leitura está incompleta.
     ENTREGA_AV = { ativo:false, erro:e.message, porId:new Map(), faixas:{ verde:80, amarela:50 } };
-    showToast('Os votos da apuração não carregaram: ' + e.message, 'error');
+    // Só na pirâmide: a carga roda em segundo plano, e o aviso caindo em outra
+    // tela (por cima do Copiloto, num print de 06/10/2026) não diz a que se refere.
+    if(paginaAtual==='rede') showToast('Os votos da apuração não carregaram na pirâmide: ' + e.message, 'error');
   }
 }
 // Sem meta declarada não há % de entrega (06/10/2026). Usar o tamanho da equipe
@@ -1846,8 +1848,18 @@ async function abrirFichaEntrega(id){
   if(!e && ENTREGA_AV.erro){ showToast('Leitura incompleta: ' + ENTREGA_AV.erro, 'error'); return; }
   if(!e){ showToast(ENTREGA_AV.ativo ? 'Essa pessoa não tem meta (só Líder, Coordenador e Mobilizador).' : 'Configure a Apuração ao Vivo para ver a entrega de cada pessoa.', 'info'); return; }
   document.getElementById('modal-detail-title').textContent = 'Prometido × entregue — ' + e.nome;
-  document.getElementById('modal-detail-body').innerHTML = fichaEntregaHtml(e);
+  const corpo = document.getElementById('modal-detail-body');
+  corpo.innerHTML = '<p class="ap-meta">Carregando as seções da equipe...</p>';
   document.getElementById('modal-detail').classList.add('open');
+  // A lista seção por seção (com os nomes) só vem agora, para a pessoa
+  // clicada: mandá-la de todo mundo junto com a pirâmide passava de 1,5 MB.
+  try {
+    const r = await api('/entrega/ao-vivo/pessoa/'+encodeURIComponent(id)+wsQuery());
+    corpo.innerHTML = fichaEntregaHtml(r.pessoa);
+  } catch(err){
+    corpo.innerHTML = `<div class="ap-aviso ap-aviso-erro">As seções não carregaram: ${escapeHtml(err.message)}</div>
+      <button class="btn-sm btn-outline" style="margin-top:10px" onclick="abrirFichaEntrega('${escapeAttr(String(id))}')">Tentar de novo</button>`;
+  }
 }
 
 const REDE_MAX_POR_GRUPO = 60;
