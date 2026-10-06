@@ -91,7 +91,7 @@ Três tabelas. Todo o schema está em `backend/migrations/001_init.sql`.
 ### `usuarios` — quem tem login
 
 `id` (UUID), `nome`, `login` (único), `senha_hash`, `perfil`
-(`admin` | `candidato` | `lideranca` | `apoiador`), `criado_por`, `email`,
+(`admin` | `candidato` | `lideranca` | `apoiador` | `coordenador_geral`), `criado_por`, `email`,
 dados de contato e eleitorais, `ativo`, `senha_temporaria`,
 `termo_versao_aceita`, `reset_password_token`/`_expires`, `plano`,
 `periodo_contrato`, `data_desativacao`, `limite_nivel1..4`.
@@ -370,6 +370,99 @@ candidatos, e qualquer consulta depois é só leitura do banco.
 - **Desempenho:** consulta de um candidato em MS ~0,3–0,9 s (resposta em gzip,
   ~200 KB); repetida, ~0,15 s (cache de 1 min amarrado ao andamento da carga
   — sem isso um resultado parcial era servido como final).
+
+### Briefing "Votos por seção" v2 (05/10/2026) — candidato, importação, Prometido × Entregue e redes
+
+Especificação da dona: `Briefing_Rede_Apoio_Votos_por_Secao_v2.pdf` e
+`Manual_Cliente_Rede_Apoio_Votos_por_Secao.pdf`. Sem Supabase/RLS/`tenant_id`
+(não existem neste projeto): o isolamento entre clientes é o de sempre, pelo
+candidato dono da rede, e agora também pela rede.
+
+**`candidato_dados` + `candidato_municipios`** (aba 🎯 Candidato): ano, turno,
+cargo (código TSE: 13 vereador, 11 prefeito, 7 dep. estadual, 6 federal,
+5 senador, 3 governador), número (texto), partido, UF, abrangência
+(`municipio` | `municipios` | `estado`), nome de urna, faixas do sinal
+(`faixa_verde`/`faixa_amarela`, padrão 80/50) e os códigos do portal do TSE
+(`ciclo`/`pleito`/`eleicao`, resolvidos ao salvar — podem ficar nulos se o TSE
+ainda não publicou a eleição; a importação tenta de novo). Município sempre
+pelo código do TSE (o do IBGE é recusado). Dígitos por cargo: vereador e
+estadual 5, federal 4, prefeito/governador/senador 2 ou 3. Salvar também
+grava `apuracao_config`: a apuração ao vivo lê o mesmo cadastro.
+
+**`importacoes_tse`** (botão "Importar votos do TSE"): histórico e auditoria
+(quem, quando, origem, linhas, seções, municípios, total × oficial,
+`confere`). Os votos **não** são copiados por candidato: ficam em `tse_urnas`
+(uma linha por urna, todos os candidatos), então reimportar é o mesmo upsert e
+nunca duplica. Decisões:
+- **Só os municípios do candidato** (pedido da dona: "não quero que fique
+  baixando tudo"): `tse_coletas.municipios` limita a carga. Campanha de estado
+  todo baixa só os municípios onde a rede vota (pelo `municipio_votacao` ou pela
+  zona/seção). Botão "Carregar o estado" de Votos por Seção continua baixando o
+  estado inteiro (`municipios` NULL).
+- **Fonte = boletim de urna**, não o ZIP `votacao_secao_{ANO}_{UF}` do briefing:
+  mesmo número (conferido voto a voto), sai na noite da eleição e já traz
+  brancos, nulos, comparecimento e aptos por seção.
+- Confere com o total oficial só quando a importação cobre o que o oficial
+  cobre (cidade inteira em vereador/prefeito); campanha estadual por
+  municípios mostra o total do estado sem comparar.
+- Conferido em 05/10/2026: vereadora 10222 de Dourados/2024 → 2.992 votos em
+  534 seções = oficial; reimportar baixou só as 566 urnas da cidade.
+
+**Onde a pessoa vota** (`apoiadores.municipio_votacao`/`_nome`,
+`local_votacao`/`_nome`): nos cinco formulários, gravado por
+`utils/votacao.js` num UPDATE logo depois de cada cadastro. Escolas vêm de
+`tse_locais` pelo ano da eleição ou o mais próximo que o TSE tiver
+(`anoLocais`: em out/2026 o arquivo de 2024 não estava mais no ar). **Título
+de eleitor não é mais pedido nem gravado** (`titulo` fica nulo nos cadastros
+novos; edição sem o campo não apaga o que existe — limpar os antigos é
+decisão à parte, com backup).
+
+**Relatório Prometido × Entregue** (`services/entrega.js`, aba ✅): por Líder,
+Coordenador e Mobilizador, as urnas onde votam ele e toda a equipe abaixo
+(mesma árvore da pirâmide: `parent_id` ou quem cadastrou) × votos do
+candidato nelas. Meta = `meta_votos` ou, vazia, o tamanho da rede abaixo.
+"Seção compartilhada" = a mesma urna na área de duas pessoas do mesmo nível;
+conta inteira para as duas. Visão por zona/seção ordenada por % brancos+nulos
+(÷ comparecimento; em senador de 2 vagas, ÷ 2×comparecimento). Filtros de
+território valem para as urnas; nível/nicho/liderança para as linhas. Quem vê:
+candidato (e admin/CG no workspace) tudo; Líder e Coordenador só a própria
+rede, em cada candidato a que estão ligados; Mobilizador e Apoiador, 403.
+
+**Cartão da pirâmide e ficha "Prometido × entregue"** (`GET /entrega/ao-vivo`):
+pedido em áudio da dona — zona, seção, cadastros, votos e % da meta no próprio
+cartão, e a ficha seção por seção com os nomes de quem vota em cada uma. Usa a
+**apuração ao vivo** (`calcularMetas`), que já existe em produção e só busca as
+zonas da rede. A Apuração ao Vivo ganhou a tabela por seção e os nomes por seção.
+
+**Rede com vários candidatos** (`redes`, `usuarios.rede_id`,
+`usuarios.rede_ver_outros`, `apoiador_candidatos`, perfil `coordenador_geral`):
+- Todo candidato tem uma rede (o boot cria "Rede de X" para quem não tem);
+  `coordenador_geral_id` nulo = rede de um candidato só, como sempre foi.
+- O admin cria o Coordenador Geral (Central de Vagas → "Redes com vários
+  candidatos") e põe candidatos na rede; o CG também cria candidatos.
+- O CG entra nos candidatos da rede dele com o mesmo `?as=` do admin
+  (`middleware/workspace.js`); `requireRole` deixa o CG passar onde o candidato
+  passa **só dentro desse workspace**. Seletor de candidato no topo.
+- **Vínculo** (`apoiador_candidatos`): a ficha fica na pirâmide do candidato
+  onde a pessoa foi cadastrada primeiro; cada outro candidato guarda nível,
+  superior (sem FK, como `parent_id`) e meta. `SQL_ARVORE_CANDIDATO` devolve
+  a pessoa vinculada com esses campos trocados (`jsonb_populate_record`) e
+  `vinculo = true`; sem vínculo, devolve exatamente o de antes. Quem é
+  cadastrado num candidato debaixo de uma pessoa vinculada também vira vínculo
+  (ficha sem `parent_id`), para não vazar para a pirâmide do outro.
+- `PUT /apoiadores/:id` de pessoa vinculada: papel/superior/meta vão para o
+  vínculo; os dados pessoais, para a ficha (a mesma para todos).
+- Cadastro com telefone (só dígitos) de alguém de outro candidato da rede:
+  409 com `vincular` (a tela oferece o vínculo); no link público, o vínculo é
+  feito sozinho. Alerta quando a pessoa está em dois candidatos do **mesmo
+  cargo** (metas competem); cargos diferentes ("dobradinha") é permitido.
+- O termo de consentimento lista os candidatos da rede.
+
+**Mapa (Fase 2)**: camada no Mapa da Rede com `GET /entrega?locais=1` —
+escola do tamanho dos votos, cor pela entrega no local (votos ÷ metas de quem
+vota ali) ou por brancos+nulos, escolas sem ninguém da rede (vazio territorial)
+e os apoiadores de sempre. O Copiloto de IA recebe `votos_por_local` (maiores
+escolas sem rede e metas maiores que os eleitores das seções) — só lê e sugere.
 
 ### `historico_config`, `resultado_urna`, `resultado_urna_municipio` — desempenho histórico (Tela 5)
 
@@ -823,6 +916,30 @@ Arquivo próprio (`routes/apuracao.js`), pelo mesmo motivo do `/mapas`.
 | GET | `/malha/:uf` | malha municipal do IBGE (cache de um dia) |
 
 Prefeito e vereador exigem `municipio` (o número se repete de cidade em cidade).
+
+### `/candidato` `[A]` — candidato, admin (CG no workspace)
+`GET /` (dados + rede), `GET /eleicoes`, `GET /municipios?ciclo=&eleicao=&uf=`,
+`GET /candidatos?…&cargo=[&municipio=]`, `PUT /` (salva e sincroniza a
+apuração), `POST /importar`, `GET /importacao` (fecha a importação quando a
+carga termina). Qualquer perfil da rede: `GET /votacao/municipios` e
+`GET /votacao/locais?zona=&municipio=` (formulários). Públicos equivalentes:
+`/public/votacao/municipios` e `/public/votacao/locais` (`?candidato=` ou `?lideranca=`).
+
+### `/entrega` `[A]`
+`GET /` (relatório; filtros `municipio zona bairro nivel nicho lideranca`,
+`candidato=` para quem tem mais de um, `locais=1` para o mapa),
+`GET /pessoa/:id` (ficha em cada candidato), `GET /ao-vivo` (cartões da
+pirâmide, com a apuração ao vivo). Permissões no topo do arquivo.
+
+### `/redes` `[A]`
+`GET /` (rede, candidatos, alertas de mesmo cargo), `PUT /` (nome — CG),
+`POST /candidatos` e `PUT /candidatos/:id` (`ver_outros`) — CG,
+`POST /importar-todos` — CG, `GET /painel`, `GET /liderancas`,
+`GET /dobradinha?a=&b=` (CG ou candidato liberado), `GET /pessoas?q=`,
+`POST /vincular`, `PUT /vinculos/:apoiadorId`, `DELETE /vinculos/:apoiadorId`
+(candidato no workspace). Liderança: `POST /apoiadores/vincular`.
+Admin: `GET /admin/redes`, `POST /admin/coordenadores`,
+`PUT /admin/candidatos/:id/rede`.
 
 ### `/nichos` `[A]`
 `GET /` (qualquer perfil da rede lê), `POST /`, `PUT /:id`, `DELETE /:id` (candidato, admin).

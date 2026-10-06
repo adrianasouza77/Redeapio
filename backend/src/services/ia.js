@@ -3,6 +3,7 @@ const pool = require('../db');
 const { SQL_ARVORE_CANDIDATO } = require('../routes/apoiadores');
 const { anexarNichos, nichosDoCandidato } = require('../utils/nichos');
 const apuracao = require('./apuracao');
+const entrega = require('./entrega');
 const historico = require('./historico');
 
 // Copiloto de IA: traduz os números da própria rede em 3 a 5 alertas em
@@ -40,6 +41,7 @@ Regras:
 - "acao_sugerida" é um próximo passo concreto, em 1 frase (ex.: "Indique um Coordenador para o bairro X")
 - Priorize os problemas de maior impacto (vazios territoriais, desequilíbrio de nicho, metas irrealistas, gargalos hierárquicos)
 - Quando "resultado_pos_eleicao" vier preenchido, procure padrões nas zonas onde a meta não bateu (ex.: todas do mesmo nicho, sugerindo problema de mensagem, e não de rede) e use o tipo padrao_pos_eleicao
+- Quando "votos_por_local" vier preenchido, aponte as maiores escolas sem ninguém da rede como vazio_territorial e as metas maiores que os eleitores das seções como meta_irrealista
 - Quando "desempenho_historico" vier preenchido, compare votos passados com o tamanho da rede de hoje em cada município e use o tipo diagnostico_historico
 - Nunca invente dados que não estejam no resumo enviado; se um dado não veio, não fale dele
 - "prioridade" vai de 1 (mais urgente) a 5
@@ -206,12 +208,35 @@ async function montarResumo(candidatoId) {
           responsaveis: {
             com_meta_apurada: comMeta.length,
             entregaram: comMeta.filter((r) => r.votos >= r.meta).length,
-            ficaram_perto: comMeta.filter((r) => r.votos < r.meta && r.votos >= 0.7 * r.meta).length,
-            muito_abaixo: comMeta.filter((r) => r.votos < 0.7 * r.meta).length,
+            // Faixas do briefing "Votos por seção": verde ≥ 80%, amarelo 50–79%.
+            entregaram_80: comMeta.filter((r) => r.votos >= 0.8 * r.meta).length,
+            ficaram_perto: comMeta.filter((r) => r.votos < 0.8 * r.meta && r.votos >= 0.5 * r.meta).length,
+            muito_abaixo: comMeta.filter((r) => r.votos < 0.5 * r.meta).length,
           },
         };
       }
     }
+  }
+
+  // Votos por seção importados do TSE (briefing "Votos por seção" v2, Fase 2):
+  // alimenta os alertas de vazio territorial (escola sem ninguém da rede
+  // votando) e de meta irrealista (meta maior que os eleitores das seções da
+  // equipe). Escola é dado público; de pessoa, só o papel — nunca o nome.
+  // A IA continua só lendo e sugerindo.
+  const rel = await entrega.relatorio(candidatoId, { locais: true }).catch(() => null);
+  if (rel && rel.locais && rel.urnasCarregadas) {
+    const vazios = rel.locais.filter((l) => l.sinal === 'vazio').sort((a, b) => b.aptos - a.aptos);
+    resumo.votos_por_local = {
+      escolas_no_escopo: rel.locais.length,
+      escolas_sem_ninguem_da_rede: vazios.length,
+      maiores_escolas_sem_rede: vazios.slice(0, 15).map((l) => ({
+        escola: l.nome, bairro: l.bairro, municipio: l.municipio, eleitores_aptos: l.aptos, votos_do_candidato: l.votos,
+      })),
+      metas_maiores_que_eleitores: rel.liderancas
+        .filter((l) => l.meta > 0 && l.aptos > 0 && l.meta > l.aptos)
+        .slice(0, 20)
+        .map((l) => ({ papel: ({ 1: 'Líder', 2: 'Coordenador', 3: 'Mobilizador' })[l.nivel], meta: l.meta, eleitores_aptos_nas_secoes: l.aptos, secoes: l.secoesCobertas })),
+    };
   }
 
   const cfgHist = await historico.carregarConfig(candidatoId);

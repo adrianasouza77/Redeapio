@@ -142,6 +142,27 @@ Escolha Eleição, Cargo, Estado e Número do candidato naquela eleição (pode 
 Só para o candidato (botão flutuante, Mapa Mental e Desempenho Histórico). "✨ Ler a minha rede" ou "🔄 Gerar leitura nova" devolve alertas em linguagem simples (vazio territorial, desequilíbrio de nicho, meta fora da realidade, gargalo na hierarquia etc.), cada um com "ver detalhe" e uma ação sugerida. Tem limite de leituras por dia; reabrir o painel não gasta leitura. Nenhum nome, telefone ou título é enviado à IA. O copiloto não faz nada sozinho: só mostra a leitura.
 Mensagens: "Limite de N leituras por dia atingido. Tente de novo amanhã."; "Cadastre sua rede primeiro..."; aviso de que o copiloto ainda não foi ativado (falar com o suporte).
 
+### Candidato (aba "🎯 Candidato")
+Preencha uma vez: ano, turno, cargo, UF, município (ou municípios-alvo / estado todo) e escolha o candidato digitando o nome na lista oficial do TSE — número, partido e nome de urna vêm dela. O número é conferido pelo cargo (vereador e deputado estadual: 5 dígitos; federal: 4; prefeito, governador e senador: 2 ou 3). Ali também ficam as faixas do sinal (padrão: verde a partir de 80%, amarelo de 50% a 79%) e o indicador "% da rede com seção preenchida".
+
+### Importar votos do TSE
+Na aba Candidato, botão "📥 Importar votos do TSE": o sistema busca os votos do candidato em cada zona e seção, só dos municípios da campanha. Mostra "X votos em Y seções de Z municípios" e confere com o total oficial. Se aparecer "Dados do TSE ainda não disponíveis", tente mais tarde. Importar de novo atualiza sem duplicar.
+
+### Prometido × Entregue
+Menu "✅ Prometido × Entregue": cada Líder, Coordenador e Mobilizador com rede cadastrada, meta (sem meta, vale o tamanho da equipe), seções cobertas, votos nessas seções, % de entrega, brancos, nulos e o sinal verde/amarelo/vermelho. Clique na linha para ver as seções. Abas "Por zona" e "Por seção" mostram onde houve mais brancos e nulos. Filtros de município, zona, bairro, nível, nicho e liderança; exporta CSV e PDF. Indica a entrega da área de influência, não o voto individual — o voto é secreto. Líder e Coordenador veem só a própria rede; Mobilizador e Apoiador não acessam.
+
+### Ver o que cada pessoa entregou, na pirâmide
+Em "Rede de Apoio", o cartão de cada Líder, Coordenador e Mobilizador mostra zona, seção, quantos cadastros tem a equipe, quantos votos vieram nas seções dela e a % da meta. Clique no quadrinho de votos para abrir a ficha seção por seção, com os nomes de quem vota em cada seção. A mesma ficha abre pelo botão "📊 Prometido × entregue" nos detalhes da pessoa.
+
+### Zona, seção e escola no cadastro
+Os cadastros pedem o município onde a pessoa vota (pode ser diferente de onde mora), zona, seção e, opcional, a escola, escolhida numa lista depois de informar a zona. O número do título de eleitor não é mais pedido.
+
+### Rede com vários candidatos (Coordenador Geral)
+O Coordenador Geral entra pela aba "Coord. Geral" do login. No "Painel da Rede" ele vê os candidatos lado a lado, o relatório por liderança com uma coluna por candidato, a dobradinha, cria candidatos, usa "Importar todos" e libera (ou não) um candidato para ver os outros. Clicando em "Abrir →", entra no candidato; o seletor no topo troca de candidato. A mesma pessoa pode apoiar mais de um candidato sem duplicar o cadastro: em "Todos os Apoiadores" use "🔗 Vincular pessoa", ou o sistema oferece o vínculo quando o telefone já está na rede. O sistema avisa quando a pessoa está em dois candidatos do mesmo cargo, porque as metas competem.
+
+### Mapa: votos por escola
+No "Mapa da Rede", a camada "Votos por local de votação" mostra cada escola do tamanho dos votos do candidato, com a cor da entrega da rede ali (ou de brancos + nulos), as escolas sem ninguém da rede e os apoiadores. Filtre por município, zona, liderança, nicho e "entregou / não entregou"; clique na escola para ver seções, votos, eleitores aptos e lideranças.
+
 ### Configurações
 Em "📊 Limites da Pirâmide", ajuste os limites de Líderes, Coordenadores, Mobilizadores e Apoiadores Orgânicos (número inteiro de 1 a 100.000) e clique em "💾 Salvar". Valem para toda a rede do candidato.
 

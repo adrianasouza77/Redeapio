@@ -60,6 +60,12 @@ tudo isso é deliberado.
    eleitoral. Detalhes e o padrão a seguir em
    [`docs/04-referencia-tecnica.md`](docs/04-referencia-tecnica.md#ia-aprovacao-humana).
 
+8. **Pessoa vinculada a outro candidato da rede** (`apoiador_candidatos`):
+   a ficha é uma só; papel, superior e meta em cada outro candidato moram no
+   vínculo. Use sempre `SQL_ARVORE_CANDIDATO` (já devolve o vínculo no lugar
+   certo) e nunca grave nível/`parent_id` da ficha a partir de outro candidato.
+   Detalhes em [`docs/04-referencia-tecnica.md`](docs/04-referencia-tecnica.md).
+
 ## Convenções
 
 - Comentários de código e mensagens de commit **em português**, explicando o
