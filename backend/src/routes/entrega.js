@@ -79,7 +79,7 @@ function filtrosDe(q) {
 router.get('/', asyncHandler(async (req, res) => {
   const e = await escolher(req, res);
   if (!e) return;
-  const r = await entrega.relatorio(e.c.id, { filtros: filtrosDe(req.query), raiz: e.c.raiz });
+  const r = await entrega.relatorio(e.c.id, { filtros: filtrosDe(req.query), raiz: e.c.raiz, locais: req.query.locais === '1' });
   res.json({ ...r, candidato: { id: e.c.id, nome: e.c.nome }, candidatos: e.lista.map(({ id, nome }) => ({ id, nome })), restrito: !!e.c.raiz });
 }));
 

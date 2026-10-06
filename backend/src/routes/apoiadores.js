@@ -4,7 +4,7 @@ const { authRequired, requireRole } = require('../middleware/auth');
 const resolveWorkspace = require('../middleware/workspace');
 const { limitesDoCandidato } = require('../utils/limites');
 const { nivelUsuario } = require('../utils/nivelUsuario');
-const { buscarDuplicidade, resolverCandidatoId } = require('../utils/duplicidade');
+const { buscarDuplicidade, resolverCandidatoId, buscarNaRede } = require('../utils/duplicidade');
 const { hash, gerarSenhaTemporaria, gerarSenhaFacil } = require('../utils/password');
 const asyncHandler = require('../utils/asyncHandler');
 const { registrar, diferencas } = require('../utils/auditoria');
@@ -757,6 +757,8 @@ router.post('/', requireRole('lideranca', 'apoiador'), asyncHandler(async (req, 
     return res.status(400).json({ error: `Limite de ${limite} apoiadores atingido.` });
   }
 
+  const naRede = await buscarNaRede({ candidatoId: resolverCandidatoId(req.user), telefone });
+  if (naRede) return res.status(409).json({ error: `${naRede.nome} já está na rede apoiando ${naRede.candidato_nome}. Para não duplicar o cadastro, vincule a pessoa a este candidato.`, vincular: naRede });
   const dup = await buscarDuplicidade({ candidatoId: resolverCandidatoId(req.user), telefone, titulo });
   if (dup) {
     return res.status(409).json({ error: `Já existe um cadastro com esse ${dup.campo} nesta rede (${dup.nome}).` });
@@ -781,6 +783,42 @@ router.post('/', requireRole('lideranca', 'apoiador'), asyncHandler(async (req, 
     detalhes: { nivel: novoNivel, responsavel_id: req.user.id, responsavel_nome: req.user.nome, origem: 'cadastro pelo painel' },
   });
   res.status(201).json(rows[0]);
+}));
+
+// A liderança cadastrou alguém que já apoia outro candidato da rede: em vez
+// de duplicar, a pessoa ganha o vínculo com este candidato, logo abaixo de
+// quem está cadastrando (seção 7 do briefing "Votos por seção").
+router.post('/vincular', requireRole('lideranca', 'apoiador'), asyncHandler(async (req, res) => {
+  const apoiadorId = String(req.body?.apoiador_id || '');
+  if (!/^[0-9a-f-]{36}$/i.test(apoiadorId)) return res.status(400).json({ error: 'Pessoa inválida.' });
+  const candidatoId = resolverCandidatoId(req.user);
+  const { candidatoDaPessoa } = require('../services/campanha');
+  const dono = await candidatoDaPessoa(apoiadorId);
+  const { rows: mesma } = await pool.query(
+    'SELECT 1 FROM usuarios a JOIN usuarios b ON b.rede_id = a.rede_id WHERE a.id = $1 AND b.id = $2 AND a.rede_id IS NOT NULL', [candidatoId, dono]
+  );
+  if (!mesma[0] || dono === candidatoId) return res.status(403).json({ error: 'Essa pessoa não está em outro candidato da sua rede.' });
+  const myNivel = await nivelUsuario(req.user);
+  const novoNivel = myNivel + 1;
+  if (novoNivel > 4) return res.status(400).json({ error: 'Nível máximo atingido.' });
+  const limites = await limitesDoCandidato(candidatoId);
+  const { rows: cont } = await pool.query(
+    `SELECT (SELECT count(*) FROM apoiadores WHERE parent_id = $1) + (SELECT count(*) FROM apoiador_candidatos WHERE superior_id = $1 AND candidato_id = $2 AND ativo) AS c`,
+    [req.user.id, candidatoId]
+  );
+  if (Number(cont[0].c) >= limites[myNivel]) return res.status(400).json({ error: `Limite de ${limites[myNivel]} apoiadores atingido.` });
+  const meta = prepararMeta(req.body.meta_votos, novoNivel, { criacao: false });
+  if (meta.erro) return res.status(400).json({ error: meta.erro });
+  await pool.query(
+    `INSERT INTO apoiador_candidatos (apoiador_id, candidato_id, nivel, superior_id, meta_votos, ativo, criado_por)
+     VALUES ($1,$2,$3,$4,$5,true,$6)
+     ON CONFLICT (apoiador_id, candidato_id) DO UPDATE SET nivel = EXCLUDED.nivel, superior_id = EXCLUDED.superior_id,
+       meta_votos = EXCLUDED.meta_votos, ativo = true`,
+    [apoiadorId, candidatoId, novoNivel, req.user.id, novoNivel <= 3 ? (meta.meta ?? null) : null, req.user.id]
+  );
+  const { rows: p } = await pool.query('SELECT nome FROM apoiadores WHERE id = $1', [apoiadorId]);
+  await registrar(req, { acao: 'rede.vincular', alvoTipo: 'apoiador', alvoId: apoiadorId, alvoNome: p[0]?.nome, detalhes: { nivel: novoNivel, responsavel_id: req.user.id } });
+  res.status(201).json({ ok: true });
 }));
 
 // Sub-árvore (nível/parent_id) a partir de um nó qualquer de "apoiadores" — usada
@@ -844,6 +882,40 @@ router.put('/:id', asyncHandler(async (req, res) => {
   const { rows: antesRows } = await pool.query('SELECT * FROM apoiadores WHERE id = $1', [id]);
   const antes = antesRows[0];
   if (!antes) return res.status(404).json({ error: 'Cadastro não encontrado.' });
+
+  // Pessoa cadastrada em outro candidato da rede e vinculada a este (seção 7
+  // do briefing "Votos por seção"): papel, superior e meta AQUI moram no
+  // vínculo; nome, telefone, zona e seção são da ficha, a mesma para todos os
+  // candidatos. Sem isto, mudar o papel dela neste candidato mexeria na
+  // pirâmide do outro.
+  if (req.effectivePerfil === 'candidato') {
+    const { rows: vin } = await pool.query(
+      'SELECT * FROM apoiador_candidatos WHERE apoiador_id = $1 AND candidato_id = $2 AND ativo', [id, req.effectiveId]
+    );
+    if (vin[0]) {
+      const v = vin[0];
+      const b = req.body || {};
+      const nivelV = b.nivel !== undefined ? Number(b.nivel) : v.nivel;
+      const supV = b.parent_id !== undefined ? (b.parent_id || null) : v.superior_id;
+      if (![1, 2, 3, 4].includes(nivelV)) return res.status(400).json({ error: 'Nível inválido.' });
+      if (nivelV > 1 && supV) {
+        const { rows: arv } = await pool.query(`SELECT id, nivel FROM (${SQL_ARVORE_CANDIDATO}) r WHERE id = $2`, [req.effectiveId, supV]);
+        if (!arv[0] || supV === id) return res.status(400).json({ error: 'Responsável inválido — precisa estar na rede deste candidato.' });
+        if (arv[0].nivel !== nivelV - 1) return res.status(400).json({ error: 'O responsável escolhido precisa estar exatamente um nível acima.' });
+      }
+      let metaV = v.meta_votos;
+      if (nivelV === 4) metaV = null;
+      else if (b.meta_votos !== undefined) {
+        metaV = b.meta_votos === '' || b.meta_votos == null ? null : Number(b.meta_votos);
+        if (metaV != null && (!Number.isInteger(metaV) || metaV < 0)) return res.status(400).json({ error: 'Meta de votos inválida.' });
+      }
+      await pool.query(
+        'UPDATE apoiador_candidatos SET nivel = $3, superior_id = $4, meta_votos = $5 WHERE apoiador_id = $1 AND candidato_id = $2',
+        [id, req.effectiveId, nivelV, nivelV === 1 ? null : supV, metaV]
+      );
+      delete b.nivel; delete b.parent_id; delete b.meta_votos;
+    }
+  }
 
   const { nome, telefone, nascimento, endereco, regiao, cidade, estado, titulo, zona, secao, nivel, parent_id, login, email } = req.body || {};
   if (!nome) return res.status(400).json({ error: 'Nome é obrigatório.' });

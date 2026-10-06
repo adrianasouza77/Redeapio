@@ -4,7 +4,7 @@ const { authRequired, requireRole } = require('../middleware/auth');
 const resolveWorkspace = require('../middleware/workspace');
 const { hash, gerarSenhaTemporaria } = require('../utils/password');
 const { publicUrl } = require('../config');
-const { buscarDuplicidade } = require('../utils/duplicidade');
+const { buscarDuplicidade, buscarNaRede } = require('../utils/duplicidade');
 const asyncHandler = require('../utils/asyncHandler');
 const { registrar, diferencas } = require('../utils/auditoria');
 const { prepararNichos, gravarNichos, prepararMeta } = require('../utils/nichos');
@@ -55,6 +55,9 @@ router.post('/', requireRole('candidato', 'admin'), asyncHandler(async (req, res
   }
   if (senha.length < 4) return res.status(400).json({ error: 'Senha muito curta.' });
 
+  // Já apoia outro candidato da rede: não duplica, a tela oferece o vínculo.
+  const naRede = await buscarNaRede({ candidatoId: req.effectiveId, telefone });
+  if (naRede) return res.status(409).json({ error: `${naRede.nome} já está na rede apoiando ${naRede.candidato_nome}. Para não duplicar o cadastro, vincule a pessoa a este candidato.`, vincular: naRede });
   const dup = await buscarDuplicidade({ candidatoId: req.effectiveId, email, telefone, titulo });
   if (dup) {
     return res.status(409).json({ error: `Já existe um cadastro com esse ${dup.campo} nesta rede (${dup.nome}).` });

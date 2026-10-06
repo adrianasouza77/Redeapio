@@ -5,7 +5,7 @@ const { registrar } = require('../utils/auditoria');
 const { lerVotacao, gravarVotacao } = require('../utils/votacao');
 const campanha = require('../services/campanha');
 const { municipiosDeVotacao, locaisDaZona } = require('./candidato');
-const { buscarDuplicidade } = require('../utils/duplicidade');
+const { buscarDuplicidade, buscarNaRede } = require('../utils/duplicidade');
 const { limitesDoCandidato } = require('../utils/limites');
 const { hash } = require('../utils/password');
 const { termoVersaoAtual } = require('../config');
@@ -112,18 +112,30 @@ function erroDoContexto(ctx) {
   return null;
 }
 
+// Candidatos da rede (quando há mais de um): o termo de consentimento precisa
+// listá-los (briefing "Votos por seção", seção 7 — LGPD).
+async function candidatosDaRede(candidatoId) {
+  const { rows } = await pool.query(
+    `SELECT COALESCE(d.nome_urna, o.nome) AS nome FROM usuarios c
+       JOIN usuarios o ON o.rede_id = c.rede_id AND o.perfil = 'candidato'
+       LEFT JOIN candidato_dados d ON d.candidato_id = o.id
+      WHERE c.id = $1 AND c.rede_id IS NOT NULL ORDER BY o.created_at`, [candidatoId]
+  );
+  return rows.length > 1 ? rows.map((r) => r.nome) : [];
+}
+
 router.get('/lideranca/:id', asyncHandler(async (req, res) => {
   const ctx = await contextoConvitePessoal(req.params.id);
   if (!ctx) return res.status(404).json({ error: 'Link inválido.' });
   const erro = erroDoContexto(ctx);
   if (erro) return res.status(409).json({ error: erro });
-  res.json({ nome: ctx.nomeRede, versaoTermo: termoVersaoAtual, criaLogin: ctx.criaLogin, novoNivel: ctx.novoNivel, nichos: await nichosDoCandidato(ctx.candidatoId) });
+  res.json({ nome: ctx.nomeRede, versaoTermo: termoVersaoAtual, criaLogin: ctx.criaLogin, novoNivel: ctx.novoNivel, nichos: await nichosDoCandidato(ctx.candidatoId), candidatosRede: await candidatosDaRede(ctx.candidatoId) });
 }));
 
 router.get('/convite', asyncHandler(async (req, res) => {
   const ctx = await contextoConviteCandidato(req.query.candidato, req.query.nivel);
   if (!ctx) return res.status(404).json({ error: 'Link inválido.' });
-  res.json({ nome: ctx.nomeRede, versaoTermo: termoVersaoAtual, criaLogin: ctx.criaLogin, novoNivel: ctx.novoNivel, nichos: await nichosDoCandidato(ctx.candidatoId) });
+  res.json({ nome: ctx.nomeRede, versaoTermo: termoVersaoAtual, criaLogin: ctx.criaLogin, novoNivel: ctx.novoNivel, nichos: await nichosDoCandidato(ctx.candidatoId), candidatosRede: await candidatosDaRede(ctx.candidatoId) });
 }));
 
 // Município de votação e escolas (locais de votação) para o formulário público
@@ -181,6 +193,22 @@ router.post('/autocadastro', asyncHandler(async (req, res) => {
   const dup = await buscarDuplicidade({ candidatoId, telefone, titulo });
   if (dup) {
     return res.status(409).json({ error: `Já existe um cadastro com esse ${dup.campo} nesta rede (${dup.nome}). Se você acha que isso é um engano, fale com quem enviou o link.` });
+  }
+  // Já apoia outro candidato da mesma rede: em vez de um segundo cadastro, a
+  // pessoa ganha o vínculo com este candidato, no lugar que o link dá (manual
+  // do cliente: "o sistema reconhece e só acrescenta o novo vínculo").
+  const naRede = await buscarNaRede({ candidatoId, telefone });
+  if (naRede) {
+    const metaV = prepararMeta(req.body.meta_votos, novoNivel, { criacao: false });
+    await pool.query(
+      `INSERT INTO apoiador_candidatos (apoiador_id, candidato_id, nivel, superior_id, meta_votos, ativo, criado_por)
+       VALUES ($1,$2,$3,$4,$5,true,NULL)
+       ON CONFLICT (apoiador_id, candidato_id) DO UPDATE SET ativo = true`,
+      [naRede.apoiador_id, candidatoId, novoNivel, novoNivel === 1 ? null : parentId, novoNivel <= 3 ? (metaV.meta ?? null) : null]
+    );
+    await registrar(req, { acao: 'rede.vincular', alvoTipo: 'apoiador', alvoId: naRede.apoiador_id, alvoNome: naRede.nome,
+      detalhes: { origem: 'link de cadastro', ja_apoiava: naRede.candidato_nome, nivel: novoNivel, responsavel_id: parentId }, ator: {}, candidatoId });
+    return res.status(201).json({ id: naRede.apoiador_id, vinculado: true, jaApoiava: naRede.candidato_nome, criouLogin: false });
   }
   const nichos = await prepararNichos(candidatoId, req.body.nichos, { criacao: true });
   if (nichos.erro) return res.status(400).json({ error: nichos.erro });

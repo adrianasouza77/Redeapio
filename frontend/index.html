@@ -585,6 +585,7 @@
       <button class="auth-tab active" onclick="setAuthTab('candidato')">Candidato</button>
       <button class="auth-tab" onclick="setAuthTab('lideranca')">Liderança</button>
       <button class="auth-tab" onclick="setAuthTab('apoiador')">Apoiador</button>
+      <button class="auth-tab" onclick="setAuthTab('coordenador_geral')">Coord. Geral</button>
       <button class="auth-tab" onclick="setAuthTab('admin')">Administrador</button>
     </div>
     <div class="field"><label>Usuário ou e-mail</label><input type="text" id="login-user" placeholder="Digite seu usuário ou e-mail"></div>
@@ -749,7 +750,7 @@
   </div>
   <div id="workspace-bar" style="display:none;align-items:center;justify-content:space-between;background:#fdf5e0;border-bottom:1px solid var(--gold);padding:10px 32px;">
     <span style="font-size:13px;color:#8a6a10;font-weight:600">🗝️ Visualizando workspace de <span id="workspace-bar-nome"></span></span>
-    <button class="btn-sm btn-outline" onclick="fecharWorkspace()">← Voltar à Central de Vagas</button>
+    <button class="btn-sm btn-outline" id="workspace-bar-voltar" onclick="fecharWorkspace()">← Voltar à Central de Vagas</button>
   </div>
   <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="toggleSidebar(false)"></div>
   <div class="layout">
@@ -766,6 +767,7 @@
         <button class="nav-item" onclick="showPage('mapa-mental')" data-short="Mental"><span>🧠</span> Mapa Mental</button>
 
         <button class="nav-item" onclick="showPage('candidato')" data-short="Candidato"><span>🎯</span> Candidato</button>
+        <button class="nav-item" id="nav-rede-geral" onclick="showPage('rede-geral')" style="display:none"><span>🤝</span> Painel da Rede</button>
         <button class="nav-item" onclick="showPage('entrega')" data-short="Entrega"><span>✅</span> Prometido × Entregue</button>
         <button class="nav-item" onclick="showPage('apuracao')" data-short="Apuração"><span>🗳️</span> Apuração ao Vivo</button>
         <button class="nav-item" onclick="showPage('votos')" data-short="Votos"><span>📍</span> Votos por Seção</button>
@@ -793,6 +795,11 @@
         <button class="nav-item" id="nav-apoiador-entrega" onclick="showPage('entrega')" style="display:none"><span>✅</span> Prometido × Entregue</button>
         <button class="nav-item" onclick="gerarLinkAutoCadastro()" style="background:linear-gradient(135deg,#276749,#1a4a32);color:#fff;border-radius:8px;margin-top:4px"><span>🔗</span> Gerar link de cadastro</button>
         <button class="nav-item" onclick="showPage('minha-conta')"><span>👤</span> Minha Conta</button>
+      </div>
+      <div class="sidebar-section" id="nav-cg" style="display:none">
+        <div class="sidebar-label">Coordenador Geral</div>
+        <button class="nav-item active" onclick="showPage('rede-geral')" data-short="Rede"><span>🤝</span> Painel da Rede</button>
+        <button class="nav-item" onclick="showPage('minha-conta')" data-short="Conta"><span>👤</span> Minha Conta</button>
       </div>
       <div class="sidebar-section" id="nav-admin" style="display:none">
         <div class="sidebar-label">Administrador</div>
@@ -926,7 +933,9 @@ let workspaceAdmin = null; // {id, nome} — preenchido quando o admin abre o wo
 // a senha atual) — nunca é persistida.
 let _senhaLoginUsada = null;
 
-const ROLE_LABELS = {candidato:'Candidato', lideranca:'Liderança', apoiador:'Apoiador', admin:'Administrador'};
+const ROLE_LABELS = {candidato:'Candidato', lideranca:'Liderança', apoiador:'Apoiador', admin:'Administrador', coordenador_geral:'Coordenador Geral'};
+// Candidatos da rede, para o termo de consentimento (LGPD, seção 7 do briefing "Votos por seção").
+let TERMO_REDE = [];
 
 let currentAuthTab = 'candidato';
 function setAuthTab(tab) {
@@ -1064,7 +1073,7 @@ function textoTermoCompleto(){
     <h4>4. Consentimento específico para dado sensível</h4>
     <p>Ao marcar a caixa de consentimento, você autoriza, de forma livre, informada, inequívoca e destacada, o tratamento do dado relativo à sua opinião/apoio político, nos termos do art. 11, I, da LGPD.</p>
     <h4>5. Compartilhamento e acesso</h4>
-    <p>Os dados só são acessados por membros autorizados da equipe do Controlador, mediante credenciais individuais, com registro de acesso.</p>
+    <p>Os dados só são acessados por membros autorizados da equipe do Controlador, mediante credenciais individuais, com registro de acesso.${TERMO_REDE.length > 1 ? ` Esta rede atende mais de um candidato, e os seus dados podem ser usados pelos candidatos dela: <strong>${TERMO_REDE.map(escapeHtml).join(', ')}</strong>.` : ''}</p>
     <h4>6. Armazenamento e segurança</h4>
     <p>Os dados são armazenados em ambiente com controle de acesso por perfil. O prazo de conservação é de até 90 dias após o encerramento da campanha/mandato, salvo obrigação legal de guarda, quando então são eliminados ou anonimizados.</p>
     <h4>7. Seus direitos (art. 18, LGPD)</h4>
@@ -1142,6 +1151,7 @@ function verificarAutoCadastro() {
         desc.innerHTML = `Quem está te convidando: <strong>${data.nome}</strong> — você entrará na rede dele(a) como <strong>${papel(data.novoNivel)}</strong> (nível ${data.novoNivel}).<br><span style="color:#c53030">Se não foi ${data.nome} quem te chamou, não preencha: peça o link de quem te convidou.</span>`;
       }
       _versaoTermoAutocadastro = data.versaoTermo || null;
+      TERMO_REDE = data.candidatosRede || [];
       // Nichos da campanha vêm junto com o convite: quem se cadastra pelo link
       // ainda não tem sessão para buscá-los.
       document.getElementById('auto-extra').innerHTML =
@@ -1241,7 +1251,10 @@ async function salvarAutoCadastro() {
     })});
     res.style.display = 'block';
     res.style.background = '#e6f4ec'; res.style.border = '1px solid #276749'; res.style.color = '#276749';
-    if(resp && resp.criouLogin) {
+    if(resp && resp.vinculado) {
+      res.innerHTML = `✅ Pronto, ${nome.split(' ')[0]}! Você já estava na rede (apoiando ${escapeHtml(resp.jaApoiava||'outro candidato')}) — o seu cadastro continua um só, e agora você apoia também ${escapeHtml(document.getElementById('auto-descricao')?.querySelector('strong')?.textContent || 'este candidato')}.`;
+      setTimeout(fecharAutoCadastro, 6000);
+    } else if(resp && resp.criouLogin) {
       // O aviso de não repassar o link fica também aqui, no fim: é neste momento
       // que a pessoa costuma pegar o link que acabou de usar e reencaminhar para
       // os apoiadores dela — e aí a rede inteira dela nasce pendurada em quem a
@@ -1278,6 +1291,7 @@ async function entrarNaApp(user){
   // Relatório Prometido × Entregue: Líder e Coordenador, não Mobilizador (briefing).
   document.getElementById('nav-apoiador-entrega').style.display=(currentRole==='apoiador' && meuNivel()===2)?'flex':'none';
   document.getElementById('nav-admin').style.display=currentRole==='admin'?'block':'none';
+  document.getElementById('nav-cg').style.display=currentRole==='coordenador_geral'?'block':'none';
   document.getElementById('nav-admin-extra').style.display=currentRole==='admin'?'block':'none';
   montarBottomNav();
 
@@ -1288,9 +1302,15 @@ async function entrarNaApp(user){
 
   if(currentRole === 'admin') {
     showPage(paginaInicial());
+  } else if(currentRole === 'coordenador_geral') {
+    // Coordenador Geral não tem pirâmide própria: entra no painel da rede e,
+    // de lá, em cada candidato pelo seletor do topo.
+    await carregarRedeInfo();
+    showPage(paginaInicial());
   } else {
     await carregarConfig();
     await carregarApoiadores();
+    if(currentRole === 'candidato') carregarRedeInfo();
     // paginaInicial() em vez de 'dashboard' fixo: dar F5 em #/mapa volta pro
     // mapa, e nao joga a pessoa no dashboard como antes.
     showPage(paginaInicial());
@@ -1508,7 +1528,8 @@ function atualizarBottomNav(){
 // sistema não mostrar uma tela em branco quando alguém digita um endereço de
 // outro perfil na barra do navegador.
 const PAGINAS_POR_PAPEL = {
-  candidato: ['dashboard','rede','apoiadores','exportar','grafico','mapa','mapa-mental','nichos','candidato','entrega','apuracao','votos','historico','usuarios','configuracoes','minha-conta'],
+  candidato: ['dashboard','rede','apoiadores','exportar','grafico','mapa','mapa-mental','nichos','candidato','entrega','rede-geral','apuracao','votos','historico','usuarios','configuracoes','minha-conta'],
+  coordenador_geral: ['rede-geral','minha-conta'],
   lideranca: ['dashboard','minha-rede','cadastrar','rede','entrega','minha-conta'],
   apoiador:  ['dashboard','minha-rede','cadastrar','rede','entrega','minha-conta'],
   admin:     ['vagas','minha-conta'],
@@ -1523,7 +1544,10 @@ function paginasPermitidas(){
   const base = workspaceAdmin ? PAGINAS_POR_PAPEL.candidato : (PAGINAS_POR_PAPEL[currentRole] || []);
   return currentRole === 'admin' ? [...base, ...PAGINAS_SO_ADMIN] : base;
 }
-function paginaPadrao(){ return currentRole === 'admin' && !workspaceAdmin ? 'vagas' : 'dashboard'; }
+function paginaPadrao(){
+  if(workspaceAdmin) return 'dashboard';
+  return currentRole === 'admin' ? 'vagas' : currentRole === 'coordenador_geral' ? 'rede-geral' : 'dashboard';
+}
 function paginaDoEndereco(){
   const p = (location.hash || '').replace(/^#\/?/, '').trim();
   return paginasPermitidas().includes(p) ? p : null;
@@ -1573,6 +1597,7 @@ function showPage(page) {
     case 'votos':         c.innerHTML=renderVotos(); setTimeout(vsIniciar,50); break;
     case 'candidato':     c.innerHTML=renderCandidato(); setTimeout(cdIniciar,50); break;
     case 'entrega':       c.innerHTML=renderEntrega(); setTimeout(enIniciar,50); break;
+    case 'rede-geral':    c.innerHTML=renderRedeGeral(); setTimeout(rgIniciar,50); break;
     case 'nichos':        c.innerHTML=renderNichos(); break;
     case 'historico':     c.innerHTML=renderHistorico(); setTimeout(hiIniciar,50); break;
     case 'minha-rede':    c.innerHTML=renderMinhaRede(); break;
@@ -1580,7 +1605,7 @@ function showPage(page) {
     case 'minha-conta':   c.innerHTML=renderMinhaConta(); setTimeout(mcCarregarSeguranca,50); break;
     case 'usuarios':      c.innerHTML=renderUsuarios(); setTimeout(()=>{ carregarListaUsuarios(); votacaoIniciar('nu'); },50); break;
     case 'configuracoes': c.innerHTML=renderConfiguracoes(); break;
-    case 'vagas':         c.innerHTML=renderVagas(); setTimeout(carregarVagas,50); break;
+    case 'vagas':         c.innerHTML=renderVagas(); setTimeout(async ()=>{ await carregarRedesAdmin(); carregarVagas(); },50); break;
     case 'busca-pessoa':  c.innerHTML=renderBuscaPessoa(); break;
     case 'logs':          c.innerHTML=renderLogs(); setTimeout(iniciarLogs,50); break;
   }
@@ -1727,7 +1752,8 @@ function seletorVisaoRede(){
 function extraNo(a){
   const meta = a.nivel <= 3 && a.meta_votos != null ? `<div class="pn-meta">🎯 meta ${a.meta_votos.toLocaleString('pt-BR')}</div>` : '';
   const chips = NICHOS.length ? chipsNichos(a) : '';
-  return (chips ? `<div class="nicho-linha">${chips}</div>` : '') + meta + entregaNo(a);
+  const vin = a.vinculo ? `<div class="pn-zs" title="Cadastrada em outro candidato da rede; aqui com papel e meta próprios">🔗 também em outro candidato</div>` : '';
+  return (chips ? `<div class="nicho-linha">${chips}</div>` : '') + meta + vin + entregaNo(a);
 }
 
 // ── Prometido × entregue no cartão da pirâmide ──────────────────────────────
@@ -1907,6 +1933,9 @@ function renderApoiadores(){
     <button class="btn-sm btn-outline" onclick="buscarDuplicados()">🔎 Buscar duplicados</button>
   </div>
   <div id="duplicados-result"></div>`:''}
+  ${papelEfetivo()==='candidato' && redeTemVarios() ? `<div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+    <div><div class="card-title">Pessoas de outros candidatos da rede</div><div class="ap-meta">Quem já apoia outro candidato pode apoiar este também, sem duplicar o cadastro.</div></div>
+    <button class="btn-sm btn-outline" onclick="abrirVincular()">🔗 Vincular pessoa</button></div>` : ''}
   <div class="card">
     <div class="search-bar">
       <input class="search-input" id="search-inp" placeholder="🔍 Buscar nome ou região..." oninput="filterTable()">
@@ -2292,6 +2321,7 @@ function renderUsuarios(){
       <div class="field"><label>Zona Eleitoral</label><input type="text" id="nu-zona" placeholder="000" inputmode="numeric" onchange="votacaoLocais('nu')"></div>
       <div class="field"><label>Seção Eleitoral</label><input type="text" id="nu-secao" placeholder="0000" inputmode="numeric"></div>
       ${htmlLocalVotacao('nu')}
+      ${currentRole==='coordenador_geral' && redeTemVarios() ? `<div class="field full"><label>Também apoia (outros candidatos da rede)</label><div style="display:flex;gap:12px;flex-wrap:wrap">${REDE_INFO.candidatos.filter(c=>c.id!==idEfetivo()).map(c=>`<label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" class="nu-tambem" value="${c.id}"> ${escapeHtml(c.nome_urna||c.nome)}${c.cargo_nome?' <span class="ap-meta">('+escapeHtml(c.cargo_nome)+')</span>':''}</label>`).join('')}</div></div>` : ''}
       ${campoMetaHtml('nu', null, 1)}
       ${campoNichosHtml('nu')}
     </div>
@@ -3071,6 +3101,7 @@ function renderMapa(){
       <button class="btn-sm btn-outline" onclick="cancelarPino()">Cancelar</button>
     </div>
   </div>
+  ${htmlCamadasVotos()}
   <div class="card" style="padding:0;overflow:hidden">
     <div id="mapa-canvas" style="width:100%;height:520px;background:var(--bg)"></div>
   </div>
@@ -3086,6 +3117,106 @@ function renderMapa(){
     <p style="font-size:12px;color:var(--slate-light);margin-bottom:16px">Boa parte dos bairros do Brasil não existe no mapa aberto do OpenStreetMap — não é erro do seu cadastro. Você resolve cada um <strong>uma vez</strong>, das duas formas abaixo, e fica valendo para sempre.</p>
     <div id="mapa-corrigir-lista"></div>
   </div>`;
+}
+
+// ── Fase 2: votos por local de votação no Mapa da Rede ──────────────────────
+// Briefing "Votos por seção" v2, item 8: ao lado dos apoiadores já plotados,
+// cada escola vira uma bolha do tamanho dos votos do candidato ali; a cor é a
+// entrega da rede naquele local (votos ÷ metas de quem vota ali); escola sem
+// ninguém da rede é o "vazio territorial"; e uma camada pinta brancos + nulos.
+// Clicar na escola mostra seções, votos, eleitores aptos e as lideranças dali.
+const MV = { dados:null, carregando:false, camadas:{ votos:true, entrega:true, apoiadores:true, vazios:true, bn:false }, filtros:{}, sinal:'' };
+let _mapaVotos = null;
+const MV_COR = { verde:'#2f855a', amarelo:'#c8a84b', vermelho:'#c53030', cinza:'#6b8ed6' };
+
+function htmlCamadasVotos(){
+  return `<div class="card" id="mv-card">
+    <div class="card-header"><div class="card-title">🗳️ Votos por local de votação</div><span class="ap-meta" id="mv-status"></span></div>
+    <div id="mv-corpo"><p class="ap-meta">Carregando...</p></div>
+  </div>`;
+}
+function mvDesenharControles(){
+  const el = document.getElementById('mv-corpo'); if(!el) return;
+  const d = MV.dados;
+  if(!d || d.semDados || d.indisponivel || !d.urnasCarregadas){
+    el.innerHTML = `<p class="ap-meta">${d && d.semDados ? 'Cadastre os dados do candidato' : 'Importe os votos do TSE'} na aba <a href="#/candidato" onclick="showPage('candidato');return false">Candidato</a> para ver os votos de cada escola no mapa.</p>`;
+    return;
+  }
+  const f = d.filtrosDisponiveis; const F = MV.filtros;
+  const chk = (k, rot) => `<label style="display:flex;gap:6px;align-items:center;font-size:13px;cursor:pointer"><input type="checkbox" ${MV.camadas[k]?'checked':''} onchange="MV.camadas['${k}']=this.checked;mvDesenhar()"> ${rot}</label>`;
+  const sel = (campo, rot, opcoes) => `<select class="ap-select" style="min-width:0;flex:1 1 150px" onchange="MV.filtros['${campo}']=this.value;mvCarregar()"><option value="">${rot}</option>${opcoes.map(([v,n])=>`<option value="${escapeAttr(v)}" ${String(F[campo]||'')===String(v)?'selected':''}>${escapeHtml(n)}</option>`).join('')}</select>`;
+  el.innerHTML = `
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px">
+      ${chk('votos','Votos por escola (tamanho)')}${chk('entrega','Cor = entrega da rede')}${chk('bn','Cor = brancos + nulos')}${chk('apoiadores','Apoiadores (bairros)')}${chk('vazios','Escolas sem ninguém da rede')}
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${f.municipios.length > 1 ? sel('municipio','Todos os municípios', f.municipios.map(m=>[m.codigo, vsTitulo(m.nome)])) : ''}
+      ${sel('zona','Todas as zonas', f.zonas.map(z=>[z,'Zona '+apZona(z)]))}
+      ${f.liderancas.length ? sel('lideranca','Todas as lideranças', f.liderancas.map(l=>[l.id,l.nome])) : ''}
+      ${f.nichos.length ? sel('nicho','Todos os nichos', f.nichos.map(n=>[n.id,n.nome])) : ''}
+      <select class="ap-select" style="min-width:0;flex:1 1 150px" onchange="MV.sinal=this.value;mvDesenhar()">
+        <option value="">Entregou e não entregou</option><option value="sim" ${MV.sinal==='sim'?'selected':''}>Só onde entregou</option><option value="nao" ${MV.sinal==='nao'?'selected':''}>Só onde não entregou</option></select>
+    </div>
+    <div class="ap-meta" style="margin-top:10px;line-height:1.7">
+      <span style="color:${MV_COR.verde}">●</span> entregou (≥ ${d.dados.faixaVerde}%) · <span style="color:${MV_COR.amarelo}">●</span> ficou perto · <span style="color:${MV_COR.vermelho}">●</span> abaixo de ${d.dados.faixaAmarela}% · <span style="color:${MV_COR.cinza}">●</span> rede sem meta · ◯ escola sem ninguém da rede.
+      Indica a entrega da área de influência, não o voto individual.</div>`;
+}
+async function mvCarregar(){
+  if(papelEfetivo()!=='candidato') { const c = document.getElementById('mv-card'); if(c) c.style.display='none'; return; }
+  MV.carregando = true;
+  const p = new URLSearchParams({ locais:'1' });
+  Object.entries(MV.filtros).forEach(([k,v])=>{ if(v) p.set(k,v); });
+  try { MV.dados = await api('/entrega?'+p.toString()+wsQuery('&')); } catch(e){ MV.dados = { erro:e.message }; }
+  MV.carregando = false;
+  mvDesenharControles();
+  mvDesenhar(true);
+}
+function mvDesenhar(enquadrar){
+  if(!_mapa) return;
+  // A camada dos apoiadores (bairros) liga e desliga sem ser refeita.
+  if(_mapaCamada){ if(MV.camadas.apoiadores) _mapaCamada.addTo(_mapa); else _mapa.removeLayer(_mapaCamada); }
+  if(_mapaVotos){ _mapa.removeLayer(_mapaVotos); _mapaVotos = null; }
+  const d = MV.dados; const status = document.getElementById('mv-status');
+  if(!d || !d.locais){ if(status) status.textContent = ''; return; }
+  _mapaVotos = L.layerGroup().addTo(_mapa);
+  const lista = d.locais.filter(l=>l.lat!=null && l.lng!=null).filter(l=>{
+    if(MV.sinal==='sim') return l.sinal==='verde';
+    if(MV.sinal==='nao') return l.sinal==='amarelo' || l.sinal==='vermelho';
+    return true;
+  });
+  const maior = Math.max(1, ...lista.map(l=>l.votos));
+  const maiorBn = Math.max(1, ...lista.map(l=>l.pctBrancosNulos||0));
+  const pontos = [];
+  let desenhados = 0;
+  for(const l of lista){
+    const vazio = l.sinal === 'vazio';
+    if(vazio && !MV.camadas.vazios) continue;
+    if(!vazio && !MV.camadas.votos) continue;
+    const raio = 5 + Math.sqrt(l.votos/maior) * 22;
+    let cor = '#0f1f3d';
+    if(MV.camadas.bn) cor = vsTom(VS_ESCALA_BN, (l.pctBrancosNulos||0)/maiorBn);
+    else if(MV.camadas.entrega) cor = MV_COR[l.sinal] || '#0f1f3d';
+    const m = L.circleMarker([l.lat, l.lng], vazio
+      ? { radius: Math.max(6, raio), color:'#718096', weight:2, dashArray:'3,3', fillColor:'#fff', fillOpacity:0.15 }
+      : { radius: raio, color:'#fff', weight:1.5, fillColor:cor, fillOpacity:0.82 });
+    const pct = (v)=> v==null ? '—' : v.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%';
+    m.bindPopup(`<strong style="font-size:13px">${escapeHtml(l.nome)}</strong><br>
+      <span style="font-size:11px;color:#4a5568">${escapeHtml(l.bairro||'')}${l.municipio?' · '+escapeHtml(vsTitulo(l.municipio)):''}</span>
+      <div style="font-size:12px;margin-top:6px;line-height:1.6">
+        <b>${vsNum(l.votos)}</b> votos do candidato (${pct(l.pctSecao)} dos válidos)<br>
+        ${vsNum(l.aptos)} eleitores aptos · ${vsNum(l.comparecimento)} votaram<br>
+        Brancos + nulos: ${pct(l.pctBrancosNulos)}<br>
+        ${vazio ? '<b style="color:#c53030">Ninguém da rede vota aqui — vazio territorial.</b>' : `Rede: <b>${vsNum(l.cadastrados)}</b> votando aqui${l.meta?` · metas somadas ${vsNum(l.meta)} → <b>${pct(l.entrega)}</b> entregue`:''}`}<br>
+        Seções: ${l.secoes.slice(0,14).map(escapeHtml).join(', ')}${l.secoes.length>14?'…':''}
+        ${l.liderancas.length ? `<br>Lideranças aqui: ${l.liderancas.map(escapeHtml).join(', ')}` : ''}
+      </div>`);
+    m.bindTooltip(`${l.nome}: ${vsNum(l.votos)} votos`, { direction:'top' });
+    m.addTo(_mapaVotos);
+    pontos.push([l.lat, l.lng]);
+    desenhados++;
+  }
+  if(status) status.textContent = `${desenhados} escola${desenhados===1?'':'s'} no mapa · ${d.locais.filter(l=>l.sinal==='vazio').length} sem ninguém da rede`;
+  if(enquadrar && pontos.length && !_pinoAlvo) _mapa.fitBounds(pontos, { padding:[40,40], maxZoom:14 });
 }
 
 function filtrarMapa(z){ _mapaFiltroZona = z; desenharMarcadores(); }
@@ -3116,6 +3247,7 @@ async function carregarMapa(recarregar){
   // inteiro do conteúdo, então a instância antiga fica apontando para uma div
   // que não existe mais e o Leaflet passa a dar erro em todo clique.
   if(_mapa){ _mapa.remove(); _mapa = null; }
+  _mapaVotos = null;
   _mapa = L.map('mapa-canvas', { scrollWheelZoom:false });
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 18,
@@ -3126,6 +3258,7 @@ async function carregarMapa(recarregar){
   _mapa.setView([-15.78, -47.93], 4);
   _mapa.on('click', (ev)=>{ if(_pinoAlvo) salvarPino(ev.latlng.lat, ev.latlng.lng); });
   desenharMarcadores();
+  mvCarregar();
 }
 
 function desenharMarcadores(){
@@ -3210,6 +3343,7 @@ function desenharMarcadores(){
   if(pontos.length && !_pinoAlvo) _mapa.fitBounds(pontos, { padding:[40,40], maxZoom:14 });
 
   atualizarPainelMapa(geoBairros, comPonto, contagem, filtrados);
+  if(!MV.camadas.apoiadores) _mapa.removeLayer(_mapaCamada);
 }
 
 function atualizarPainelMapa(geoBairros, comPonto, contagem, filtrados){
@@ -4337,8 +4471,57 @@ function renderVagas(){
     <p style="font-size:11px;color:var(--slate-light);margin-top:8px">Uma senha temporária é gerada automaticamente — o candidato será obrigado a trocá-la (e pode trocar o login) no primeiro acesso.</p>
     <p style="font-size:12px;color:var(--slate-light);margin-top:8px">Deixe o login em branco para gerar automaticamente o próximo sequencial (candidatoN), ou digite o login desejado (ex: ruanoliveira).</p>
   </div>
+  <div id="redes-admin"></div>
   <div id="vagas-lista"><div class="card"><p style="font-size:13px;color:var(--slate-light)">Carregando...</p></div></div>`;
 }
+
+// ── Redes e Coordenadores Gerais (admin) ────────────────────────────────────
+// Briefing "Votos por seção", seção 7: o admin cria o login do Coordenador
+// Geral (com a rede dele) e põe os candidatos na rede. Candidato sem rede de
+// outros continua sozinho, exatamente como era.
+let ADM_REDES = null;
+async function carregarRedesAdmin(){
+  const el = document.getElementById('redes-admin'); if(!el) return;
+  try { ADM_REDES = await api('/admin/redes'); } catch(e){ el.innerHTML = `<div class="card"><p class="ap-meta">${escapeHtml(e.message)}</p></div>`; return; }
+  const comCG = ADM_REDES.filter(r=>r.cg_id);
+  el.innerHTML = `<div class="card">
+    <div class="card-header"><div class="card-title">🤝 Redes com vários candidatos (Coordenador Geral)</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+      <input class="search-input" id="cg-nome" placeholder="Nome do Coordenador Geral" style="max-width:220px">
+      <input class="search-input" id="cg-login" placeholder="login" style="max-width:160px" data-login autocomplete="off" autocapitalize="none" spellcheck="false" oninput="mascaraLogin(this,event)">
+      <input class="search-input" id="cg-email" type="email" placeholder="E-mail (opcional)" style="max-width:200px">
+      <input class="search-input" id="cg-rede" placeholder='Nome da rede (ex.: "Grupo Dourados 2026")' style="max-width:260px">
+      <button class="btn-sm btn-navy" onclick="criarCoordenadorGeral()">➕ Criar Coordenador Geral</button>
+    </div>
+    <div id="cg-resultado"></div>
+    ${comCG.length ? `<div class="table-wrap" style="overflow-x:auto"><table><thead><tr><th>Rede</th><th>Coordenador Geral</th><th>Candidatos</th></tr></thead>
+      <tbody>${comCG.map(r=>`<tr><td><b>${escapeHtml(r.nome)}</b></td><td>${escapeHtml(r.cg_nome)} <span class="ap-meta">${escapeHtml(r.cg_login)}</span></td>
+        <td>${r.candidatos.map(c=>escapeHtml(c.nome)).join(', ') || '<span class="ap-meta">nenhum ainda</span>'}</td></tr>`).join('')}</tbody></table></div>
+      <p class="ap-meta" style="margin-top:8px">Para pôr um candidato que já existe numa rede, use o seletor "Rede" na lista de candidatos abaixo.</p>` : '<p class="ap-meta">Nenhuma rede com Coordenador Geral ainda.</p>'}
+  </div>`;
+}
+async function criarCoordenadorGeral(){
+  const v = (id)=>document.getElementById(id).value.trim();
+  try {
+    const r = await api('/admin/coordenadores', { method:'POST', body: JSON.stringify({ nome:v('cg-nome'), login:v('cg-login'), email:v('cg-email'), rede:v('cg-rede') }) });
+    await carregarRedesAdmin(); await carregarVagas();
+    document.getElementById('cg-resultado').innerHTML = `<div class="ap-aviso" style="background:#e6f4ec;border-color:var(--green);color:var(--green)">✅ Coordenador Geral criado. Login <b>${escapeHtml(r.login)}</b> · senha temporária <code style="user-select:all">${escapeHtml(r.senha)}</code> — anote agora. Ele entra pela aba "Coord. Geral" da tela de login.</div>`;
+  } catch(e){ showToast(e.message,'error'); }
+}
+function seletorRedeCandidato(c){
+  const redes = (ADM_REDES||[]).filter(r=>r.cg_id);
+  if(!redes.length) return '';
+  const atual = redes.find(r=>r.id===c.rede_id);
+  return `<select class="ap-select" style="min-width:160px;padding:5px 8px;font-size:12px" title="Rede" onchange="moverCandidatoRede('${c.id}',this.value)">
+    <option value="" ${atual?'':'selected'}>Rede própria (só ele)</option>
+    ${redes.map(r=>`<option value="${r.id}" ${r.id===c.rede_id?'selected':''}>${escapeHtml(r.nome)}</option>`).join('')}</select>`;
+}
+async function moverCandidatoRede(id, redeId){
+  try { await api(`/admin/candidatos/${id}/rede`, { method:'PUT', body: JSON.stringify({ rede_id: redeId || null }) }); showToast('Rede do candidato atualizada.','success'); await carregarRedesAdmin(); await carregarVagas(); }
+  catch(e){ showToast(e.message,'error'); }
+}
+
+
 
 async function carregarVagas(){
   const el = document.getElementById('vagas-lista');
@@ -4373,6 +4556,7 @@ async function carregarVagas(){
       <button class="btn-sm btn-outline" style="font-size:11px;padding:6px 10px;white-space:nowrap" onclick="editarLoginCandidato('${c.id}','${escapeAttr(c.login)}')">🆔 Login</button>
       <button class="btn-sm btn-outline" style="font-size:11px;padding:6px 10px;white-space:nowrap" onclick="editarEmailCandidato('${c.id}','${escapeAttr(c.login)}','${escapeAttr(c.email||'')}')">✉️ E-mail</button>
       <button class="btn-sm btn-outline" style="font-size:11px;padding:6px 10px;white-space:nowrap" onclick="trocarSenhaCandidato('${c.id}','${escapeAttr(c.login)}')">🔑 Senha</button>
+      ${seletorRedeCandidato(c)}
       <button class="btn-sm btn-navy" style="white-space:nowrap" onclick="abrirWorkspace('${c.id}','${escapeAttr(c.nome)}')">Abrir workspace →</button>
     </div>
   `;}).join('');
@@ -4477,9 +4661,18 @@ async function editarEmailCandidato(id, login, emailAtual){
 async function abrirWorkspace(id, nome){
   workspaceAdmin = { id, nome };
   document.getElementById('nav-admin').style.display = 'none';
+  document.getElementById('nav-cg').style.display = 'none';
   document.getElementById('nav-candidato').style.display = 'block';
   document.getElementById('workspace-bar').style.display = 'flex';
-  document.getElementById('workspace-bar-nome').textContent = nome;
+  // Coordenador Geral: seletor de candidato no topo de todas as telas (briefing
+  // "Votos por seção", seção 7) — troca de candidato sem voltar ao painel.
+  if(currentRole === 'coordenador_geral'){
+    document.getElementById('workspace-bar-nome').parentNode.firstChild.textContent = '🎯 Candidato: ';
+    document.getElementById('workspace-bar-nome').innerHTML = seletorCandidatoCG(id);
+    document.getElementById('workspace-bar-voltar').textContent = '← Painel da rede';
+  } else {
+    document.getElementById('workspace-bar-nome').textContent = nome;
+  }
   montarBottomNav();
   await carregarConfig();
   await carregarApoiadores();
@@ -4489,9 +4682,16 @@ async function abrirWorkspace(id, nome){
 function fecharWorkspace(){
   workspaceAdmin = null;
   APOIADORES = [];
+  ENTREGA_AV = null;
   document.getElementById('nav-candidato').style.display = 'none';
-  document.getElementById('nav-admin').style.display = 'block';
   document.getElementById('workspace-bar').style.display = 'none';
+  if(currentRole === 'coordenador_geral'){
+    document.getElementById('nav-cg').style.display = 'block';
+    montarBottomNav();
+    showPage('rede-geral');
+    return;
+  }
+  document.getElementById('nav-admin').style.display = 'block';
   montarBottomNav();
   showPage('vagas');
   setTimeout(carregarVagas, 50);
@@ -4987,6 +5187,12 @@ async function salvarApoiador(){
     showPage('dashboard');
   } catch(e){
     hideLoading();
+    const v = e.dados && e.dados.vincular;
+    if(v && confirm(`${v.nome} já está na rede apoiando ${v.candidato_nome}.\n\nVincular a você neste candidato, sem duplicar o cadastro?`)){
+      try { await api('/apoiadores/vincular', { method:'POST', body: JSON.stringify({ apoiador_id: v.apoiador_id, meta_votos: lerMeta('c') }) }); await carregarApoiadores(); showToast('Vinculado sem duplicar o cadastro.','success'); showPage('dashboard'); }
+      catch(err){ showToast(err.message,'error'); }
+      return;
+    }
     showToast(e.message || 'Erro ao salvar. Tente novamente.','error');
   }
 }
@@ -5027,8 +5233,14 @@ async function criarUsuario(){
     })});
   } catch(e) {
     hideLoading();
+    if(oferecerVinculo(e, perfil==='lideranca' ? 1 : (nivelEscolhido||2))) return;
     showToast(e.message || 'Erro: login já existe ou dados inválidos.', 'error');
     return;
+  }
+  // Coordenador Geral: "também apoia" outros candidatos da rede, escolhido na hora do cadastro.
+  for(const outro of [...document.querySelectorAll('.nu-tambem:checked')].map(x=>x.value)){
+    try { await api(`/redes/vincular?as=${outro}`, { method:'POST', body: JSON.stringify({ apoiador_id: result.usuario.id, nivel: perfil==='lideranca' ? 1 : (nivelEscolhido||2), meta_votos: lerMeta('nu') }) }); }
+    catch(err){ showToast(err.message,'error'); }
   }
   if(perfil==='lideranca') await carregarApoiadores();
   hideLoading();
@@ -6803,6 +7015,238 @@ function enExportar(formato){
   });
   baixarArquivo(bytes, nome+'.pdf', 'application/pdf');
   showToast('PDF gerado.','success');
+}
+
+// ══════════════════════════════════════════
+//  REDE COM VÁRIOS CANDIDATOS (Coordenador Geral)
+// ══════════════════════════════════════════
+// Briefing "Votos por seção" v2, seção 7. Coordenador Geral (rede) →
+// Candidatos → Líder → Coordenador → Mobilizador → Apoiador Orgânico. A mesma
+// pessoa pode apoiar mais de um candidato sem duplicar o cadastro. O CG vê a
+// rede inteira e entra em qualquer candidato pelo seletor do topo; o candidato
+// só vê os outros se o CG liberar.
+let REDE_INFO = null;   // { rede, candidatos, gestor, verTodos } da rede de quem está logado
+const RG = { aba:'lado', municipio:'', painel:null, lider:null, dobra:null, a:'', b:'', novo:null };
+
+async function carregarRedeInfo(){
+  try { REDE_INFO = await api('/redes'+wsQuery()); } catch(e){ REDE_INFO = null; }
+  // Candidato liberado pelo Coordenador Geral ganha a tela da rede no menu.
+  const nav = document.getElementById('nav-rede-geral');
+  if(nav) nav.style.display = (REDE_INFO && REDE_INFO.verTodos && (REDE_INFO.candidatos||[]).length > 1 && currentRole!=='coordenador_geral') ? 'flex' : 'none';
+  // O termo de consentimento lista os candidatos da rede (LGPD).
+  if(REDE_INFO && (REDE_INFO.candidatos||[]).length > 1) TERMO_REDE = REDE_INFO.candidatos.map(c=>c.nome_urna||c.nome);
+}
+function redeTemVarios(){ return REDE_INFO && (REDE_INFO.candidatos||[]).length > 1; }
+
+function renderRedeGeral(){
+  return `<div class="page-header"><h1>Painel da Rede</h1><p>Todos os candidatos da rede lado a lado — votos, entrega e rede cadastrada</p></div>
+  <div id="rg-corpo"><div class="card"><p class="ap-meta">Carregando...</p></div></div>`;
+}
+async function rgIniciar(){
+  await carregarRedeInfo();
+  RG.painel = RG.lider = RG.dobra = null;
+  rgDesenhar();
+  rgCarregarAba();
+}
+function rgDesenhar(){
+  const el = document.getElementById('rg-corpo'); if(!el || paginaAtual!=='rede-geral') return;
+  const d = REDE_INFO;
+  if(!d || !d.rede){
+    el.innerHTML = currentRole==='coordenador_geral'
+      ? `<div class="card"><div class="card-title">Crie a sua rede</div><p class="ap-meta" style="margin:8px 0 12px">Ex.: "Grupo Dourados 2026".</p>
+         <div style="display:flex;gap:8px;flex-wrap:wrap"><input class="search-input" id="rg-nome-rede" placeholder="Nome da rede" style="max-width:320px"><button class="btn-sm btn-navy" onclick="rgSalvarNome()">Criar rede</button></div></div>`
+      : `<div class="card"><p class="ap-meta">Esta campanha não faz parte de uma rede com outros candidatos.</p></div>`;
+    return;
+  }
+  const quando = (t)=> t ? new Date(t).toLocaleDateString('pt-BR') : '';
+  const imp = (i)=> !i ? '<span class="ap-meta">nunca</span>'
+    : i.status==='concluida' ? `${vsNum(i.total_votos)} votos${i.confere===false?' ⚠️':''} <span class="ap-meta">${quando(i.concluido_em)}</span>`
+    : i.status==='coletando' ? '⏳ buscando' : i.status==='indisponivel' ? '<span class="ap-meta">TSE não publicou</span>' : '<span style="color:var(--red)">erro</span>';
+  el.innerHTML = `
+  <div class="card" style="border-left:4px solid var(--gold)">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="font-size:17px;font-weight:700;color:var(--navy)">🤝 ${escapeHtml(d.rede.nome)}</div>
+      ${d.gestor ? `<button class="btn-sm btn-outline" onclick="rgRenomear()">✏️ Renomear</button>` : ''}
+      <span style="flex:1"></span>
+      ${d.gestor ? `<button class="btn-sm btn-navy" onclick="rgImportarTodos()">📥 Importar todos</button>` : ''}
+    </div>
+    ${d.rede.coordenadorGeral ? `<div class="ap-meta" style="margin-top:4px">Coordenador Geral: ${escapeHtml(d.rede.coordenadorGeral)}</div>` : ''}
+  </div>
+  ${(d.alertas||[]).length ? `<div class="ap-aviso">⚠️ <b>Mesmo cargo:</b> o eleitor vota uma vez por cargo, então estas metas competem entre si —
+    ${d.alertas.map(a=>`<b>${escapeHtml(a.nome)}</b> está em ${a.candidatos.map(escapeHtml).join(' e ')} (${escapeHtml(a.cargo)})`).join('; ')}. Dobradinha entre cargos diferentes é permitida.</div>` : ''}
+  <div class="card">
+    <div class="card-header"><div class="card-title">Candidatos da rede (${d.candidatos.length})</div>
+      ${d.gestor ? `<button class="btn-sm btn-outline" onclick="RG.novo={};rgDesenhar()">➕ Novo candidato</button>` : ''}</div>
+    ${RG.novo ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
+      <input class="search-input" id="rg-novo-nome" placeholder="Nome do candidato" style="max-width:240px">
+      <input class="search-input" id="rg-novo-login" placeholder="login (ex.: joaodeputado)" style="max-width:200px" data-login autocomplete="off" autocapitalize="none" spellcheck="false" oninput="mascaraLogin(this,event)">
+      <input class="search-input" id="rg-novo-email" type="email" placeholder="E-mail (opcional)" style="max-width:220px">
+      <button class="btn-sm btn-navy" onclick="rgCriarCandidato()">Criar</button><button class="btn-sm btn-outline" onclick="RG.novo=null;rgDesenhar()">Cancelar</button></div>
+      ${RG.novo.senha ? `<div class="ap-aviso" style="background:#e6f4ec;border-color:var(--green);color:var(--green)">✅ Login <b>${escapeHtml(RG.novo.login)}</b> · senha temporária <code style="user-select:all">${escapeHtml(RG.novo.senha)}</code> — anote agora. Depois abra o candidato e preencha os dados dele na aba Candidato.</div>` : ''}` : ''}
+    <div class="table-wrap" style="overflow-x:auto"><table>
+      <thead><tr><th>Candidato</th><th>Cargo · nº</th><th>Rede cadastrada</th><th>Última importação</th>${d.gestor?'<th>Vê os outros?</th><th></th>':''}</tr></thead>
+      <tbody>${d.candidatos.map(c=>`<tr>
+        <td><b>${escapeHtml(c.nome_urna||c.nome)}</b><div class="ap-meta">${escapeHtml(c.login||'')}</div></td>
+        <td>${c.cargo_nome ? `${escapeHtml(c.cargo_nome)} · ${escapeHtml(c.numero||'')}${c.partido?' · '+escapeHtml(c.partido):''}<div class="ap-meta">${c.ano||''} ${c.uf?c.uf.toUpperCase():''}</div>` : '<span class="ap-meta">dados não preenchidos</span>'}</td>
+        <td>${vsNum(c.redeCadastrada)}</td><td>${imp(c.importacao)}</td>
+        ${d.gestor ? `<td><label style="display:flex;gap:6px;align-items:center;font-size:12px"><input type="checkbox" ${c.rede_ver_outros?'checked':''} onchange="rgLiberar('${c.id}',this.checked)"> liberado</label></td>
+        <td><button class="btn-sm btn-navy" onclick="abrirWorkspace('${c.id}','${escapeAttr(c.nome_urna||c.nome)}')">Abrir →</button></td>` : ''}</tr>`).join('')}</tbody>
+    </table></div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+    ${[['lado','📊 Lado a lado'],['lider','👥 Por liderança'],['dobra','🤝 Dobradinha']].map(([k,n])=>`<button class="btn-sm ${RG.aba===k?'btn-navy':'btn-outline'}" onclick="RG.aba='${k}';rgDesenhar();rgCarregarAba()">${n}</button>`).join('')}
+    <span style="flex:1"></span>
+    ${RG.aba!=='dobra' && RG.painel && RG.painel.municipios && RG.painel.municipios.length ? `<select class="ap-select" onchange="RG.municipio=this.value;RG.painel=RG.lider=null;rgCarregarAba()"><option value="">Todos os municípios</option>${RG.painel.municipios.map(m=>`<option value="${m.codigo}" ${m.codigo===RG.municipio?'selected':''}>${escapeHtml(vsTitulo(m.nome))}</option>`).join('')}</select>` : ''}
+  </div>
+  <div class="card" id="rg-aba">${rgHtmlAba()}</div>
+  <div class="vs-aviso-legal">Indica a entrega da área de influência, não o voto individual. Cada candidato vê só a própria rede e os próprios votos; os outros, só com a liberação do Coordenador Geral.</div>`;
+}
+async function rgCarregarAba(){
+  const q = (RG.municipio ? `?municipio=${RG.municipio}` : '') ;
+  const ws = wsQuery(q ? '&' : '?');
+  try {
+    if(RG.aba==='lado' && !RG.painel) RG.painel = await api('/redes/painel'+q+ws);
+    if(RG.aba==='lider' && !RG.lider) { RG.lider = await api('/redes/liderancas'+q+ws); if(!RG.painel) RG.painel = await api('/redes/painel'+ws); }
+    if(RG.aba==='dobra' && RG.a && RG.b && !RG.dobra) RG.dobra = await api(`/redes/dobradinha?a=${RG.a}&b=${RG.b}`+wsQuery('&'));
+  } catch(e){ showToast(e.message,'error'); }
+  const el = document.getElementById('rg-aba'); if(el) el.innerHTML = rgHtmlAba();
+  if(RG.aba!=='dobra') { const sel = document.querySelector('#rg-corpo select.ap-select'); if(!sel && RG.painel && RG.painel.municipios && RG.painel.municipios.length) rgDesenhar(); }
+}
+function rgHtmlAba(){
+  const pct = (v)=> v==null ? '—' : v.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%';
+  if(RG.aba==='lado'){
+    const p = RG.painel; if(!p) return '<p class="ap-meta">Carregando...</p>';
+    return `<div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">${p.candidatos.map(c=>`
+      <div class="stat-card"><div class="stat-label">${escapeHtml(c.cargo||'')}${c.numero?' · '+escapeHtml(c.numero):''}</div>
+        <div style="font-weight:700;color:var(--navy);font-size:15px;margin:2px 0 8px">${escapeHtml(c.nome)}</div>
+        ${c.semDados ? '<div class="ap-meta">Dados do candidato não preenchidos.</div>' : c.indisponivel ? '<div class="ap-meta">TSE ainda não publicou.</div>' : `
+        <div class="stat-value">${vsNum(c.votos)}</div><div class="stat-sub">votos${c.totalOficial!=null && !RG.municipio?` · oficial ${vsNum(c.totalOficial)}`:''}</div>
+        <div style="margin-top:10px;font-size:12.5px;line-height:1.7">
+          Entrega da rede: <b>${pct(c.entrega)}</b> <span class="ap-meta">(${vsNum(c.votosNaRede)} de ${vsNum(c.metaTotal)} prometidos)</span><br>
+          Rede cadastrada: <b>${vsNum(c.redeCadastrada)}</b> <span class="ap-meta">(${vsNum(c.comSecao)} com seção)</span><br>
+          Brancos + nulos: <b>${pct(c.pctBrancosNulos)}</b><br>
+          <span class="ap-st ap-st-verde">${c.sinal.verde}</span> <span class="ap-st ap-st-amarelo">${c.sinal.amarelo}</span> <span class="ap-st ap-st-vermelho">${c.sinal.vermelho}</span> <span class="ap-meta">líderes por sinal</span></div>`}
+      </div>`).join('')}</div>`;
+  }
+  if(RG.aba==='lider'){
+    const l = RG.lider; if(!l) return '<p class="ap-meta">Carregando...</p>';
+    const S = { verde:'ap-st-verde', amarelo:'ap-st-amarelo', vermelho:'ap-st-vermelho', cinza:'ap-st-cinza' };
+    return `<p class="ap-meta" style="margin-bottom:10px">Uma coluna por candidato: mostra, por exemplo, quem entregou para o federal e não para o estadual.</p>
+    <div class="table-wrap" style="overflow-x:auto"><table>
+      <thead><tr><th>Liderança</th>${l.colunas.map(c=>`<th>${escapeHtml(c.nome)}<div class="ap-meta" style="text-transform:none">${escapeHtml(c.cargo||'')}</div></th>`).join('')}</tr></thead>
+      <tbody>${l.linhas.map(p=>`<tr><td><b>${escapeHtml(p.nome)}</b></td>${l.colunas.map(c=>{ const x=p.porCandidato[c.id];
+        return `<td>${x ? `<span class="ap-st ${S[x.sinal]||'ap-st-cinza'}">${pct(x.entrega)}</span><div class="ap-meta">${PAPEIS[x.nivel]} · ${vsNum(x.votos)} de ${vsNum(x.meta)}</div>` : '<span class="ap-meta">—</span>'}</td>`; }).join('')}</tr>`).join('') || `<tr><td colspan="${l.colunas.length+1}" class="ap-meta">Ninguém com meta ainda.</td></tr>`}</tbody>
+    </table></div>`;
+  }
+  const cands = (REDE_INFO && REDE_INFO.candidatos) || [];
+  const op = (sel)=> cands.map(c=>`<option value="${c.id}" ${c.id===sel?'selected':''}>${escapeHtml(c.nome_urna||c.nome)}${c.cargo_nome?' — '+escapeHtml(c.cargo_nome):''}</option>`).join('');
+  const d = RG.dobra;
+  const tabela = (lista, a, b)=> `<table class="fe-tabela" style="width:100%"><thead><tr><th>Seção</th><th>Local</th><th>${escapeHtml(a)}</th><th>${escapeHtml(b)}</th></tr></thead>
+    <tbody>${lista.map(s=>`<tr><td>${escapeHtml(vsTitulo(s.municipio))} · ${apZona(s.zona)}/<b>${s.secao}</b></td><td class="ap-meta">${escapeHtml(s.local||'—')}${s.bairro?' · '+escapeHtml(s.bairro):''}</td>
+      <td>${vsNum(s.votosA)} <span class="ap-meta">(${pct(s.pctA)})</span></td><td>${vsNum(s.votosB)} <span class="ap-meta">(${pct(s.pctB)})</span></td></tr>`).join('') || '<tr><td colspan="4" class="ap-meta">Nenhuma seção nessa situação.</td></tr>'}</tbody></table>`;
+  return `<p class="ap-meta" style="margin-bottom:10px">Seções onde um candidato da rede foi bem (acima da média dele) e o parceiro de outro cargo ficou abaixo de 60% da média dele.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <select class="ap-select" onchange="RG.a=this.value;RG.dobra=null;rgCarregarAba()"><option value="">Candidato A...</option>${op(RG.a)}</select>
+      <select class="ap-select" onchange="RG.b=this.value;RG.dobra=null;rgCarregarAba()"><option value="">Candidato B...</option>${op(RG.b)}</select></div>
+    ${!d ? '<p class="ap-meta">Escolha os dois candidatos (importados, da mesma eleição).</p>' : `
+      <p style="font-size:13px;margin-bottom:8px">${vsNum(d.secoes)} seções em comum · média de <b>${escapeHtml(d.a.nome)}</b>: ${pct(d.a.media)} · de <b>${escapeHtml(d.b.nome)}</b>: ${pct(d.b.media)}</p>
+      <div class="card-title" style="font-size:14px;margin:12px 0 6px">${escapeHtml(d.a.nome)} foi bem e ${escapeHtml(d.b.nome)} não (${d.aSemB.length})</div>${tabela(d.aSemB, d.a.nome, d.b.nome)}
+      <div class="card-title" style="font-size:14px;margin:16px 0 6px">${escapeHtml(d.b.nome)} foi bem e ${escapeHtml(d.a.nome)} não (${d.bSemA.length})</div>${tabela(d.bSemA, d.a.nome, d.b.nome)}`}`;
+}
+async function rgSalvarNome(){
+  const nome = document.getElementById('rg-nome-rede')?.value.trim();
+  try { await api('/redes', { method:'PUT', body: JSON.stringify({ nome }) }); showToast('Rede salva.','success'); rgIniciar(); }
+  catch(e){ showToast(e.message,'error'); }
+}
+async function rgRenomear(){
+  const nome = prompt('Nome da rede:', REDE_INFO.rede.nome); if(nome===null) return;
+  try { await api('/redes', { method:'PUT', body: JSON.stringify({ nome }) }); rgIniciar(); } catch(e){ showToast(e.message,'error'); }
+}
+async function rgCriarCandidato(){
+  const nome = document.getElementById('rg-novo-nome').value.trim();
+  const login = document.getElementById('rg-novo-login').value.trim();
+  const email = document.getElementById('rg-novo-email').value.trim();
+  try {
+    const r = await api('/redes/candidatos', { method:'POST', body: JSON.stringify({ nome, login, email }) });
+    await carregarRedeInfo(); RG.novo = { login:r.login, senha:r.senha }; rgDesenhar();
+  } catch(e){ showToast(e.message,'error'); }
+}
+async function rgLiberar(id, sim){
+  try { await api('/redes/candidatos/'+id, { method:'PUT', body: JSON.stringify({ ver_outros: sim }) }); showToast(sim?'Liberado: esse candidato passa a ver os outros da rede.':'Bloqueado: vê só a própria rede.','success'); }
+  catch(e){ showToast(e.message,'error'); }
+}
+async function rgImportarTodos(){
+  showLoading('Importando os votos de todos os candidatos...');
+  try {
+    const r = await api('/redes/importar-todos', { method:'POST', body:'{}' });
+    hideLoading();
+    showToast(r.resultado.map(x=>`${x.candidato}: ${x.status==='coletando'?'buscando':x.status==='indisponivel'?'TSE não publicou':x.status}`).join(' · '), 'info');
+    rgIniciar();
+  } catch(e){ hideLoading(); showToast(e.message,'error'); }
+}
+
+// Seletor de candidato no topo (Coordenador Geral dentro de um candidato).
+function seletorCandidatoCG(atual){
+  const cs = (REDE_INFO && REDE_INFO.candidatos) || [];
+  return `<select class="ap-select" style="min-width:200px;padding:6px 10px;font-size:13px" onchange="const o=this.selectedOptions[0];abrirWorkspace(this.value,o.dataset.nome)">
+    ${cs.map(c=>`<option value="${c.id}" data-nome="${escapeAttr(c.nome_urna||c.nome)}" ${c.id===atual?'selected':''}>${escapeHtml(c.nome_urna||c.nome)}${c.cargo_nome?' — '+escapeHtml(c.cargo_nome):''}</option>`).join('')}</select>`;
+}
+
+// ── Vincular ao candidato uma pessoa que já apoia outro candidato da rede ──
+const VIN = { busca:'', lista:[], escolhido:null };
+function abrirVincular(pessoa){
+  VIN.escolhido = pessoa || null; VIN.lista = []; VIN.busca = '';
+  document.getElementById('modal-detail-title').textContent = 'Vincular pessoa de outro candidato da rede';
+  document.getElementById('modal-detail-body').innerHTML = `
+    <p class="ap-meta" style="margin-bottom:10px;line-height:1.6">A pessoa continua com um cadastro só (nome, telefone, zona e seção valem para todos). Aqui você define o papel, o responsável e a meta dela <b>neste</b> candidato.</p>
+    <div id="vin-busca-box" ${pessoa?'style="display:none"':''}><input type="search" class="vs-busca" placeholder="Nome ou telefone (mín. 3 letras)" oninput="VIN.busca=this.value;vinBuscar()" autocomplete="off"><div class="vs-lista" id="vin-lista" style="max-height:220px"></div></div>
+    <div id="vin-form"></div>`;
+  document.getElementById('modal-detail').classList.add('open');
+  if(pessoa) vinDesenharForm();
+}
+let _vinTimer = null;
+function vinBuscar(){
+  clearTimeout(_vinTimer);
+  _vinTimer = setTimeout(async ()=>{
+    if(VIN.busca.trim().length < 3){ document.getElementById('vin-lista').innerHTML=''; return; }
+    try { VIN.lista = await api('/redes/pessoas?q='+encodeURIComponent(VIN.busca.trim())+wsQuery('&')); } catch(e){ VIN.lista = []; }
+    const el = document.getElementById('vin-lista'); if(!el) return;
+    el.innerHTML = VIN.lista.map((p,i)=>`<div class="vs-cand" onclick="VIN.escolhido=VIN.lista[${i}];vinDesenharForm()"><div class="vs-cand-nome"><b>${escapeHtml(p.nome)}</b><span>${PAPEIS[p.nivel]} de ${escapeHtml(p.candidato)}${p.zona?' · zona '+escapeHtml(p.zona):''}</span></div></div>`).join('') || '<div class="ap-meta" style="padding:12px">Ninguém encontrado nos outros candidatos da rede.</div>';
+  }, 300);
+}
+function vinDesenharForm(){
+  const p = VIN.escolhido; const el = document.getElementById('vin-form'); if(!p || !el) return;
+  const nivel = VIN.nivel || p.nivel || 1;
+  const sup = APOIADORES.filter(a=>a.nivel===nivel-1);
+  el.innerHTML = `<div class="fe-resumo" style="margin-top:12px"><b>${escapeHtml(p.nome)}</b>${p.candidato?` — hoje ${PAPEIS[p.nivel]} de ${escapeHtml(p.candidato)}`:''}</div>
+    <div class="form-grid">
+      <div class="field"><label>Papel neste candidato</label><select class="ap-select" style="width:100%" id="vin-nivel" onchange="VIN.nivel=Number(this.value);vinDesenharForm()">${[1,2,3,4].map(n=>`<option value="${n}" ${n===nivel?'selected':''}>${PAPEIS[n]}</option>`).join('')}</select></div>
+      ${nivel>1 ? `<div class="field"><label>Responsável</label><select class="ap-select" style="width:100%" id="vin-sup"><option value="">Sem responsável (pendurar depois)</option>${sup.map(a=>`<option value="${a.id}">${escapeHtml(a.nome)}</option>`).join('')}</select></div>` : ''}
+      ${nivel<=3 ? `<div class="field"><label>Meta de votos neste candidato</label><input type="number" id="vin-meta" min="0" placeholder="Quantos votos ela promete aqui"></div>` : ''}
+    </div>
+    <button class="btn-primary" onclick="vinSalvar()">🔗 Vincular</button>`;
+}
+async function vinSalvar(){
+  const p = VIN.escolhido;
+  try {
+    const r = await api('/redes/vincular'+wsQuery(), { method:'POST', body: JSON.stringify({ apoiador_id: p.apoiador_id || p.id, nivel: Number(document.getElementById('vin-nivel').value),
+      superior_id: document.getElementById('vin-sup')?.value || null, meta_votos: document.getElementById('vin-meta')?.value ?? null }) });
+    closeModal('modal-detail');
+    if(r.alertas && r.alertas.length) showToast(`Vinculado. ⚠️ ${r.alertas[0].nome} agora está em dois candidatos do mesmo cargo (${r.alertas[0].cargo}): as metas competem entre si.`, 'info');
+    else showToast('Vinculado sem duplicar o cadastro.','success');
+    VIN.nivel = null;
+    await carregarApoiadores(); showPage(paginaAtual);
+  } catch(e){ showToast(e.message,'error'); }
+}
+// Cadastro bateu com alguém de outro candidato da rede: oferece o vínculo.
+function oferecerVinculo(erro, nivel){
+  const v = erro && erro.dados && erro.dados.vincular;
+  if(!v) return false;
+  if(confirm(`${v.nome} já está na rede apoiando ${v.candidato_nome}.\n\nVincular a este candidato, sem duplicar o cadastro?`)){
+    VIN.nivel = nivel || v.nivel;
+    abrirVincular({ ...v, candidato: v.candidato_nome });
+  }
+  return true;
 }
 
 // ══════════════════════════════════════════

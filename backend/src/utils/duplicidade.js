@@ -64,3 +64,28 @@ async function buscarDuplicidade({ candidatoId, email, telefone, titulo, excluir
 }
 
 module.exports = { buscarDuplicidade, resolverCandidatoId };
+
+// A mesma pessoa em OUTRO candidato da mesma rede (briefing "Votos por
+// seção", seção 7: "cadastro único por rede, sem duplicar CPF/telefone").
+// Quem acha não bloqueia: devolve a pessoa para o cadastro virar um vínculo.
+// O sistema não guarda CPF; o telefone (só os dígitos) é o identificador.
+async function buscarNaRede({ candidatoId, telefone }) {
+  const dig = String(telefone || '').replace(/\D/g, '');
+  if (!candidatoId || dig.length < 8) return null;
+  // Exigido aqui dentro: routes/apoiadores.js também usa este arquivo.
+  const { SQL_ARVORE_CANDIDATO } = require('../routes/apoiadores');
+  const { rows: outros } = await pool.query(
+    `SELECT o.id, o.nome FROM usuarios c JOIN usuarios o ON o.rede_id = c.rede_id AND o.perfil = 'candidato' AND o.id <> c.id
+      WHERE c.id = $1 AND c.rede_id IS NOT NULL`, [candidatoId]
+  );
+  for (const o of outros) {
+    const { rows } = await pool.query(
+      `SELECT id, nome, nivel FROM (${SQL_ARVORE_CANDIDATO}) r WHERE regexp_replace(coalesce(telefone, ''), '\D', '', 'g') = $2 LIMIT 1`,
+      [o.id, dig]
+    );
+    if (rows[0]) return { apoiador_id: rows[0].id, nome: rows[0].nome, nivel: rows[0].nivel, candidato_id: o.id, candidato_nome: o.nome };
+  }
+  return null;
+}
+
+module.exports.buscarNaRede = buscarNaRede;

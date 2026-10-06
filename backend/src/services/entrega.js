@@ -47,7 +47,7 @@ async function urnasDoCandidato(d) {
             COALESCE((c.j->>'vv')::int, 0) - a.anul - a.sj AS vv,
             COALESCE((c.j->>'b')::int, 0) AS brancos,
             COALESCE((c.j->>'n')::int, 0) + a.anul AS nulos,
-            l.local_numero, l.local_nome, l.bairro
+            l.local_numero, l.local_nome, l.bairro, l.endereco, l.lat, l.lng
        FROM tse_urnas u
        CROSS JOIN LATERAL (SELECT u.cargos->$4 AS j OFFSET 0) c
        CROSS JOIN LATERAL (SELECT COALESCE((c.j->'v'->>$5)::int, 0) AS votos) x
@@ -68,6 +68,7 @@ async function urnasDoCandidato(d) {
       zona: r.zona, secao: r.secao, aptos: r.aptos || 0, comparecimento: r.comparecimento || 0,
       votos: r.votos, vv: Math.max(0, r.vv), brancos: r.brancos, nulos: r.nulos,
       local: r.local_nome || null, localNumero: r.local_numero || null, bairro: r.bairro || 'Bairro não informado',
+      endereco: r.endereco || null, lat: r.lat, lng: r.lng,
     });
   }
   // Senador em 2026 elege dois: cada eleitor vota duas vezes no cargo, e
@@ -95,7 +96,7 @@ const pct = (a, b) => (b ? Math.round((a / b) * 1000) / 10 : null);
 
 // filtros: { municipio, zona, bairro, nivel, nicho, lideranca }
 // raiz: id da pessoa que está vendo (liderança/coordenador) — só a rede dela.
-async function relatorio(candidatoId, { filtros = {}, raiz = null, detalhe = null } = {}) {
+async function relatorio(candidatoId, { filtros = {}, raiz = null, detalhe = null, locais = false } = {}) {
   const d = await campanha.carregarDados(candidatoId);
   if (!d) return { semDados: true };
   if (!d.ciclo) return { semDados: false, dados: d, indisponivel: true };
@@ -277,6 +278,48 @@ async function relatorio(candidatoId, { filtros = {}, raiz = null, detalhe = nul
   }).sort((x, y) => (y.pctBrancosNulos ?? -1) - (x.pctBrancosNulos ?? -1));
 
   const totais = somar(secoes);
+
+  // Fase 2 (mapa): os mesmos números agrupados por local de votação (escola).
+  // "Entrega no local" = votos ali ÷ soma das metas de quem vota ali.
+  let locaisOut;
+  if (locais) {
+    const cad = new Map(); const meta = new Map(); const nomesNaUrna = new Map();
+    for (const a of rede) {
+      const k = urnaDe.get(a.id);
+      if (!k || (visiveis && !visiveis.has(a.id))) continue;
+      cad.set(k, (cad.get(k) || 0) + 1);
+      if (NIVEIS_COM_META.includes(a.nivel) && a.meta_votos != null) meta.set(k, (meta.get(k) || 0) + a.meta_votos);
+      if (NIVEIS_COM_META.includes(a.nivel)) { if (!nomesNaUrna.has(k)) nomesNaUrna.set(k, []); nomesNaUrna.get(k).push(a.nome); }
+    }
+    const so = filtroLider ? new Set([...filtroLider].map((id) => urnaDe.get(id)).filter(Boolean)) : null;
+    const porLocal = new Map();
+    for (const s of secoes) {
+      if (so && !so.has(s.chave)) continue;
+      const k = `${s.municipio}|${s.localNumero || s.zona}`;
+      if (!porLocal.has(k)) {
+        porLocal.set(k, {
+          id: k, nome: s.local || `Zona ${s.zona}`, bairro: s.bairro, endereco: s.endereco, municipio: s.municipioNome,
+          lat: s.lat, lng: s.lng, secoes: [], aptos: 0, comparecimento: 0, votos: 0, vv: 0, brancos: 0, nulos: 0,
+          cadastrados: 0, meta: 0, liderancas: new Set(),
+        });
+      }
+      const l = porLocal.get(k);
+      l.secoes.push(`${s.zona}/${s.secao}`);
+      for (const c of ['aptos', 'comparecimento', 'votos', 'vv', 'brancos', 'nulos']) l[c] += s[c] || 0;
+      l.cadastrados += cad.get(s.chave) || 0;
+      l.meta += meta.get(s.chave) || 0;
+      (nomesNaUrna.get(s.chave) || []).forEach((n) => l.liderancas.add(n));
+    }
+    locaisOut = [...porLocal.values()].map((l) => {
+      const entregaLocal = l.meta ? pct(l.votos, l.meta) : null;
+      return {
+        ...l, liderancas: [...l.liderancas].slice(0, 12), pctSecao: pct(l.votos, l.vv),
+        pctBrancosNulos: pct(l.brancos + l.nulos, l.comparecimento * votosPorEleitor), entrega: entregaLocal,
+        // vazio = escola sem ninguém da rede votando ali (vazio territorial).
+        sinal: entregaLocal == null ? (l.cadastrados ? 'cinza' : 'vazio') : faixaDoSinal(entregaLocal, d),
+      };
+    });
+  }
   const todasUrnas = [...urnas.values()];
   const municipiosDisp = [...new Map(todasUrnas.map((u) => [u.municipio, u.municipioNome])).entries()]
     .map(([codigo, nome]) => ({ codigo, nome })).sort((x, y) => x.nome.localeCompare(y.nome, 'pt-BR'));
@@ -293,7 +336,7 @@ async function relatorio(candidatoId, { filtros = {}, raiz = null, detalhe = nul
     rede: { total: visiveis ? visiveis.size - 1 : rede.length, comSecao: visiveis ? [...visiveis].filter((id) => urnaDe.has(id)).length : comSecao },
     totais: { ...totais, pctBrancosNulos: pct(totais.brancos + totais.nulos, totais.comparecimento * votosPorEleitor), secoes: secoes.length },
     liderancas: resultado,
-    zonas, secoes,
+    zonas, secoes, locais: locaisOut,
     filtrosDisponiveis: { municipios: municipiosDisp, zonas: zonasDisp, bairros: bairrosDisp, nichos,
       liderancas: rede.filter((a) => a.nivel === 1 && (!visiveis || visiveis.has(a.id))).map((a) => ({ id: a.id, nome: a.nome })) },
   };

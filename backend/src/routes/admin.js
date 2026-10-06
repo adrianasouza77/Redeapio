@@ -12,7 +12,8 @@ router.get('/candidatos', asyncHandler(async (req, res) => {
   const { rows } = await pool.query(`
     SELECT c.id, c.nome, c.login, c.email, c.ativo, c.created_at,
            c.plano, c.periodo_contrato, c.data_desativacao,
-           EXISTS (SELECT 1 FROM usuarios u WHERE u.criado_por = c.id) AS em_uso
+           EXISTS (SELECT 1 FROM usuarios u WHERE u.criado_por = c.id) AS em_uso,
+           c.rede_id, (SELECT nome FROM redes WHERE id = c.rede_id) AS rede_nome
     FROM usuarios c
     WHERE c.perfil = 'candidato'
     ORDER BY c.created_at
@@ -115,6 +116,79 @@ router.put('/candidatos/:id/plano', asyncHandler(async (req, res) => {
     },
   });
   res.json(rows[0]);
+}));
+
+// ─── Redes e Coordenador Geral (briefing "Votos por seção" v2, seção 7) ─────
+// O admin cria o Coordenador Geral (com a rede dele) e decide em que rede
+// cada candidato está. O cliente atual continua sendo "uma rede com um
+// candidato só" — nada muda para ele até ser posto numa rede com outros.
+
+router.get('/redes', asyncHandler(async (req, res) => {
+  const { rows } = await pool.query(`
+    SELECT r.id, r.nome, r.created_at, cg.id AS cg_id, cg.nome AS cg_nome, cg.login AS cg_login, cg.email AS cg_email,
+           COALESCE(json_agg(json_build_object('id', c.id, 'nome', c.nome, 'login', c.login) ORDER BY c.created_at)
+             FILTER (WHERE c.id IS NOT NULL), '[]') AS candidatos
+      FROM redes r
+      LEFT JOIN usuarios cg ON cg.id = r.coordenador_geral_id
+      LEFT JOIN usuarios c ON c.rede_id = r.id AND c.perfil = 'candidato'
+     GROUP BY r.id, cg.id
+     ORDER BY (cg.id IS NULL), r.created_at`);
+  res.json(rows);
+}));
+
+// Cria o login do Coordenador Geral e a rede dele. Senha temporária, como a
+// do candidato: troca no primeiro acesso.
+router.post('/coordenadores', asyncHandler(async (req, res) => {
+  const nome = String(req.body?.nome || '').trim();
+  const login = String(req.body?.login || '').trim().toLowerCase();
+  const email = String(req.body?.email || '').trim().toLowerCase() || null;
+  const redeNome = String(req.body?.rede || '').trim() || `Rede de ${nome}`;
+  if (!nome) return res.status(400).json({ error: 'Informe o nome do Coordenador Geral.' });
+  if (!/^[a-z0-9._-]{3,}$/.test(login)) return res.status(400).json({ error: 'Login: só letras minúsculas, números, ponto, hífen ou underline (mínimo 3).' });
+  const senha = gerarSenhaTemporaria();
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      `INSERT INTO usuarios (nome, login, senha_hash, perfil, email, senha_temporaria)
+       VALUES ($1,$2,$3,'coordenador_geral',$4,true) RETURNING id, nome, login, email`,
+      [nome, login, await hash(senha), email]
+    );
+    const { rows: r } = await client.query('INSERT INTO redes (nome, coordenador_geral_id) VALUES ($1,$2) RETURNING id, nome', [redeNome, rows[0].id]);
+    await client.query('UPDATE usuarios SET rede_id = $1 WHERE id = $2', [r[0].id, rows[0].id]);
+    await client.query('COMMIT');
+    await registrar(req, { acao: 'rede.coordenador_criar', alvoTipo: 'usuario', alvoId: rows[0].id, alvoNome: nome, detalhes: { login, rede: redeNome }, candidatoId: null });
+    res.status(201).json({ ...rows[0], senha, rede: r[0] });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    if (err.code === '23505') return res.status(409).json({ error: 'Este login já existe.' });
+    throw err;
+  } finally {
+    client.release();
+  }
+}));
+
+// Põe um candidato numa rede (ou devolve à rede só dele, com rede_id null —
+// o boot cria uma rede nova para ele).
+router.put('/candidatos/:id/rede', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const redeId = req.body?.rede_id || null;
+  if (redeId) {
+    const { rows } = await pool.query('SELECT 1 FROM redes WHERE id = $1', [redeId]);
+    if (!rows[0]) return res.status(404).json({ error: 'Rede não encontrada.' });
+  }
+  let novaRede = redeId;
+  if (!novaRede) {
+    const { rows: c } = await pool.query("SELECT nome FROM usuarios WHERE id = $1 AND perfil = 'candidato'", [id]);
+    if (!c[0]) return res.status(404).json({ error: 'Candidato não encontrado.' });
+    novaRede = (await pool.query('INSERT INTO redes (nome) VALUES ($1) RETURNING id', [`Rede de ${c[0].nome}`])).rows[0].id;
+  }
+  const { rows } = await pool.query(
+    "UPDATE usuarios SET rede_id = $1, rede_ver_outros = false WHERE id = $2 AND perfil = 'candidato' RETURNING nome", [novaRede, id]
+  );
+  if (!rows[0]) return res.status(404).json({ error: 'Candidato não encontrado.' });
+  await registrar(req, { acao: 'rede.candidato_mover', alvoTipo: 'candidato', alvoId: id, alvoNome: rows[0].nome, detalhes: { rede_id: novaRede }, candidatoId: id });
+  res.json({ ok: true, rede_id: novaRede });
 }));
 
 // Corrige o login do candidato quando ele mesmo troca para algo inválido/
