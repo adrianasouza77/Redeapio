@@ -30,9 +30,12 @@ router.post('/login', asyncHandler(async (req, res) => {
   // geralmente lembra do e-mail. Continua exigindo o perfil correto (aba
   // selecionada) pra não misturar contas de perfis diferentes com mesmo e-mail.
   const identificador = login.trim().toLowerCase();
+  // A aba "Gabinete" serve aos dois perfis do Módulo Mandato (chefe de
+  // gabinete e equipe): quem entra não precisa saber qual dos dois é.
+  const perfis = perfil === 'gabinete' ? ['chefe_gabinete', 'assessor'] : [perfil];
   const { rows } = await pool.query(
-    'SELECT * FROM usuarios WHERE (login = $1 OR email = $1) AND perfil = $2 AND ativo = true',
-    [identificador, perfil]
+    'SELECT * FROM usuarios WHERE (login = $1 OR email = $1) AND perfil = ANY($2) AND ativo = true',
+    [identificador, perfis]
   );
   const user = rows[0];
   // Tentativa com login inexistente também vira log: é assim que o admin

@@ -61,6 +61,10 @@ backend/
       nichos.js               nichos temáticos da campanha
       historico.js            desempenho eleitoral histórico por município
       ia.js                   copiloto de IA
+      mandato.js              Módulo Mandato (com login)
+      mandatoPublico.js       página pública do mandato (SEM autenticação)
+    services/mandato*.js      painel/prestação/atuação, IA do mandato, modelos
+    utils/mandato.js          papéis, módulo pago, visibilidade, limite por IP
     services/mail.js          SMTP + template de recuperação
     services/tse.js           leitura do portal de resultados do TSE (BU por seção)
     services/apuracao.js      apuração ao vivo: cruzamento com a rede + laço de busca + metas
@@ -499,6 +503,97 @@ escola do tamanho dos votos, cor pela entrega no local (votos ÷ metas de quem
 vota ali) ou por brancos+nulos, escolas sem ninguém da rede (vazio territorial)
 e os apoiadores de sempre. O Copiloto de IA recebe `votos_por_local` (maiores
 escolas sem rede e metas maiores que os eleitores das seções) — só lê e sugere.
+
+### Módulo Mandato (briefing de novembro/2026)
+
+Especificação da dona: `RedeApoio-Modulo-Mandato-Briefing-e-Codigo.pdf`. O
+código do PDF foi escrito para Supabase (RLS, `auth.uid()`, Edge Function,
+React) e **não foi usado como veio**: o desenho das tabelas e as regras foram
+reescritos no padrão deste sistema. Decisões da dona em 06/11/2026: o módulo é
+**cobrado à parte**, terá **parte online** (página pública) e usa **todos os
+status** de demanda (o briefing não detalhou).
+
+**Quem é quem** (`utils/mandato.js`, `contextoMandato`): o "tenant" do PDF é o
+candidato (`candidato_id`). Papéis: `vereador` (o candidato, ou admin/CG com
+`?as=`), `chefe` (perfil novo `chefe_gabinete`), `equipe` (perfil novo
+`assessor`) e `rede` (liderança/apoiador com login). Chefe e equipe são
+criados em Usuários, entram pela aba **Gabinete** do login, **não têm ficha em
+`apoiadores`** (não estão na pirâmide; a invariante 1 vale só para quem está
+nela) e só veem o Mandato — `GET /apoiadores` devolve a subárvore deles, que é
+vazia, e as outras telas recusam pelo perfil. Separar mandato de campanha é a
+regra 7 do briefing. Só vereador e chefe mudam visibilidade, aprovam minuta,
+adotam foco de atuação e excluem demanda.
+
+**Módulo pago**: `usuarios.modulo_mandato`, ligado pelo admin em Plano.
+Desligado, toda rota de `/api/mandato` responde 403 (`semModulo`), a página
+pública some e não dá para criar equipe do gabinete. Nada é apagado.
+
+**Visibilidade** (`mandato_visibilidade`, sem linha = `interno`): por módulo,
+`interno` / `rede` / `publico`. Público exige `confirmado: true` no corpo (a
+tela mostra o aviso). Cada mudança grava `atualizado_por/em` e
+`mandato.visibilidade` no log; `GET /mandato/visibilidade/historico` mostra
+isso ao gabinete. Cada item tem a sua marca `publicada`/`publicado`: abrir o
+módulo não publica nada. Para o público aparecer, a **página pública**
+(`pagina_publica`) também precisa estar ligada — fora dela não há caminho sem
+login.
+
+**Travas no banco** (o briefing pede): `CHECK` de demanda sensível nunca
+publicada, de demanda publicada com `titulo_publico` (o título interno costuma
+ter nome e endereço) e de foto com pessoas só publicada com autorização. A
+rota converte o erro do CHECK em mensagem (`erroBanco`).
+
+**Demandas**: protocolo `RA-AAAA-000000` (sequência global), prazo pelo
+`mandato_config.prazo_resposta_dias` (padrão 15), `tipo` = tipo de
+manifestação do "canal de contato direto" (é a mesma fila).
+`mandato_demanda_andamentos` é a resposta registrada; `visivel_solicitante =
+false` é nota interna. A rede cria só com o módulo aberto para ela, sempre
+`recebida` e não publicada, e vê as próprias + as que têm como origem alguém
+da subárvore dela (`RECURSAO_SUBARVORE`, exportada de `apoiadores.js`), sem o
+contato de quem pediu.
+
+**Página pública** (`routes/mandatoPublico.js`, `/?mandato=<codigo>`):
+`mandato_config.codigo_publico` tem 8 letras para o QR Code
+(`GET /mandato/qrcode.svg`, pacote `qrcode`). O cidadão nunca escreve direto:
+a rota confere módulo e página, exige consentimento (grava
+`consentimento_em/ip`), campo-isca `site`, tempo mínimo de 3 s, limite de 5
+envios a cada 15 min por IP (e 300 por dia por vereador) e captcha Turnstile
+quando `TURNSTILE_SITEKEY`/`TURNSTILE_SECRET` existem. Sem o captcha, a tela
+de visibilidade avisa. Volta protocolo + **código de acompanhamento** (o
+banco guarda só o SHA-256): o protocolo é sequencial, e sem o código a
+consulta não mostra nada. Nome, contato e descrição nunca saem por aqui.
+O limite por IP só funciona com `app.set('trust proxy', 1)` (`server.js`),
+que entrou junto e resolveu a limitação 1 abaixo.
+
+**Emendas**: só registro e transparência — sem coluna nenhuma que ligue a
+apoiador ou liderança (briefing 8.2). A fase `indicada` é a indicação de
+recurso; `resposta_executivo` acompanha a Prefeitura.
+
+**Enquetes**: só rede com login vota, um voto por pessoa (PK). Saem só
+totais; o recorte por bairro (onde mora) e por nicho esconde grupo com menos
+de 3 votos. A página pública mostra o total; o cidadão sem login não vota.
+
+**IA** (`services/mandatoIa.js`, [regra 7](#ia-aprovacao-humana)): minuta
+nasce `rascunho`; aprovar grava `aprovado_por/nome/em` e `aprovado_hash`
+(SHA-256 do texto). Editar depois volta a rascunho. A tela manda o hash do
+texto lido e o servidor recusa se mudou no meio tempo.
+`POST /minutas/:id/proposicao` (o efeito) confere status **e** hash no banco.
+Copiar/baixar só aparece aprovada. Perfil de atuação: a IA cria focos
+`sugerido`; só vereador/chefe adotam. Para a IA vão só contagens e nomes de
+bairro/nicho; de uma demanda, título, categoria e bairro. Teto
+`IA_MANDATO_LIMITE_DIA` (padrão 30) em `mandato_ia_uso`. Modelos do RedeApoio
+ficam em `services/mandatoModelos.js` (não no banco: o `001_init.sql` roda a
+cada boot); os do gabinete em `mandato_modelos`.
+
+**Números** (`services/mandatoPainel.js`): painel, prestação de contas e
+perfil de atuação somam do mesmo lugar. Bairro é agrupado sem acento/caixa
+("Centro" = "CENTRO"). Votos por bairro vêm de `urnasDoCandidato` (bairro do
+**local de votação**, `tse_locais`) — cadastro da eleição e importação do TSE
+são pré-requisito; sem eles a tela avisa. Para a rede e o público, só conta o
+que está publicado e "vencidas" não sai.
+
+Testado em 06/11/2026 num Postgres local: 97 verificações de API (as cinco da
+Parte 7 do briefing adaptadas, mais módulo pago, canal público, minutas,
+agenda e enquetes) e as telas no navegador.
 
 ### `historico_config`, `resultado_urna`, `resultado_urna_municipio` — desempenho histórico (Tela 5)
 
@@ -1041,6 +1136,25 @@ Admin: `GET /admin/redes`, `POST /admin/coordenadores`,
 valem para **qualquer perfil logado** — ficam antes do `router.use` que
 restringe o resto do arquivo.
 
+### `/mandato` `[A]` — Módulo Mandato (equipe do gabinete; a rede onde aberto)
+`GET /situacao`, `PUT /config`, `PUT /visibilidade/:modulo`,
+`GET /visibilidade/historico`, `GET /qrcode.svg`, `GET /equipe`,
+`GET /pessoas?q=`; demandas `GET|POST /demandas`, `GET|PUT|DELETE /demandas/:id`,
+`POST /demandas/:id/andamentos`; `GET|POST /proposicoes|emendas|trabalhos`,
+`PUT|DELETE …/:id`, `GET /proposicoes/:id/demandas`; agenda `GET|POST /agenda`,
+`PUT|DELETE /agenda/:id`; enquetes `GET|POST /enquetes`, `PUT|DELETE /enquetes/:id`,
+`POST /enquetes/:id/voto` (só rede), `GET /enquetes/:id/resultado`;
+`GET|POST /modelos`, `PUT|DELETE /modelos/:id`; minutas `GET|POST /minutas`,
+`POST /minutas/ia`, `GET|PUT /minutas/:id`, `POST /minutas/:id/aprovar|descartar|proposicao`;
+`GET /atuacao`, `POST /atuacao/sugerir`, `POST /atuacao/focos`,
+`PUT /atuacao/focos/:id`; `GET /painel`, `GET /prestacao?agrupar=&de=&ate=`.
+Permissões em `utils/mandato.js` e no topo de cada rota.
+
+### `/public/mandato` — página pública do mandato, **sem autenticação**
+`GET /:codigo`, `POST /:codigo/demandas`, `POST /:codigo/agenda`,
+`POST /:codigo/consulta` (protocolo + código). Escreve no banco: mesmo cuidado
+de `/public`.
+
 ### `/conta` — segurança `[A]`
 `GET /seguranca`, `POST /2fa/iniciar` | `/2fa/ativar` | `/2fa/desativar`,
 `GET /acessos` (só candidato), `POST /evento`.
@@ -1271,6 +1385,8 @@ resolve isso com `docker service update --force`.
 | `IA_LIMITE_DIA` | não | leituras de IA por campanha por dia, padrão 30 |
 | `IA_MODELO_AJUDA` | não | modelo do assistente de ajuda, padrão `claude-opus-5-5` |
 | `IA_AJUDA_LIMITE_DIA` | não | perguntas à ajuda por pessoa por dia, padrão 40 |
+| `IA_MANDATO_LIMITE_DIA` | não | usos da IA do Módulo Mandato (minuta, sugestão de atuação) por vereador por dia, padrão 30 |
+| `TURNSTILE_SITEKEY` / `TURNSTILE_SECRET` | não | captcha (Cloudflare Turnstile) do canal público do mandato; sem elas, só limite por IP e filtro de robô |
 
 > Variáveis discretas do Postgres em vez de uma `DATABASE_URL` montada: senhas
 > fortes contendo `/ @ : #` quebrariam o parser de URL de conexão.
@@ -1283,6 +1399,11 @@ Verificadas na leitura do código em 4 de agosto de 2026. Nada aqui está
 quebrado a ponto de impedir o uso — são pontos a resolver quando houver espaço.
 
 ### 1. IP registrado no aceite do termo é o do proxy, não o do visitante
+
+**Resolvido em 06/11/2026** junto com o Módulo Mandato (`app.set('trust proxy', 1)`
+em `server.js`, que o limite por IP do canal público exige). Os aceites
+gravados antes dessa data continuam com o IP interno. O texto abaixo fica
+como registro.
 
 **Impacto: legal.** `routes/public.js` e `routes/conta.js` gravam `req.ip` em
 `termos_aceite` como prova de consentimento (LGPD art. 8º, §2º). Mas o

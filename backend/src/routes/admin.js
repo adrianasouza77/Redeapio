@@ -11,7 +11,7 @@ router.use(authRequired, requireRole('admin'));
 router.get('/candidatos', asyncHandler(async (req, res) => {
   const { rows } = await pool.query(`
     SELECT c.id, c.nome, c.login, c.email, c.ativo, c.created_at,
-           c.plano, c.periodo_contrato, c.data_desativacao,
+           c.plano, c.periodo_contrato, c.data_desativacao, c.modulo_mandato,
            EXISTS (SELECT 1 FROM usuarios u WHERE u.criado_por = c.id) AS em_uso,
            c.rede_id, (SELECT nome FROM redes WHERE id = c.rede_id) AS rede_nome
     FROM usuarios c
@@ -83,8 +83,11 @@ const PERIODOS_VALIDOS = ['mensal', 'trimestral', 'semestral'];
 // lideranças e apoiadores criados sob ele) fica impedida de logar (ver auth.js).
 router.put('/candidatos/:id/plano', asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { plano, periodoContrato, dataDesativacao } = req.body || {};
+  const { plano, periodoContrato, dataDesativacao, moduloMandato } = req.body || {};
 
+  if (moduloMandato !== undefined && typeof moduloMandato !== 'boolean') {
+    return res.status(400).json({ error: 'Módulo Mandato inválido.' });
+  }
   if (plano !== undefined && !PLANOS_VALIDOS.includes(plano)) {
     return res.status(400).json({ error: 'Plano inválido.' });
   }
@@ -93,7 +96,7 @@ router.put('/candidatos/:id/plano', asyncHandler(async (req, res) => {
   }
 
   const { rows: atuais } = await pool.query(
-    "SELECT plano, periodo_contrato, data_desativacao FROM usuarios WHERE id = $1 AND perfil = 'candidato'",
+    "SELECT plano, periodo_contrato, data_desativacao, modulo_mandato FROM usuarios WHERE id = $1 AND perfil = 'candidato'",
     [id]
   );
   if (!atuais[0]) return res.status(404).json({ error: 'Candidato não encontrado.' });
@@ -101,11 +104,14 @@ router.put('/candidatos/:id/plano', asyncHandler(async (req, res) => {
   const novoPlano = plano !== undefined ? plano : atuais[0].plano;
   const novoPeriodo = periodoContrato !== undefined ? periodoContrato : atuais[0].periodo_contrato;
   const novaData = dataDesativacao !== undefined ? (dataDesativacao || null) : atuais[0].data_desativacao;
+  // Módulo Mandato é cobrado à parte (06/11/2026). Desligar não apaga nada:
+  // as demandas e cadastros voltam a aparecer se o módulo for religado.
+  const novoMandato = moduloMandato !== undefined ? moduloMandato : atuais[0].modulo_mandato;
 
   const { rows } = await pool.query(
-    `UPDATE usuarios SET plano = $1, periodo_contrato = $2, data_desativacao = $3
-     WHERE id = $4 AND perfil = 'candidato' RETURNING id, nome, plano, periodo_contrato, data_desativacao`,
-    [novoPlano, novoPeriodo, novaData, id]
+    `UPDATE usuarios SET plano = $1, periodo_contrato = $2, data_desativacao = $3, modulo_mandato = $4
+     WHERE id = $5 AND perfil = 'candidato' RETURNING id, nome, plano, periodo_contrato, data_desativacao, modulo_mandato`,
+    [novoPlano, novoPeriodo, novaData, novoMandato, id]
   );
   await registrar(req, {
     acao: 'candidato.plano', alvoTipo: 'candidato', alvoId: id, alvoNome: rows[0].nome, candidatoId: id,
@@ -113,6 +119,7 @@ router.put('/candidatos/:id/plano', asyncHandler(async (req, res) => {
       plano: { de: atuais[0].plano, para: novoPlano },
       periodo_contrato: { de: atuais[0].periodo_contrato, para: novoPeriodo },
       data_desativacao: { de: atuais[0].data_desativacao, para: novaData },
+      modulo_mandato: { de: atuais[0].modulo_mandato, para: novoMandato },
     },
   });
   res.json(rows[0]);

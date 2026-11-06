@@ -28,7 +28,7 @@ Há também o Administrador (suporte da plataforma), que entra pela aba Administ
 ## 2. Entrar no sistema (todos)
 
 1. Abra o endereço do sistema.
-2. Escolha a aba do seu perfil: Candidato, Liderança, Apoiador ou Administrador. Líder usa Liderança; Coordenador e Mobilizador usam Apoiador.
+2. Escolha a aba do seu perfil: Candidato, Liderança, Apoiador, Coord. Geral, Gabinete ou Administrador. Líder usa Liderança; Coordenador e Mobilizador usam Apoiador; Chefe de Gabinete e Equipe do Gabinete usam Gabinete.
 3. Preencha "Usuário ou e-mail" e "Senha" e clique em "Entrar com segurança".
 4. Se você ligou a verificação em duas etapas, aparece "Código de verificação": digite os 6 números do aplicativo autenticador e clique de novo em "Entrar com segurança".
 
@@ -163,6 +163,21 @@ O Coordenador Geral entra pela aba "Coord. Geral" do login. No "Painel da Rede" 
 ### Mapa: votos por escola
 No "Mapa da Rede", a camada "Votos por local de votação" mostra cada escola do tamanho dos votos do candidato, com a cor da entrega da rede ali (ou de brancos + nulos), as escolas sem ninguém da rede e os apoiadores. Filtre por município, zona, liderança, nicho e "entregou / não entregou"; clique na escola para ver seções, votos, eleitores aptos e lideranças.
 
+### Mandato (aba "🏛️ Mandato")
+Só aparece se o Módulo Mandato foi contratado (é cobrado à parte; quem liga é o suporte). Acompanha o vereador depois da eleição. Abas:
+- "📊 Painel": demandas abertas e vencidas, agenda, proposições e emendas, por bairro e por nicho.
+- "📨 Demandas": pedidos com protocolo (RA-ano-número), tipo (pedido, reclamação, sugestão, elogio, denúncia, pedido de informação), prazo e situação (Recebida, Em análise, Encaminhada, Aguardando resposta, Em execução, Respondida, Concluída, Indeferida, Arquivada, Cancelada). "➕ Nova demanda" registra; clicar numa demanda abre a ficha: edite e clique "✔ Salvar alterações"; em "Andamento e resposta" escolha o novo status, escreva a resposta e clique "➕ Registrar andamento" (desmarque "Visível para quem pediu" para nota interna). "Pessoa da rede que trouxe o pedido" liga a demanda ao apoiador. Marque "🔒 Tem dado sensível" em saúde, assistência, denúncia: a demanda nunca pode ser publicada. Para publicar, marque "Publicar" e escreva o "Título público", sem nome nem endereço. "📝 Gerar minuta desta demanda" leva para as minutas.
+- "📅 Agenda": pedidos de horário (da rede e da página pública) e compromissos; "➕ Novo compromisso".
+- "📜 Proposições" (indicação, requerimento, projeto de lei, moção, ofício), "💰 Emendas" (só registro e transparência) e "🛠️ Trabalhos executados": "➕ Nova…", clique na linha para editar. Foto com pessoas só é publicada com "Tenho autorização de imagem".
+- "🗳️ Enquetes": a rede com login vota uma vez; aparece só o total. "📊 Por bairro e nicho" esconde grupos com menos de 3 votos.
+- "📝 Modelos e minutas": biblioteca de modelos ("Usar", "🤖 Com IA", "Dicas") e "🤖 Gerar minuta com IA". Toda minuta é rascunho: revise, clique "💾 Salvar texto" e depois "✅ Aprovar este texto" (só vereador ou chefe de gabinete). Editar depois desfaz a aprovação. Aprovada, dá para "📋 Copiar texto", "⬇️ Baixar .txt" ou "📜 Transformar em proposição". Mensagem "Salve as alterações antes de aprovar." aparece se o texto foi mexido sem salvar.
+- "🎯 Perfil de atuação": cruza votos por seção (bairro do local de votação), rede, demandas e nichos. "🤖 Sugerir com IA" cria sugestões; o vereador ou o chefe clica "Adotar" ou "Descartar"; "✏️ Ajustar" muda o texto; "➕ Foco manual" cria um foco.
+- "📑 Prestação de contas": escolha período e "Agrupar por" bairro ou nicho, "Atualizar"; baixe em "⬇️ PDF" ou "⬇️ Excel".
+- "⚙️ Visibilidade e página": para cada módulo escolha Interno (só a equipe), Rede cadastrada (com login) ou Público (qualquer pessoa); o padrão é Interno e Público pede confirmação. A "Página pública do mandato" fica Desligada ou Ligada. Mais abaixo: dados da página, prazo de resposta das demandas (padrão 15 dias), link, QR Code para baixar e o histórico de quem mudou a visibilidade. Só o vereador e o chefe de gabinete mudam.
+
+### Equipe do gabinete
+Em "🔑 Usuários", com o Módulo Mandato ativo, o perfil pode ser "Chefe de Gabinete (mandato)" ou "Equipe do Gabinete (mandato)". Eles entram pela aba "Gabinete" do login, só veem o Mandato e não entram na pirâmide. O Chefe de Gabinete também muda a visibilidade e aprova minutas.
+
 ### Configurações
 Em "📊 Limites da Pirâmide", ajuste os limites de Líderes, Coordenadores, Mobilizadores e Apoiadores Orgânicos (número inteiro de 1 a 100.000) e clique em "💾 Salvar". Valem para toda a rede do candidato.
 
@@ -199,6 +214,12 @@ Só o Líder (e o candidato) muda o nível ou o responsável de alguém, na edi�
 
 ### Dados protegidos na ficha
 Na ficha de quem não é seu cadastro direto, telefone, endereço, nascimento, título, zona e seção aparecem borrados; clique para revelar.
+
+### Mandato (Líder, Coordenador e Mobilizador)
+Aparece no menu quando o vereador abriu algum módulo do mandato para a rede. Dá para levar uma demanda ao gabinete ("✔ Enviar ao gabinete", escolhendo "Quem trouxe o pedido") e acompanhar a resposta, pedir horário na agenda, ver proposições, emendas e trabalhos publicados, votar nas enquetes (uma vez, sem poder mudar) e ver a prestação de contas. Você vê as suas demandas e as que vieram da sua rede.
+
+### Página pública do mandato
+O cidadão abre pelo link ou QR Code do gabinete, sem login. Ali faz pedido (recebe protocolo e código), acompanha com protocolo + código, pede horário e vê o que o gabinete publicou.
 
 ## 6. Apoiador Orgânico (nível 4)
 Não tem login: é só contato da campanha e entra pelo link de cadastro. Para mudar ou excluir os próprios dados, deve falar com quem o cadastrou ou com a campanha.

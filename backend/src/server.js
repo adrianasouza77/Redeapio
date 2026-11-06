@@ -33,6 +33,13 @@ async function aplicarMigracoes(tentativas = 20, esperaMs = 3000) {
 }
 
 const app = express();
+// O Traefik fica na frente e põe o IP de verdade no X-Forwarded-For. Sem isto
+// req.ip seria sempre o IP do container do proxy: o limite por IP do canal
+// público do mandato bloquearia TODOS os cidadãos juntos no 5º pedido, e o IP
+// gravado no aceite da LGPD continuaria sem valor (limitação 1 da referência
+// técnica). "1" = confiar só no salto do Traefik, não em X-Forwarded-For
+// inventado pelo próprio visitante.
+app.set('trust proxy', 1);
 // origin:true reflete o Origin da requisição (necessário para credentials:true,
 // já que cookies com credenciais não podem usar Access-Control-Allow-Origin: *).
 app.use(cors({ origin: true, credentials: true }));
@@ -61,6 +68,10 @@ app.use('/api/redes', require('./routes/redes'));
 app.use('/api/nichos', require('./routes/nichos'));
 app.use('/api/historico', require('./routes/historico'));
 app.use('/api/ia', require('./routes/ia'));
+// Módulo Mandato. A parte sem login mora em /api/public/mandato: o router de
+// /api/public não tem rota "/mandato/...", então o pedido passa direto para cá.
+app.use('/api/public/mandato', require('./routes/mandatoPublico'));
+app.use('/api/mandato', require('./routes/mandato'));
 
 const frontendDir = process.env.FRONTEND_DIR || path.join(__dirname, '..', '..', 'frontend');
 // Sem cabeçalho de cache, o navegador do celular inventava a própria validade

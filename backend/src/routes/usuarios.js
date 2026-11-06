@@ -9,11 +9,15 @@ const asyncHandler = require('../utils/asyncHandler');
 const { registrar, diferencas } = require('../utils/auditoria');
 const { prepararNichos, gravarNichos, prepararMeta } = require('../utils/nichos');
 const { lerVotacao, gravarVotacao } = require('../utils/votacao');
+const { moduloAtivo } = require('../utils/mandato');
 
 const router = express.Router();
 router.use(authRequired, resolveWorkspace);
 
-const PERFIS_CRIAVEIS = ['lideranca', 'apoiador'];
+// chefe_gabinete e assessor são do Módulo Mandato (equipe do gabinete): só
+// existem se o módulo foi contratado, e não entram na pirâmide.
+const PERFIS_CRIAVEIS = ['lideranca', 'apoiador', 'chefe_gabinete', 'assessor'];
+const PERFIS_GABINETE = ['chefe_gabinete', 'assessor'];
 
 function linkAutocadastro(liderancaId, candidatoId) {
   return `${publicUrl}/?autocadastro=1&lideranca=${liderancaId}&candidato=${candidatoId}`;
@@ -54,9 +58,13 @@ router.post('/', requireRole('candidato', 'admin'), asyncHandler(async (req, res
     return res.status(400).json({ error: 'Login deve conter apenas letras, números, ponto, hífen ou underline — sem espaços.' });
   }
   if (senha.length < 4) return res.status(400).json({ error: 'Senha muito curta.' });
+  if (PERFIS_GABINETE.includes(perfil) && !(await moduloAtivo(req.effectiveId))) {
+    return res.status(400).json({ error: 'A equipe do gabinete faz parte do Módulo Mandato, que não está contratado para este candidato.' });
+  }
 
   // Já apoia outro candidato da rede: não duplica, a tela oferece o vínculo.
-  const naRede = await buscarNaRede({ candidatoId: req.effectiveId, telefone });
+  // Equipe do gabinete não é apoiador: não entra nessa checagem de rede.
+  const naRede = PERFIS_GABINETE.includes(perfil) ? null : await buscarNaRede({ candidatoId: req.effectiveId, telefone });
   if (naRede) return res.status(409).json({ error: `${naRede.nome} já está na rede apoiando ${naRede.candidato_nome}. Para não duplicar o cadastro, vincule a pessoa a este candidato.`, vincular: naRede });
   const dup = await buscarDuplicidade({ candidatoId: req.effectiveId, email, telefone, titulo });
   if (dup) {
@@ -108,7 +116,7 @@ router.post('/', requireRole('candidato', 'admin'), asyncHandler(async (req, res
       alvoTipo: 'usuario',
       alvoId: novoUsuario.id,
       alvoNome: nome,
-      detalhes: { perfil, login: novoUsuario.login, email: novoUsuario.email, nivel: perfil === 'lideranca' ? 1 : ([2, 3].includes(Number(req.body?.nivel)) ? Number(req.body.nivel) : 2) },
+      detalhes: { perfil, login: novoUsuario.login, email: novoUsuario.email, nivel: !temFicha ? null : perfil === 'lideranca' ? 1 : ([2, 3].includes(Number(req.body?.nivel)) ? Number(req.body.nivel) : 2) },
     });
 
     res.status(201).json({

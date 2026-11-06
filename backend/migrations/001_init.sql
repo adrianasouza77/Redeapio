@@ -804,3 +804,322 @@ CREATE INDEX IF NOT EXISTS idx_apoiador_candidatos_cand ON apoiador_candidatos (
 -- estado todo, os municípios onde a rede tem gente votando.
 ALTER TABLE tse_coletas ADD COLUMN IF NOT EXISTS municipios TEXT[];
 ALTER TABLE importacoes_tse ADD COLUMN IF NOT EXISTS municipios_escopo TEXT[];
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- MÓDULO MANDATO (briefing "Rede Apoio — Módulo Mandato", novembro/2026)
+-- ═══════════════════════════════════════════════════════════════════════════
+-- O briefing veio escrito para Supabase (RLS, auth.uid(), tenant_id). Aqui não
+-- há nada disso: o "tenant" é o candidato (candidato_id), e quem garante que o
+-- Interno não vaza é o servidor (routes/mandato.js e routes/mandatoPublico.js),
+-- como em todo o resto do sistema. As travas que o briefing manda pôr NO BANCO
+-- estão aqui como CHECK: demanda com dado sensível nunca pública, e foto com
+-- pessoas só publicada com autorização de imagem.
+
+-- Dois perfis novos, só do mandato: Chefe de Gabinete (muda a visibilidade e
+-- aprova minuta) e Equipe do Gabinete (atende demanda, agenda, cadastros).
+-- Nenhum dos dois entra na pirâmide: não têm ficha em apoiadores e não veem a
+-- rede da campanha — é a separação mandato × campanha da regra 7 do briefing.
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conrelid = 'usuarios'::regclass AND conname = 'usuarios_perfil_check'
+       AND pg_get_constraintdef(oid) LIKE '%chefe_gabinete%'
+  ) THEN
+    ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_perfil_check;
+    ALTER TABLE usuarios ADD CONSTRAINT usuarios_perfil_check
+      CHECK (perfil IN ('admin', 'candidato', 'lideranca', 'apoiador', 'coordenador_geral', 'chefe_gabinete', 'assessor'));
+  END IF;
+END $$;
+
+-- Módulo cobrado à parte (decisão de 06/11/2026): só o admin liga, no Plano do
+-- candidato. Desligado, nenhuma rota do mandato responde e a página pública some.
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS modulo_mandato BOOLEAN NOT NULL DEFAULT false;
+
+-- Dados da página pública e prazo de resposta. codigo_publico é o endereço
+-- curto da página (/?mandato=<codigo>), que vai no QR Code: o UUID do
+-- candidato daria um QR denso demais para imprimir pequeno.
+CREATE TABLE IF NOT EXISTS mandato_config (
+  candidato_id         UUID PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
+  codigo_publico       TEXT UNIQUE,
+  nome_publico         TEXT,
+  cargo_publico        TEXT,
+  municipio_publico    TEXT,
+  apresentacao         TEXT,
+  contato_publico      TEXT,
+  prazo_resposta_dias  INT NOT NULL DEFAULT 15 CHECK (prazo_resposta_dias BETWEEN 1 AND 90),
+  atualizado_por       UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+  atualizado_em        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Visibilidade módulo a módulo. Sem linha = 'interno' (o padrão de todos).
+-- Na página pública, 'interno' quer dizer desligada e 'publico', ligada.
+CREATE TABLE IF NOT EXISTS mandato_visibilidade (
+  candidato_id    UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  modulo          TEXT NOT NULL CHECK (modulo IN ('demandas','agenda','proposicoes','emendas','trabalhos',
+                                                  'enquetes','prestacao_contas','pagina_publica')),
+  visibilidade    TEXT NOT NULL DEFAULT 'interno' CHECK (visibilidade IN ('interno','rede','publico')),
+  atualizado_por  UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+  atualizado_em   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (candidato_id, modulo)
+);
+
+-- Demandas e canal de contato. "tipo" é o tipo de manifestação do canal
+-- direto (pedido, reclamação, sugestão...): é a mesma fila, com protocolo,
+-- prazo e resposta registrada. O protocolo é único no sistema todo.
+CREATE SEQUENCE IF NOT EXISTS mandato_protocolo_seq;
+CREATE TABLE IF NOT EXISTS mandato_demandas (
+  id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  candidato_id         UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  protocolo            TEXT NOT NULL UNIQUE DEFAULT ('RA-' || to_char(now(), 'YYYY') || '-' ||
+                         lpad(nextval('mandato_protocolo_seq')::text, 6, '0')),
+  tipo                 TEXT NOT NULL DEFAULT 'pedido' CHECK (tipo IN ('pedido','reclamacao','sugestao','elogio','denuncia','informacao')),
+  titulo               TEXT NOT NULL CHECK (char_length(titulo) BETWEEN 3 AND 200),
+  descricao            TEXT,
+  categoria            TEXT,
+  bairro               TEXT,
+  cidade               TEXT,
+  nicho_id             UUID REFERENCES nichos(id) ON DELETE SET NULL,
+  apoiador_origem_id   UUID REFERENCES apoiadores(id) ON DELETE SET NULL,
+  origem               TEXT NOT NULL DEFAULT 'gabinete' CHECK (origem IN ('gabinete','rede','publico')),
+  criado_por           UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+  solicitante_nome     TEXT,
+  solicitante_contato  TEXT,
+  consentimento_em     TIMESTAMPTZ,
+  consentimento_ip     TEXT,
+  -- SHA-256 do código que o cidadão recebe junto do protocolo. O protocolo é
+  -- sequencial (dá para adivinhar o do vizinho); sem o código, consultar o
+  -- andamento pela página pública não mostra nada.
+  codigo_acomp_hash    TEXT,
+  dado_sensivel        BOOLEAN NOT NULL DEFAULT false,
+  publicada            BOOLEAN NOT NULL DEFAULT false,
+  -- O que aparece para o público. É separado do título porque o título de quem
+  -- pediu costuma ter nome, rua e número da casa.
+  titulo_publico       TEXT,
+  status               TEXT NOT NULL DEFAULT 'recebida' CHECK (status IN ('recebida','em_analise','encaminhada',
+                         'aguardando_resposta','em_execucao','respondida','concluida','indeferida','arquivada','cancelada')),
+  prazo_em             TIMESTAMPTZ NOT NULL,
+  responsavel_id       UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+  encaminhada_para     TEXT,
+  concluida_em         TIMESTAMPTZ,
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT mandato_demanda_sensivel_nao_publica CHECK (NOT (dado_sensivel AND publicada)),
+  CONSTRAINT mandato_demanda_publica_tem_titulo CHECK (NOT publicada OR char_length(coalesce(titulo_publico, '')) >= 3)
+);
+CREATE INDEX IF NOT EXISTS idx_mandato_demandas_cand ON mandato_demandas (candidato_id, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_mandato_demandas_origem ON mandato_demandas (apoiador_origem_id);
+
+-- Andamento: cada troca de status ou nota. É a resposta registrada que o
+-- canal de contato exige; o que não for visível ao solicitante é nota interna.
+CREATE TABLE IF NOT EXISTS mandato_demanda_andamentos (
+  id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  demanda_id           UUID NOT NULL REFERENCES mandato_demandas(id) ON DELETE CASCADE,
+  status_de            TEXT,
+  status_para          TEXT,
+  nota                 TEXT,
+  visivel_solicitante  BOOLEAN NOT NULL DEFAULT true,
+  autor_id             UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+  autor_nome           TEXT,
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_mandato_andamentos ON mandato_demanda_andamentos (demanda_id, created_at);
+
+-- Proposições: indicação, requerimento, projeto de lei, moção e ofício.
+CREATE TABLE IF NOT EXISTS mandato_proposicoes (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  candidato_id    UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  tipo            TEXT NOT NULL CHECK (tipo IN ('indicacao','requerimento','projeto_lei','mocao','oficio')),
+  numero          TEXT,
+  ano             INT CHECK (ano IS NULL OR ano BETWEEN 1990 AND 2100),
+  ementa          TEXT NOT NULL CHECK (char_length(ementa) BETWEEN 3 AND 1000),
+  texto           TEXT,
+  status          TEXT NOT NULL DEFAULT 'protocolada' CHECK (status IN ('em_elaboracao','protocolada','em_tramitacao',
+                    'em_comissao','aprovada','rejeitada','sancionada','vetada','respondida','arquivada','retirada')),
+  protocolada_em  DATE,
+  bairro          TEXT,
+  nicho_id        UUID REFERENCES nichos(id) ON DELETE SET NULL,
+  resposta        TEXT,
+  publicada       BOOLEAN NOT NULL DEFAULT false,
+  criado_por      UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_mandato_proposicoes_cand ON mandato_proposicoes (candidato_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS mandato_proposicao_demandas (
+  proposicao_id  UUID NOT NULL REFERENCES mandato_proposicoes(id) ON DELETE CASCADE,
+  demanda_id     UUID NOT NULL REFERENCES mandato_demandas(id) ON DELETE CASCADE,
+  PRIMARY KEY (proposicao_id, demanda_id)
+);
+
+-- Emendas e recursos: SÓ registro e transparência (briefing 8.2). Não há
+-- ligação nenhuma com apoiador, liderança ou voto — de propósito, nem coluna
+-- para isso. Vereador não tem emenda de execução obrigatória: a fase
+-- "indicada" é a indicação de recurso, e resposta_executivo acompanha o que
+-- a Prefeitura respondeu.
+CREATE TABLE IF NOT EXISTS mandato_emendas (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  candidato_id        UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  ano                 INT NOT NULL CHECK (ano BETWEEN 1990 AND 2100),
+  numero              TEXT,
+  objeto              TEXT NOT NULL CHECK (char_length(objeto) BETWEEN 3 AND 500),
+  valor               NUMERIC(14,2) NOT NULL CHECK (valor >= 0),
+  destino             TEXT,
+  bairro              TEXT,
+  nicho_id            UUID REFERENCES nichos(id) ON DELETE SET NULL,
+  fase                TEXT NOT NULL DEFAULT 'indicada' CHECK (fase IN ('indicada','aprovada','empenhada','paga','executada','cancelada')),
+  resposta_executivo  TEXT,
+  descricao_publica   TEXT,
+  publicada           BOOLEAN NOT NULL DEFAULT false,
+  criado_por          UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_mandato_emendas_cand ON mandato_emendas (candidato_id, ano DESC);
+
+-- Trabalhos executados (obras e ações por bairro). Foto com pessoas só vai a
+-- público com autorização de imagem — trava no banco, como pede o briefing.
+CREATE TABLE IF NOT EXISTS mandato_trabalhos (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  candidato_id        UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  titulo              TEXT NOT NULL CHECK (char_length(titulo) BETWEEN 3 AND 200),
+  descricao           TEXT,
+  bairro              TEXT,
+  nicho_id            UUID REFERENCES nichos(id) ON DELETE SET NULL,
+  realizado_em        DATE,
+  foto_url            TEXT,
+  foto_tem_pessoas    BOOLEAN NOT NULL DEFAULT false,
+  autorizacao_imagem  BOOLEAN NOT NULL DEFAULT false,
+  demanda_id          UUID REFERENCES mandato_demandas(id) ON DELETE SET NULL,
+  proposicao_id       UUID REFERENCES mandato_proposicoes(id) ON DELETE SET NULL,
+  emenda_id           UUID REFERENCES mandato_emendas(id) ON DELETE SET NULL,
+  publicado           BOOLEAN NOT NULL DEFAULT false,
+  criado_por          UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT mandato_foto_pessoas_autorizada
+    CHECK (NOT (publicado AND foto_url IS NOT NULL AND foto_tem_pessoas AND NOT autorizacao_imagem))
+);
+CREATE INDEX IF NOT EXISTS idx_mandato_trabalhos_cand ON mandato_trabalhos (candidato_id, realizado_em DESC);
+
+-- Agenda com o vereador: pedido de horário (da rede ou do cidadão) e os
+-- compromissos que o próprio gabinete marca. O motivo nunca vai a público.
+CREATE TABLE IF NOT EXISTS mandato_agenda (
+  id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  candidato_id         UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  origem               TEXT NOT NULL DEFAULT 'gabinete' CHECK (origem IN ('gabinete','rede','publico')),
+  solicitante_id       UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+  solicitante_nome     TEXT,
+  solicitante_contato  TEXT,
+  consentimento_em     TIMESTAMPTZ,
+  motivo               TEXT NOT NULL CHECK (char_length(motivo) BETWEEN 3 AND 2000),
+  preferencia          TEXT,
+  status               TEXT NOT NULL DEFAULT 'pedido' CHECK (status IN ('pedido','confirmado','reagendado','recusado','realizado','cancelado')),
+  marcado_para         TIMESTAMPTZ,
+  local                TEXT,
+  resposta             TEXT,
+  atualizado_por       UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_mandato_agenda_cand ON mandato_agenda (candidato_id, status, created_at DESC);
+
+-- Enquetes sobre projetos. Só quem tem login na rede vota, um voto por pessoa.
+-- O voto individual nunca sai do servidor: as rotas só devolvem totais, e o
+-- recorte por bairro/nicho esconde grupo com menos de 3 votos.
+CREATE TABLE IF NOT EXISTS mandato_enquetes (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  candidato_id   UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  pergunta       TEXT NOT NULL CHECK (char_length(pergunta) BETWEEN 3 AND 300),
+  descricao      TEXT,
+  proposicao_id  UUID REFERENCES mandato_proposicoes(id) ON DELETE SET NULL,
+  encerra_em     TIMESTAMPTZ,
+  publicada      BOOLEAN NOT NULL DEFAULT false,
+  criado_por     UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS mandato_enquete_votos (
+  enquete_id  UUID NOT NULL REFERENCES mandato_enquetes(id) ON DELETE CASCADE,
+  usuario_id  UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  escolha     TEXT NOT NULL CHECK (escolha IN ('a_favor','contra','abstencao')),
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (enquete_id, usuario_id)
+);
+
+-- Biblioteca de modelos. Os modelos do RedeApoio (iguais para todos) estão no
+-- código, em services/mandatoModelos.js; aqui ficam só os que o gabinete cria.
+CREATE TABLE IF NOT EXISTS mandato_modelos (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  candidato_id  UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  tipo          TEXT NOT NULL CHECK (tipo IN ('indicacao','requerimento','projeto_lei','mocao','oficio')),
+  titulo        TEXT NOT NULL CHECK (char_length(titulo) BETWEEN 3 AND 200),
+  nicho         TEXT,
+  corpo         TEXT NOT NULL,
+  dicas         TEXT,
+  criado_por    UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Minutas (regra 7 do projeto: a IA nunca age sozinha). Nasce 'rascunho';
+-- só vira 'aprovado' por uma pessoa da equipe, com quem e quando gravados pelo
+-- servidor. aprovado_hash é o SHA-256 do texto aprovado: editou depois, o
+-- servidor devolve a minuta a rascunho, e nada usa texto que não bate com o
+-- hash aprovado.
+CREATE TABLE IF NOT EXISTS mandato_minutas (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  candidato_id   UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  tipo           TEXT NOT NULL CHECK (tipo IN ('indicacao','requerimento','projeto_lei','mocao','oficio')),
+  titulo         TEXT NOT NULL,
+  modelo_ref     TEXT,
+  demanda_id     UUID REFERENCES mandato_demandas(id) ON DELETE SET NULL,
+  pedido         TEXT,
+  texto          TEXT NOT NULL,
+  origem         TEXT NOT NULL DEFAULT 'manual' CHECK (origem IN ('ia','manual')),
+  modelo_ia      TEXT,
+  status         TEXT NOT NULL DEFAULT 'rascunho' CHECK (status IN ('rascunho','aprovado','descartado')),
+  gerado_por     UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+  editado_por    UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+  editado_em     TIMESTAMPTZ,
+  aprovado_por   UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+  aprovado_nome  TEXT,
+  aprovado_em    TIMESTAMPTZ,
+  aprovado_hash  TEXT,
+  proposicao_id  UUID REFERENCES mandato_proposicoes(id) ON DELETE SET NULL,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT mandato_minuta_aprovacao_completa
+    CHECK (status <> 'aprovado' OR (aprovado_por IS NOT NULL AND aprovado_em IS NOT NULL AND aprovado_hash IS NOT NULL))
+);
+CREATE INDEX IF NOT EXISTS idx_mandato_minutas_cand ON mandato_minutas (candidato_id, created_at DESC);
+
+-- Perfil de atuação: a IA sugere (status 'sugerido'), o vereador escolhe
+-- ('adotado', com quem e quando) e ajusta o texto. Foco criado à mão já nasce
+-- adotado. Sugestão nunca dispara nada sozinha.
+CREATE TABLE IF NOT EXISTS mandato_atuacao_focos (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  candidato_id   UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  recorte        TEXT NOT NULL CHECK (recorte IN ('bairro','nicho','tema')),
+  alvo           TEXT NOT NULL CHECK (char_length(alvo) BETWEEN 1 AND 200),
+  diagnostico    TEXT,
+  acao           TEXT NOT NULL CHECK (char_length(acao) BETWEEN 3 AND 2000),
+  origem         TEXT NOT NULL DEFAULT 'manual' CHECK (origem IN ('ia','manual')),
+  status         TEXT NOT NULL DEFAULT 'sugerido' CHECK (status IN ('sugerido','adotado','descartado','concluido')),
+  decidido_por   UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+  decidido_nome  TEXT,
+  decidido_em    TIMESTAMPTZ,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_mandato_focos_cand ON mandato_atuacao_focos (candidato_id, status);
+
+-- Uso da IA do mandato (minutas e perfil de atuação), para o teto diário.
+-- Só quem, quando e tokens: o texto fica na minuta ou no foco.
+CREATE TABLE IF NOT EXISTS mandato_ia_uso (
+  id              BIGSERIAL PRIMARY KEY,
+  candidato_id    UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  usuario_id      UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+  tipo            TEXT NOT NULL,
+  tokens_entrada  INT,
+  tokens_saida    INT,
+  usado_em        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_mandato_ia_uso ON mandato_ia_uso (candidato_id, usado_em DESC);

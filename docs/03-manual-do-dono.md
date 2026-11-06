@@ -95,6 +95,23 @@ ficam impedidos de entrar, com a mensagem "Acesso encerrado. Entre em contato
 com o suporte." Nada é apagado — basta limpar ou adiar a data para liberar de
 novo.
 
+### Módulo Mandato (cobrado à parte)
+
+**Central de Vagas → 🏷️ Plano → marque "🏛️ Módulo Mandato"**
+
+Liga, para aquele vereador, o acompanhamento do mandato: demandas com
+protocolo, agenda, proposições, emendas, trabalhos executados, enquetes,
+modelos e minutas com IA, perfil de atuação, prestação de contas e a página
+pública com QR Code. O candidato passa a ver "🏛️ Mandato" no menu e pode
+criar, em Usuários, o **Chefe de Gabinete** e a **Equipe do Gabinete** (entram
+pela aba "Gabinete" do login e só veem o mandato). Desmarcar esconde tudo, sem
+apagar nada.
+
+Antes de o vereador pôr Demandas ou Agenda em **Público**, peça ao programador
+para configurar o captcha (`TURNSTILE_SITEKEY` e `TURNSTILE_SECRET` no
+Portainer) e confira com a assessoria jurídica a separação entre mandato e
+campanha (o próprio briefing pede isso).
+
 ### Redefinir a senha de alguém
 
 Três caminhos, dependendo de quem você é:

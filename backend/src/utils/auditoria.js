@@ -18,7 +18,8 @@ function candidatoDoContexto(req) {
   const perfil = req.effectivePerfil || req.user?.perfil;
   const id = req.effectiveId || req.user?.id;
   if (perfil === 'candidato') return id || null;
-  if (perfil === 'lideranca' || perfil === 'apoiador') return req.user?.criado_por || null;
+  // A equipe do gabinete (Módulo Mandato) também foi criada pelo candidato.
+  if (['lideranca', 'apoiador', 'chefe_gabinete', 'assessor'].includes(perfil)) return req.user?.criado_por || null;
   return null;
 }
 
